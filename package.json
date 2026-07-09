@@ -1,0 +1,15 @@
+{
+  "name": "multi-agent-research-agent",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Multi-agent research API",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "test": "bun test tests/app.test.ts"
+  },
+  "dependencies": {
+    "hono": "^4.12.30"
+  }
+}

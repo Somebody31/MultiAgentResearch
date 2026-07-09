@@ -1,0 +1,11 @@
+.scratch/
+node_modules/
+.env
+.env.local
+*.log
+dist/
+.DS_Store
+
+# Docs stay local only — only README is on GitHub
+*.md
+!README.md
