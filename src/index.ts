@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { plan } from "./plan.ts";
+import { research } from "./research.ts";
 
 const app = new Hono();
 
@@ -11,8 +12,10 @@ app.post("/research", async (c) => {
     return c.json({ error: 'Body must be { "query": "..." }' }, 400);
   }
 
-  const subQuestions = await plan(query.trim());
-  return c.json({ query: query.trim(), subQuestions });
+  const q = query.trim();
+  const subQuestions = await plan(q);
+  const findings = await research(subQuestions);
+  return c.json({ query: q, subQuestions, findings });
 });
 
 app.get("/health", (c) => c.json({ ok: true }));
