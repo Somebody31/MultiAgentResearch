@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { plan } from "./plan.ts";
 import { research } from "./research.ts";
 import { normalizeClaims } from "./normalize.ts";
+import { verifyClaims } from "./verify.ts";
 
 const app = new Hono();
 
@@ -17,7 +18,8 @@ app.post("/research", async (c) => {
   const subQuestions = await plan(q);
   const findings = await research(subQuestions);
   const draft = await normalizeClaims(q, findings);
-  return c.json({ query: q, subQuestions, findings, draft });
+  const verdict = await verifyClaims(draft, findings);
+  return c.json({ query: q, subQuestions, findings, draft, verdict });
 });
 
 app.get("/health", (c) => c.json({ ok: true }));
