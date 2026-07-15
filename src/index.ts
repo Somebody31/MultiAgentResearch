@@ -5,6 +5,7 @@ import { normalizeClaims } from "./normalize.ts";
 import { verifyClaims } from "./verify.ts";
 
 const app = new Hono();
+const MAX_RETRIES = 1;
 
 app.post("/research", async (c) => {
   const body = await c.req.json();
@@ -16,10 +17,19 @@ app.post("/research", async (c) => {
 
   const q = query.trim();
   const subQuestions = await plan(q);
-  const findings = await research(subQuestions);
-  const draft = await normalizeClaims(q, findings);
-  const verdict = await verifyClaims(draft, findings);
-  return c.json({ query: q, subQuestions, findings, draft, verdict });
+  let findings = await research(subQuestions);
+  let draft = await normalizeClaims(q, findings);
+  let verdict = await verifyClaims(draft, findings);
+  let retries = 0;
+
+  while (verdict === "revise" && retries < MAX_RETRIES) {
+    retries += 1;
+    findings = await research(subQuestions);
+    draft = await normalizeClaims(q, findings);
+    verdict = await verifyClaims(draft, findings);
+  }
+
+  return c.json({ query: q, subQuestions, findings, draft, verdict, retries });
 });
 
 app.get("/health", (c) => c.json({ ok: true }));
