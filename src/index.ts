@@ -3,6 +3,7 @@ import { plan } from "./plan.ts";
 import { research } from "./research.ts";
 import { normalizeClaims } from "./normalize.ts";
 import { verifyClaims } from "./verify.ts";
+import { synthesizeFinal } from "./final.ts";
 
 const app = new Hono();
 const MAX_RETRIES = 1;
@@ -29,7 +30,16 @@ app.post("/research", async (c) => {
     verdict = await verifyClaims(draft, findings);
   }
 
-  return c.json({ query: q, subQuestions, findings, draft, verdict, retries });
+  const finalReport = await synthesizeFinal(q, draft);
+  return c.json({
+    query: q,
+    subQuestions,
+    findings,
+    draft,
+    verdict,
+    retries,
+    finalReport,
+  });
 });
 
 app.get("/health", (c) => c.json({ ok: true }));
