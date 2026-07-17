@@ -2,12 +2,14 @@
   "name": "multi-agent-research-agent",
   "private": true,
   "version": "1.0.0",
-  "description": "Multi-agent research API",
+  "description": "Multi-agent research system (plain TypeScript graph + Hono)",
   "type": "module",
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
-    "test": "bun test tests/app.test.ts"
+    "test": "bun test tests/app.test.ts && node tests/research-ui.test.mjs",
+    "test:api": "bun test tests/app.test.ts",
+    "test:ui": "node tests/research-ui.test.mjs"
   },
   "dependencies": {
     "hono": "^4.12.30"
