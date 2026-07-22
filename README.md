@@ -14,7 +14,7 @@ plan → research → normalize → verify → (retry once if needed) → final
 | Step | Does |
 |------|------|
 | plan | Big question → smaller questions |
-| research | Search → short facts |
+| research | Search → short facts (sub-questions in parallel) |
 | normalize | Facts → draft |
 | verify | Draft ok? `pass` / `revise` |
 | final | Draft → report |

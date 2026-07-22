@@ -67,6 +67,24 @@ describe("parseJson", () => {
   });
 });
 
+describe("research", () => {
+  test("research and researchOne are exported", async () => {
+    const { research, researchOne } = await import("../src/research.ts");
+    expect(typeof research).toBe("function");
+    expect(typeof researchOne).toBe("function");
+  });
+
+  test("flat merges per-branch finding lists the same way research does", () => {
+    // Mirrors research(): Promise.all → lists → flat()
+    const lists = [
+      [{ claim: "a" }],
+      [{ claim: "b" }, { claim: "c" }],
+      [],
+    ];
+    expect(lists.flat().map((f) => f.claim)).toEqual(["a", "b", "c"]);
+  });
+});
+
 describe("pipeline", () => {
   test("runResearch is exported", async () => {
     const { runResearch } = await import("../src/pipeline.ts");

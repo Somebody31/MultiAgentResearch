@@ -1,4 +1,11 @@
-// For each small question: search, then turn hits into short facts.
+// Research step: for each small question, search and extract short facts.
+//
+// Sub-questions do not depend on each other, so we run them in parallel:
+//   researchOne(q1) ──┐
+//   researchOne(q2) ──┼── wait for all ── glue into one findings list
+//   researchOne(q3) ──┘
+//
+// That is Promise.all + flat(). Faster wall-clock time; same work overall.
 
 import { askMimo } from "./mimo.ts";
 import { parseJsonArray } from "./parseJson.ts";
@@ -10,16 +17,18 @@ export type Finding = {
   sourceUrl: string;
 };
 
+// One sub-question → its findings.
+export async function researchOne(subQuestion: string): Promise<Finding[]> {
+  const hits = await searchAll(subQuestion);
+  return extractFindings(subQuestion, hits);
+}
+
+// All sub-questions → one combined findings list (parallel).
 export async function research(subQuestions: string[]): Promise<Finding[]> {
-  const findings: Finding[] = [];
-
-  for (const subQuestion of subQuestions) {
-    const hits = await searchAll(subQuestion);
-    const extracted = await extractFindings(subQuestion, hits);
-    findings.push(...extracted);
-  }
-
-  return findings;
+  // Start every branch now; Promise.all waits until the slowest one finishes.
+  const lists = await Promise.all(subQuestions.map(researchOne));
+  // lists is like [ [f1, f2], [f3], [] ] → flat makes [f1, f2, f3]
+  return lists.flat();
 }
 
 // Turn search hits into 1–3 short facts. Empty list if nothing useful.

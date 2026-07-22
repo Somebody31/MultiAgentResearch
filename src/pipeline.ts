@@ -35,7 +35,7 @@ export async function runResearch(query: string): Promise<State> {
   // 1) Split the big question into smaller ones
   state.subQuestions = await plan(state.query);
 
-  // 2) Search + extract short facts
+  // 2) Search + extract short facts (each sub-question runs in parallel)
   state.findings = await research(state.subQuestions);
 
   // 3) Merge facts into one draft
