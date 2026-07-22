@@ -51,4 +51,5 @@ src/normalize.ts
 src/verify.ts
 src/final.ts
 src/mimo.ts       # language model helper
+src/parseJson.ts  # pull JSON out of model text
 ```

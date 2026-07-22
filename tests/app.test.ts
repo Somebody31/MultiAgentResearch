@@ -43,6 +43,30 @@ describe("search", () => {
   });
 });
 
+describe("parseJson", () => {
+  test("parseJsonArray finds an array inside extra text", async () => {
+    const { parseJsonArray } = await import("../src/parseJson.ts");
+    expect(parseJsonArray('Sure! ["a", "b"] done.')).toEqual(["a", "b"]);
+  });
+
+  test("parseJsonArray returns null when there is no array", async () => {
+    const { parseJsonArray } = await import("../src/parseJson.ts");
+    expect(parseJsonArray("no json here")).toBeNull();
+  });
+
+  test("parseJsonObject finds an object inside extra text", async () => {
+    const { parseJsonObject } = await import("../src/parseJson.ts");
+    expect(parseJsonObject('Result: {"verdict":"pass"}')).toEqual({
+      verdict: "pass",
+    });
+  });
+
+  test("parseJsonObject returns null for bad json", async () => {
+    const { parseJsonObject } = await import("../src/parseJson.ts");
+    expect(parseJsonObject("{not valid")).toBeNull();
+  });
+});
+
 describe("pipeline", () => {
   test("runResearch is exported", async () => {
     const { runResearch } = await import("../src/pipeline.ts");

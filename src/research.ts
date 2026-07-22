@@ -1,6 +1,7 @@
 // For each small question: search, then turn hits into short facts.
 
 import { askMimo } from "./mimo.ts";
+import { parseJsonArray } from "./parseJson.ts";
 import { searchAll, type SearchHit } from "./search.ts";
 
 export type Finding = {
@@ -48,29 +49,18 @@ Return ONLY a JSON array like:
 Use only facts from the results. 1-3 findings.`;
 
   const text = await askMimo(prompt);
+  const rows = parseJsonArray(text);
+  if (!rows) return [];
 
-  // Pull the JSON array out of the model text (models often add extra words).
-  const start = text.indexOf("[");
-  const end = text.lastIndexOf("]");
-  if (start === -1 || end === -1 || end <= start) return [];
+  const findings: Finding[] = [];
+  for (const row of rows) {
+    // Each row should look like { claim: "...", sourceUrl: "..." }
+    if (typeof row !== "object" || row === null) continue;
+    const claim = (row as { claim?: unknown }).claim;
+    const sourceUrl = (row as { sourceUrl?: unknown }).sourceUrl;
+    if (typeof claim !== "string" || typeof sourceUrl !== "string") continue;
 
-  try {
-    const rows = JSON.parse(text.slice(start, end + 1)) as {
-      claim: string;
-      sourceUrl: string;
-    }[];
-
-    return rows
-      .filter(
-        (row) =>
-          typeof row?.claim === "string" && typeof row?.sourceUrl === "string",
-      )
-      .map((row) => ({
-        subQuestion,
-        claim: row.claim,
-        sourceUrl: row.sourceUrl,
-      }));
-  } catch {
-    return [];
+    findings.push({ subQuestion, claim, sourceUrl });
   }
+  return findings;
 }

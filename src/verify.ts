@@ -1,6 +1,7 @@
 // Check draft against findings. Returns "pass" or "revise".
 
 import { askMimo } from "./mimo.ts";
+import { parseJsonObject } from "./parseJson.ts";
 import type { Finding } from "./research.ts";
 
 export type Verdict = "pass" | "revise";
@@ -30,22 +31,13 @@ Return ONLY one line of JSON, exactly one of:
 {"verdict":"revise"}`;
 
   const text = await askMimo(prompt);
+  const parsed = parseJsonObject(text);
+  const verdict = parsed?.verdict;
 
-  // Pull the JSON object out of the model text.
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start === -1 || end === -1 || end <= start) return "revise";
-
-  try {
-    const parsed = JSON.parse(text.slice(start, end + 1)) as {
-      verdict?: string;
-    };
-    if (parsed.verdict === "pass" || parsed.verdict === "revise") {
-      return parsed.verdict;
-    }
-  } catch {
-    // bad JSON from the model → treat as revise
+  if (verdict === "pass" || verdict === "revise") {
+    return verdict;
   }
 
+  // Bad or missing JSON → ask for another research pass.
   return "revise";
 }
