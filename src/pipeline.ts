@@ -14,20 +14,10 @@ import { normalizeClaims } from "./normalize.ts";
 import { verifyClaims, type Verdict } from "./verify.ts";
 import { synthesizeFinal } from "./final.ts";
 
-// Public shape returned by runResearch (same as before).
-export type State = {
-  query: string;
-  subQuestions: string[];
-  findings: Finding[];
-  draft: string;
-  verdict: Verdict;
-  retries: number;
-  finalReport: string;
-};
-
 const MAX_RETRIES = 1;
 
 // LangGraph state: each field is a channel with a default.
+// Type of a full state value = typeof GraphState.State
 const GraphState = Annotation.Root({
   query: Annotation<string>(),
   subQuestions: Annotation<string[]>({ default: () => [] }),
@@ -38,15 +28,13 @@ const GraphState = Annotation.Root({
   finalReport: Annotation<string>({ default: () => "" }),
 });
 
-type GraphStateType = typeof GraphState.State;
-
 // --- Nodes (return only what changed) ------------------------------------
 
-async function planNode(state: GraphStateType) {
+async function planNode(state: typeof GraphState.State) {
   return { subQuestions: await plan(state.query) };
 }
 
-async function researchNode(state: GraphStateType) {
+async function researchNode(state: typeof GraphState.State) {
   // If we looped back from verify, count one retry.
   const retries =
     state.verdict === "revise" ? state.retries + 1 : state.retries;
@@ -57,23 +45,24 @@ async function researchNode(state: GraphStateType) {
   };
 }
 
-async function normalizeNode(state: GraphStateType) {
+async function normalizeNode(state: typeof GraphState.State) {
   return { draft: await normalizeClaims(state.query, state.findings) };
 }
 
-async function verifyNode(state: GraphStateType) {
+async function verifyNode(state: typeof GraphState.State) {
   return { verdict: await verifyClaims(state.draft, state.findings) };
 }
 
-async function finalNode(state: GraphStateType) {
+async function finalNode(state: typeof GraphState.State) {
   return { finalReport: await synthesizeFinal(state.query, state.draft) };
 }
 
 // --- Conditional edge after verify ---------------------------------------
 
-export function afterVerify(
-  state: Pick<State, "verdict" | "retries">,
-): "research" | "final" {
+export function afterVerify(state: {
+  verdict: Verdict;
+  retries: number;
+}): "research" | "final" {
   if (state.verdict === "revise" && state.retries < MAX_RETRIES) {
     return "research";
   }
@@ -96,7 +85,6 @@ const graph = new StateGraph(GraphState)
   .addEdge("final", END)
   .compile();
 
-export async function runResearch(query: string): Promise<State> {
-  const result = await graph.invoke({ query });
-  return result as State;
+export async function runResearch(query: string) {
+  return graph.invoke({ query });
 }
