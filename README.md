@@ -21,7 +21,8 @@ START → plan → Send(researchOne)×N → normalize → verify → final → E
 | verify | Draft ok? `pass` / `revise` |
 | final | Draft → report |
 
-Search: `searchWeb` (Tavily) + `searchDocs` (files in `corpus/`).
+Search: `searchWeb` (Tavily) + `searchDocs` (files in `corpus/`, keyword rank for now).  
+**Later:** better doc retrieval (embeddings and/or give full docs to the model) — see comment in `searchDocs`.
 
 ## Async jobs
 

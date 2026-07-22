@@ -47,6 +47,11 @@ export async function searchWeb(query: string): Promise<SearchHit[]> {
 }
 
 // Local document search: read markdown files under ./corpus and rank by keyword hits.
+//
+// LATER (better retrieval — not done yet):
+//   - Embeddings: embed query + chunks, rank by vector similarity
+//   - Or skip ranking: pass whole small docs straight into the model
+// Keyword score is a simple starter; swap the body of this function when ready.
 export async function searchDocs(query: string): Promise<SearchHit[]> {
   const terms = query
     .toLowerCase()
