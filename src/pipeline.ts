@@ -1,48 +1,56 @@
 // Research graph powered by LangGraph.
 //
-//   START → plan → research → normalize → verify → final → END
-//                              ↑              │
-//                              └── revise once ┘
+//   START → plan ─┬─ Send(researchOne) × N ─┬→ normalize → verify → final → END
+//                 │                         │                 │
+//                 │                         │    revise once  │
+//                 │                         │        ▼        │
+//                 │                    retryKickoff ─┘        │
+//                 │                    (RESET findings,       │
+//                 │                     Send again)           │
 //
-// Nodes return partial state updates. LangGraph merges them.
-// Parallel research is still Promise.all inside research.ts (not Send).
+// Fan-out uses LangGraph Send() (not Promise.all).
+// findings use a concat reducer; retry sends "RESET" first.
 
-import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
+import { Annotation, END, Send, START, StateGraph } from "@langchain/langgraph";
 import { plan } from "./plan.ts";
-import { research, type Finding } from "./research.ts";
+import { researchOne, type Finding } from "./research.ts";
 import { normalizeClaims } from "./normalize.ts";
 import { verifyClaims, type Verdict } from "./verify.ts";
 import { synthesizeFinal } from "./final.ts";
 
 const MAX_RETRIES = 1;
 
-// LangGraph state: each field is a channel with a default.
-// Type of a full state value = typeof GraphState.State
+// Special update: clear findings before a research retry.
+type FindingsUpdate = Finding[] | "RESET";
+
 const GraphState = Annotation.Root({
   query: Annotation<string>(),
   subQuestions: Annotation<string[]>({ default: () => [] }),
-  findings: Annotation<Finding[]>({ default: () => [] }),
+  // Concat when branches return lists; "RESET" wipes for a retry pass.
+  findings: Annotation<Finding[]>({
+    default: () => [],
+    reducer: (left: Finding[], right: FindingsUpdate) => {
+      if (right === "RESET") return [];
+      return left.concat(right);
+    },
+  }),
+  // Which sub-question this researchOne branch is working on (Send payload).
+  activeSubQuestion: Annotation<string>({ default: () => "" }),
   draft: Annotation<string>({ default: () => "" }),
   verdict: Annotation<Verdict>({ default: () => "pass" }),
   retries: Annotation<number>({ default: () => 0 }),
   finalReport: Annotation<string>({ default: () => "" }),
 });
 
-// --- Nodes (return only what changed) ------------------------------------
+// --- Nodes ----------------------------------------------------------------
 
 async function planNode(state: typeof GraphState.State) {
   return { subQuestions: await plan(state.query) };
 }
 
-async function researchNode(state: typeof GraphState.State) {
-  // If we looped back from verify, count one retry.
-  const retries =
-    state.verdict === "revise" ? state.retries + 1 : state.retries;
-
-  return {
-    findings: await research(state.subQuestions),
-    retries,
-  };
+async function researchOneNode(state: typeof GraphState.State) {
+  const findings = await researchOne(state.activeSubQuestion);
+  return { findings };
 }
 
 async function normalizeNode(state: typeof GraphState.State) {
@@ -53,35 +61,64 @@ async function verifyNode(state: typeof GraphState.State) {
   return { verdict: await verifyClaims(state.draft, state.findings) };
 }
 
+async function retryKickoffNode(state: typeof GraphState.State) {
+  // Clear old findings, count the retry, then fan-out runs again via edges.
+  return {
+    findings: "RESET" as const,
+    retries: state.retries + 1,
+  };
+}
+
 async function finalNode(state: typeof GraphState.State) {
   return { finalReport: await synthesizeFinal(state.query, state.draft) };
 }
 
-// --- Conditional edge after verify ---------------------------------------
+// --- Edges ----------------------------------------------------------------
+
+// Start one researchOne branch per sub-question (LangGraph Send).
+export function fanOutResearch(state: typeof GraphState.State) {
+  if (state.subQuestions.length === 0) return "normalize";
+
+  return state.subQuestions.map(
+    (q) =>
+      new Send("researchOne", {
+        query: state.query,
+        subQuestions: state.subQuestions,
+        findings: state.findings,
+        activeSubQuestion: q,
+        draft: state.draft,
+        verdict: state.verdict,
+        retries: state.retries,
+        finalReport: state.finalReport,
+      }),
+  );
+}
 
 export function afterVerify(state: {
   verdict: Verdict;
   retries: number;
-}): "research" | "final" {
+}): "retryKickoff" | "final" {
   if (state.verdict === "revise" && state.retries < MAX_RETRIES) {
-    return "research";
+    return "retryKickoff";
   }
   return "final";
 }
 
-// --- Build graph ---------------------------------------------------------
+// --- Build graph ----------------------------------------------------------
 
 const graph = new StateGraph(GraphState)
   .addNode("plan", planNode)
-  .addNode("research", researchNode)
+  .addNode("researchOne", researchOneNode)
   .addNode("normalize", normalizeNode)
   .addNode("verify", verifyNode)
+  .addNode("retryKickoff", retryKickoffNode)
   .addNode("final", finalNode)
   .addEdge(START, "plan")
-  .addEdge("plan", "research")
-  .addEdge("research", "normalize")
+  .addConditionalEdges("plan", fanOutResearch)
+  .addEdge("researchOne", "normalize")
   .addEdge("normalize", "verify")
   .addConditionalEdges("verify", afterVerify)
+  .addConditionalEdges("retryKickoff", fanOutResearch)
   .addEdge("final", END)
   .compile();
 

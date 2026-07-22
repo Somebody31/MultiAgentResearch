@@ -29,12 +29,37 @@ describe("app", () => {
     });
     expect(res.status).toBe(400);
   });
+
+  test("POST /research returns a job id (async)", async () => {
+    const res = await app.request("/research", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: "What is LangGraph?" }),
+    });
+    expect(res.status).toBe(202);
+    const body = await res.json();
+    expect(typeof body.id).toBe("string");
+    expect(body.status === "pending" || body.status === "running").toBe(true);
+
+    const poll = await app.request(`/jobs/${body.id}`);
+    expect(poll.status).toBe(200);
+    const job = await poll.json();
+    expect(job.id).toBe(body.id);
+  });
+
+  test("GET /jobs/:id 404 for unknown id", async () => {
+    const res = await app.request("/jobs/does-not-exist");
+    expect(res.status).toBe(404);
+  });
 });
 
 describe("search", () => {
-  test("searchDocs returns empty until we build it", async () => {
+  test("searchDocs finds corpus files by keyword", async () => {
     const { searchDocs } = await import("../src/search.ts");
-    expect(await searchDocs("anything")).toEqual([]);
+    const hits = await searchDocs("LangGraph Send parallel");
+    expect(hits.length).toBeGreaterThan(0);
+    expect(hits.every((h) => h.source === "document")).toBe(true);
+    expect(hits[0].url.startsWith("file://corpus/")).toBe(true);
   });
 
   test("searchAll is a function", async () => {
@@ -68,19 +93,9 @@ describe("parseJson", () => {
 });
 
 describe("research", () => {
-  test("research and researchOne are exported", async () => {
-    const { research, researchOne } = await import("../src/research.ts");
-    expect(typeof research).toBe("function");
+  test("researchOne is exported", async () => {
+    const { researchOne } = await import("../src/research.ts");
     expect(typeof researchOne).toBe("function");
-  });
-
-  test("flat merges per-branch finding lists the same way research does", () => {
-    const lists = [
-      [{ claim: "a" }],
-      [{ claim: "b" }, { claim: "c" }],
-      [],
-    ];
-    expect(lists.flat().map((f) => f.claim)).toEqual(["a", "b", "c"]);
   });
 });
 
@@ -95,9 +110,25 @@ describe("pipeline graph", () => {
     expect(afterVerify({ verdict: "pass", retries: 0 })).toBe("final");
   });
 
-  test("afterVerify: revise once → research, then final", async () => {
+  test("afterVerify: revise once → retryKickoff, then final", async () => {
     const { afterVerify } = await import("../src/pipeline.ts");
-    expect(afterVerify({ verdict: "revise", retries: 0 })).toBe("research");
+    expect(afterVerify({ verdict: "revise", retries: 0 })).toBe("retryKickoff");
     expect(afterVerify({ verdict: "revise", retries: 1 })).toBe("final");
+  });
+
+  test("fanOutResearch returns one Send per sub-question", async () => {
+    const { fanOutResearch } = await import("../src/pipeline.ts");
+    const sends = fanOutResearch({
+      query: "q",
+      subQuestions: ["a", "b"],
+      findings: [],
+      activeSubQuestion: "",
+      draft: "",
+      verdict: "pass",
+      retries: 0,
+      finalReport: "",
+    });
+    expect(Array.isArray(sends)).toBe(true);
+    expect((sends as unknown[]).length).toBe(2);
   });
 });
