@@ -6,6 +6,8 @@ node_modules/
 dist/
 .DS_Store
 
-# Docs stay local only — only README is on GitHub
+# Docs stay local only — only README + corpus (searchDocs) on GitHub
 *.md
 !README.md
+!corpus/
+!corpus/**
