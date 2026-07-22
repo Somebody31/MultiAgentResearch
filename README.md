@@ -3,15 +3,19 @@
 Research API: break a question into parts, search, draft, check, then report.
 
 **Stack:** Bun, Hono, MiMo, Tavily  
-**Start here:** `src/pipeline.ts` (full flow in one place)
+**Start here:** `src/pipeline.ts` (small graph: nodes + edges + runner)
 
 ## Flow
 
+Hand-rolled graph (no LangGraph): each step is a **node**; `nextNode()` picks the **edge**.
+
 ```
-plan → research → normalize → verify → (retry once if needed) → final
+plan → research → normalize → verify → final
+                      ↑           │
+                      └─ revise once (max 1 retry)
 ```
 
-| Step | Does |
+| Node | Does |
 |------|------|
 | plan | Big question → smaller questions |
 | research | Search → short facts (sub-questions in parallel) |
@@ -42,7 +46,7 @@ bun run test
 ## Files
 
 ```
-src/pipeline.ts   # order of steps — read first
+src/pipeline.ts   # graph runner (nodes + nextNode) — read first
 src/index.ts      # HTTP
 src/plan.ts
 src/research.ts

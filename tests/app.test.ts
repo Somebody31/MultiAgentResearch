@@ -85,9 +85,43 @@ describe("research", () => {
   });
 });
 
-describe("pipeline", () => {
+describe("pipeline graph", () => {
   test("runResearch is exported", async () => {
     const { runResearch } = await import("../src/pipeline.ts");
     expect(typeof runResearch).toBe("function");
+  });
+
+  test("nextNode follows the happy path", async () => {
+    const { nextNode } = await import("../src/pipeline.ts");
+    const state = {
+      query: "q",
+      subQuestions: [],
+      findings: [],
+      draft: "",
+      verdict: "pass" as const,
+      retries: 0,
+      finalReport: "",
+    };
+    expect(nextNode("plan", state)).toBe("research");
+    expect(nextNode("research", state)).toBe("normalize");
+    expect(nextNode("normalize", state)).toBe("verify");
+    expect(nextNode("verify", state)).toBe("final");
+    expect(nextNode("final", state)).toBeNull();
+  });
+
+  test("nextNode loops research once on revise", async () => {
+    const { nextNode } = await import("../src/pipeline.ts");
+    const state = {
+      query: "q",
+      subQuestions: [],
+      findings: [],
+      draft: "",
+      verdict: "revise" as const,
+      retries: 0,
+      finalReport: "",
+    };
+    expect(nextNode("verify", state)).toBe("research");
+    state.retries = 1;
+    expect(nextNode("verify", state)).toBe("final");
   });
 });
