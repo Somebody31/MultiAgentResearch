@@ -1,3 +1,5 @@
+// HTTP server. Open pipeline.ts to see the research logic.
+
 import { Hono } from "hono";
 import { runResearch } from "./pipeline.ts";
 
@@ -11,8 +13,7 @@ app.post("/research", async (c) => {
     return c.json({ error: 'Body must be { "query": "..." }' }, 400);
   }
 
-  const result = await runResearch(query.trim());
-  return c.json(result);
+  return c.json(await runResearch(query.trim()));
 });
 
 app.get("/health", (c) => c.json({ ok: true }));

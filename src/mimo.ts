@@ -1,4 +1,4 @@
-// MiMo chat completions. Needs MIMO_API_KEY.
+// Call the MiMo language model. Needs MIMO_API_KEY in .env
 
 export async function askMimo(prompt: string): Promise<string> {
   const res = await fetch("https://api.xiaomimimo.com/v1/chat/completions", {
@@ -14,8 +14,7 @@ export async function askMimo(prompt: string): Promise<string> {
   });
 
   if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`MiMo API error ${res.status}: ${body}`);
+    throw new Error(`MiMo API error ${res.status}: ${await res.text()}`);
   }
 
   const data = (await res.json()) as {

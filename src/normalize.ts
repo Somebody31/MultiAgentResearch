@@ -1,4 +1,4 @@
-// Merge findings into a single draft.
+// Turn many short findings into one draft paragraph set.
 
 import { askMimo } from "./mimo.ts";
 import type { Finding } from "./research.ts";
@@ -16,21 +16,21 @@ export async function normalizeClaims(
     )
     .join("\n\n");
 
-  const prompt = `You are an analysis agent. Merge research findings into one coherent draft.
+  const prompt = `Merge research findings into one coherent draft.
 
-Original research query:
+Original query:
 ${query}
 
-Findings (may contain duplicates or near-duplicates):
+Findings (may include duplicates):
 ${listed}
 
-Write a single draft that:
-- Covers the query using only these findings
-- Merges duplicate or overlapping claims into one statement
-- Notes gaps if important info is missing
-- Keeps a clear, neutral tone
+Rules:
+- Use only these findings
+- Merge overlapping claims
+- Note gaps if something important is missing
+- Neutral tone
 
-Return ONLY the draft text. No JSON, no preamble.`;
+Return ONLY the draft text.`;
 
   return await askMimo(prompt);
 }

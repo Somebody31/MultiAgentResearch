@@ -1,10 +1,7 @@
-// Research stage: for each sub-question, gather hits (all search adapters)
-// then LLM-extract findings.
+// For each small question: search, then turn hits into short facts.
 
 import { askMimo } from "./mimo.ts";
-import { searchAll, type SearchAdapter, type SearchHit } from "./search.ts";
-import { webSearch } from "./searchWeb.ts";
-import { docSearch } from "./searchDocs.ts";
+import { searchAll, type SearchHit } from "./search.ts";
 
 export type Finding = {
   subQuestion: string;
@@ -12,21 +9,11 @@ export type Finding = {
   sourceUrl: string;
 };
 
-/** Default evidence sources for a research branch. */
-const defaultAdapters: SearchAdapter[] = [webSearch, docSearch];
-
-/**
- * Search + extract for every sub-question (sequential for now).
- * Pass adapters in tests to swap fakes without calling Tavily.
- */
-export async function research(
-  subQuestions: string[],
-  adapters: SearchAdapter[] = defaultAdapters,
-): Promise<Finding[]> {
+export async function research(subQuestions: string[]): Promise<Finding[]> {
   const findings: Finding[] = [];
 
   for (const subQuestion of subQuestions) {
-    const hits = await searchAll(subQuestion, adapters);
+    const hits = await searchAll(subQuestion);
     const extracted = await extractFindings(subQuestion, hits);
     findings.push(...extracted);
   }
@@ -34,13 +21,12 @@ export async function research(
   return findings;
 }
 
+// Turn search hits into 1–3 short facts. Empty list if nothing useful.
 async function extractFindings(
   subQuestion: string,
   hits: SearchHit[],
 ): Promise<Finding[]> {
-  if (hits.length === 0) {
-    return [];
-  }
+  if (hits.length === 0) return [];
 
   const sources = hits
     .map(
@@ -49,30 +35,31 @@ async function extractFindings(
     )
     .join("\n\n");
 
-  const prompt = `You extract research findings from search results.
+  const prompt = `Extract research findings from search results.
 
 Sub-question: ${subQuestion}
 
 Search results:
 ${sources}
 
-Return ONLY a JSON array of objects like:
+Return ONLY a JSON array like:
 [{"claim":"short fact","sourceUrl":"https://..."}]
 
 Use only facts from the results. 1-3 findings.`;
 
   const text = await askMimo(prompt);
 
+  // Pull the JSON array out of the model text (models often add extra words).
   const start = text.indexOf("[");
   const end = text.lastIndexOf("]");
-  if (start === -1 || end === -1 || end <= start) {
-    return [];
-  }
-
-  const json = text.slice(start, end + 1);
+  if (start === -1 || end === -1 || end <= start) return [];
 
   try {
-    const rows = JSON.parse(json) as { claim: string; sourceUrl: string }[];
+    const rows = JSON.parse(text.slice(start, end + 1)) as {
+      claim: string;
+      sourceUrl: string;
+    }[];
+
     return rows
       .filter(
         (row) =>

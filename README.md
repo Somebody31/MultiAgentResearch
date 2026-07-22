@@ -1,27 +1,27 @@
 # MultiAgentResearch
 
-Multi-agent research pipeline over HTTP. Bun + Hono, MiMo for LLM calls.
+Research API: break a question into parts, search, draft, check, then report.
 
-Search is a **seam**: research asks for hits; adapters provide them (Tavily web + stub document search for now).
+**Stack:** Bun, Hono, MiMo, Tavily  
+**Start here:** `src/pipeline.ts` (full flow in one place)
 
-Orchestration is plain TypeScript in `src/pipeline.ts` (shared state + steps). No LangGraph.
-
-## Pipeline
+## Flow
 
 ```
-plan → research → normalize → verify → (optional re-research once) → final
+plan → research → normalize → verify → (retry once if needed) → final
 ```
 
-| Step | What it does |
-|------|----------------|
-| plan | Query → sub-questions |
-| research | Search adapters (web + docs) + extract findings |
-| normalize | Findings → draft |
-| verify | Draft vs findings → `pass` \| `revise` |
-| audit | On `revise`, re-research at most once |
+| Step | Does |
+|------|------|
+| plan | Big question → smaller questions |
+| research | Search → short facts |
+| normalize | Facts → draft |
+| verify | Draft ok? `pass` / `revise` |
 | final | Draft → report |
 
-## Setup
+Search lives in `src/search.ts` (`searchWeb` is real; `searchDocs` is empty for now).
+
+## Run
 
 ```bash
 bun install
@@ -30,45 +30,25 @@ bun install
 # MIMO_API_KEY=...
 # TAVILY_API_KEY=...
 
-bun run dev   # :8787
+bun run dev   # http://localhost:8787
 bun run test
 ```
 
 ## API
 
-`POST /research`
-
-```json
-{ "query": "What is Bun and how does it differ from Node.js?" }
-```
-
-```json
-{
-  "query": "...",
-  "subQuestions": ["..."],
-  "findings": [{ "subQuestion": "...", "claim": "...", "sourceUrl": "..." }],
-  "draft": "...",
-  "verdict": "pass",
-  "retries": 0,
-  "finalReport": "..."
-}
-```
-
+`POST /research` body: `{ "query": "..." }`  
 `GET /health` → `{ "ok": true }`
 
-## Layout
+## Files
 
 ```
-src/
-  index.ts        # HTTP
-  pipeline.ts     # orchestration
-  plan.ts
-  research.ts     # uses search seam
-  search.ts       # SearchAdapter + searchAll
-  searchWeb.ts    # Tavily adapter
-  searchDocs.ts   # document adapter (stub)
-  normalize.ts
-  verify.ts
-  final.ts
-  mimo.ts
+src/pipeline.ts   # order of steps — read first
+src/index.ts      # HTTP
+src/plan.ts
+src/research.ts
+src/search.ts     # searchWeb + searchDocs + searchAll
+src/normalize.ts
+src/verify.ts
+src/final.ts
+src/mimo.ts       # language model helper
 ```

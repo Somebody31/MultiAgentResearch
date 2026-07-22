@@ -1,4 +1,4 @@
-// Check draft against findings → pass | revise.
+// Check draft against findings. Returns "pass" or "revise".
 
 import { askMimo } from "./mimo.ts";
 import type { Finding } from "./research.ts";
@@ -13,31 +13,28 @@ export async function verifyClaims(
     .map((f, i) => `[${i + 1}] ${f.claim} (${f.sourceUrl})`)
     .join("\n");
 
-  const prompt = `You are a critique / verifier agent. Check a research draft against its findings.
+  const prompt = `Check a research draft against its findings.
 
-Findings (the only allowed evidence):
+Findings (only allowed evidence):
 ${listed}
 
-Draft to check:
+Draft:
 ${draft}
 
 Decide:
-- "pass"   if the draft is mostly faithful: no major unsupported claims,
-           no serious contradictions, and covers the main points.
-- "revise" if there are important gaps, contradictions, or claims that
-           are not supported by the findings.
+- "pass" if the draft mostly matches the findings
+- "revise" if there are big gaps, contradictions, or unsupported claims
 
-Return ONLY valid JSON on one line, exactly one of:
+Return ONLY one line of JSON, exactly one of:
 {"verdict":"pass"}
 {"verdict":"revise"}`;
 
   const text = await askMimo(prompt);
 
+  // Pull the JSON object out of the model text.
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
-  if (start === -1 || end === -1 || end <= start) {
-    return "revise";
-  }
+  if (start === -1 || end === -1 || end <= start) return "revise";
 
   try {
     const parsed = JSON.parse(text.slice(start, end + 1)) as {
@@ -47,7 +44,7 @@ Return ONLY valid JSON on one line, exactly one of:
       return parsed.verdict;
     }
   } catch {
-    // ignore parse errors
+    // bad JSON from the model → treat as revise
   }
 
   return "revise";

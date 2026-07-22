@@ -1,4 +1,4 @@
-// Draft → final report.
+// Turn the draft into the final report the user reads.
 
 import { askMimo } from "./mimo.ts";
 
@@ -6,21 +6,20 @@ export async function synthesizeFinal(
   query: string,
   draft: string,
 ): Promise<string> {
-  const prompt = `You are the orchestrator writing the final research report.
+  const prompt = `Write the final research report.
 
 Original query:
 ${query}
 
-Verified research draft (use this as your only source of facts):
+Draft (use only these facts):
 ${draft}
 
-Write a clear final report that:
-- Directly answers the query
-- Uses only facts present in the draft (do not invent new claims)
-- Is well structured (short sections or paragraphs as needed)
-- Is readable for a non-expert
+Rules:
+- Answer the query directly
+- Do not invent new facts
+- Clear structure, easy to read
 
-Return ONLY the final report text. No JSON, no preamble like "Here is the report".`;
+Return ONLY the report text.`;
 
   return await askMimo(prompt);
 }

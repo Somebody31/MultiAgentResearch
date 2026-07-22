@@ -1,11 +1,8 @@
-/**
- * Research pipeline (plain TypeScript, no graph library).
- *
- * Shared state is updated by each step. Order and the verify retry live here;
- * LLM/search work is in the step modules.
- *
- *   plan → research → normalize → verify ⟲ (max 1 re-research) → final
- */
+// Full research run. Read this file top to bottom.
+//
+//   plan → research → normalize → verify → (retry once?) → final
+//
+// Each step is a function in its own file. This file only picks the order.
 
 import { plan } from "./plan.ts";
 import { research, type Finding } from "./research.ts";
@@ -13,23 +10,19 @@ import { normalizeClaims } from "./normalize.ts";
 import { verifyClaims, type Verdict } from "./verify.ts";
 import { synthesizeFinal } from "./final.ts";
 
+// Shared bag of data for one user query. Steps read/write fields on it.
 export type State = {
   query: string;
   subQuestions: string[];
   findings: Finding[];
   draft: string;
   verdict: Verdict;
-  /** 0 on first pass; 1 if we re-ran research after revise. */
-  retries: number;
+  retries: number; // 0 or 1
   finalReport: string;
 };
 
-export type ResearchResult = State;
-
-const MAX_RETRIES = 1;
-
-function createState(query: string): State {
-  return {
+export async function runResearch(query: string): Promise<State> {
+  const state: State = {
     query,
     subQuestions: [],
     findings: [],
@@ -38,45 +31,29 @@ function createState(query: string): State {
     retries: 0,
     finalReport: "",
   };
-}
 
-async function stepPlan(state: State): Promise<void> {
+  // 1) Split the big question into smaller ones
   state.subQuestions = await plan(state.query);
-}
 
-async function stepResearch(state: State): Promise<void> {
+  // 2) Search + extract short facts
   state.findings = await research(state.subQuestions);
-}
 
-async function stepNormalize(state: State): Promise<void> {
+  // 3) Merge facts into one draft
   state.draft = await normalizeClaims(state.query, state.findings);
-}
 
-async function stepVerify(state: State): Promise<void> {
+  // 4) Check the draft
   state.verdict = await verifyClaims(state.draft, state.findings);
-}
 
-async function stepFinal(state: State): Promise<void> {
-  state.finalReport = await synthesizeFinal(state.query, state.draft);
-}
-
-/** Run the full pipeline for one query. */
-export async function runResearch(query: string): Promise<State> {
-  const state = createState(query);
-
-  await stepPlan(state);
-  await stepResearch(state);
-  await stepNormalize(state);
-  await stepVerify(state);
-
-  // Code-only gate: on revise, re-research once then continue either way.
-  while (state.verdict === "revise" && state.retries < MAX_RETRIES) {
-    state.retries += 1;
-    await stepResearch(state);
-    await stepNormalize(state);
-    await stepVerify(state);
+  // 5) If check failed, do research + draft + check one more time
+  if (state.verdict === "revise") {
+    state.retries = 1;
+    state.findings = await research(state.subQuestions);
+    state.draft = await normalizeClaims(state.query, state.findings);
+    state.verdict = await verifyClaims(state.draft, state.findings);
   }
 
-  await stepFinal(state);
+  // 6) Write the final answer the user sees
+  state.finalReport = await synthesizeFinal(state.query, state.draft);
+
   return state;
 }
