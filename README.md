@@ -1,6 +1,8 @@
 # MultiAgentResearch
 
-Multi-agent research pipeline over HTTP. Bun + Hono, MiMo for LLM calls, Tavily for search.
+Multi-agent research pipeline over HTTP. Bun + Hono, MiMo for LLM calls.
+
+Search is a **seam**: research asks for hits; adapters provide them (Tavily web + stub document search for now).
 
 Orchestration is plain TypeScript in `src/pipeline.ts` (shared state + steps). No LangGraph.
 
@@ -13,7 +15,7 @@ plan → research → normalize → verify → (optional re-research once) → f
 | Step | What it does |
 |------|----------------|
 | plan | Query → sub-questions |
-| research | Search + extract findings |
+| research | Search adapters (web + docs) + extract findings |
 | normalize | Findings → draft |
 | verify | Draft vs findings → `pass` \| `revise` |
 | audit | On `revise`, re-research at most once |
@@ -58,11 +60,13 @@ bun run test
 
 ```
 src/
-  index.ts       # HTTP
-  pipeline.ts    # orchestration
+  index.ts        # HTTP
+  pipeline.ts     # orchestration
   plan.ts
-  research.ts
-  search.ts
+  research.ts     # uses search seam
+  search.ts       # SearchAdapter + searchAll
+  searchWeb.ts    # Tavily adapter
+  searchDocs.ts   # document adapter (stub)
   normalize.ts
   verify.ts
   final.ts

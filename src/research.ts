@@ -1,7 +1,10 @@
-// For each sub-question: Tavily search, then LLM extract → findings.
+// Research stage: for each sub-question, gather hits (all search adapters)
+// then LLM-extract findings.
 
 import { askMimo } from "./mimo.ts";
-import { search, type SearchResult } from "./search.ts";
+import { searchAll, type SearchAdapter, type SearchHit } from "./search.ts";
+import { webSearch } from "./searchWeb.ts";
+import { docSearch } from "./searchDocs.ts";
 
 export type Finding = {
   subQuestion: string;
@@ -9,12 +12,22 @@ export type Finding = {
   sourceUrl: string;
 };
 
-export async function research(subQuestions: string[]): Promise<Finding[]> {
+/** Default evidence sources for a research branch. */
+const defaultAdapters: SearchAdapter[] = [webSearch, docSearch];
+
+/**
+ * Search + extract for every sub-question (sequential for now).
+ * Pass adapters in tests to swap fakes without calling Tavily.
+ */
+export async function research(
+  subQuestions: string[],
+  adapters: SearchAdapter[] = defaultAdapters,
+): Promise<Finding[]> {
   const findings: Finding[] = [];
 
   for (const subQuestion of subQuestions) {
-    const results = await search(subQuestion);
-    const extracted = await extractFindings(subQuestion, results);
+    const hits = await searchAll(subQuestion, adapters);
+    const extracted = await extractFindings(subQuestion, hits);
     findings.push(...extracted);
   }
 
@@ -23,14 +36,17 @@ export async function research(subQuestions: string[]): Promise<Finding[]> {
 
 async function extractFindings(
   subQuestion: string,
-  results: SearchResult[],
+  hits: SearchHit[],
 ): Promise<Finding[]> {
-  if (results.length === 0) {
+  if (hits.length === 0) {
     return [];
   }
 
-  const sources = results
-    .map((r, i) => `[${i + 1}] ${r.title}\nURL: ${r.url}\n${r.content}`)
+  const sources = hits
+    .map(
+      (r, i) =>
+        `[${i + 1}] (${r.source}) ${r.title}\nURL: ${r.url}\n${r.content}`,
+    )
     .join("\n\n");
 
   const prompt = `You extract research findings from search results.

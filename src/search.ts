@@ -1,29 +1,29 @@
-// Tavily search. Needs TAVILY_API_KEY.
+// Search seam: research asks for hits; adapters provide them.
 
-export type SearchResult = {
+export type SearchHit = {
   title: string;
   url: string;
   content: string;
+  /** Which adapter produced this hit. */
+  source: "web" | "document";
 };
 
-export async function search(query: string): Promise<SearchResult[]> {
-  const res = await fetch("https://api.tavily.com/search", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.TAVILY_API_KEY}`,
-    },
-    body: JSON.stringify({
-      query,
-      max_results: 3,
-    }),
-  });
+/** Anything that can answer: query → hits. */
+export type SearchAdapter = {
+  name: string;
+  search(query: string): Promise<SearchHit[]>;
+};
 
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Tavily API error ${res.status}: ${body}`);
-  }
-
-  const data = (await res.json()) as { results?: SearchResult[] };
-  return data.results ?? [];
+/**
+ * Run every adapter and concat hits (adapter order preserved).
+ * This is the only function research should call for "search".
+ */
+export async function searchAll(
+  query: string,
+  adapters: SearchAdapter[],
+): Promise<SearchHit[]> {
+  const batches = await Promise.all(
+    adapters.map(async (adapter) => adapter.search(query)),
+  );
+  return batches.flat();
 }
