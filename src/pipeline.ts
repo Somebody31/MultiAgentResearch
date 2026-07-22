@@ -1,118 +1,102 @@
-// Full research run — a small graph, without LangGraph.
+// Research graph powered by LangGraph.
 //
-//   Nodes  = steps (plan, research, normalize, verify, final)
-//   Edges  = nextNode() decides what runs next from state
-//   Runner = while loop: run node → pick next → repeat until stop
+//   START → plan → research → normalize → verify → final → END
+//                              ↑              │
+//                              └── revise once ┘
 //
-// Same flow as before:
-//   plan → research → normalize → verify → (retry research once?) → final
-//
-// Parallel fan-out still lives inside research.ts (Promise.all).
+// Nodes return partial state updates. LangGraph merges them.
+// Parallel research is still Promise.all inside research.ts (not Send).
 
+import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 import { plan } from "./plan.ts";
 import { research, type Finding } from "./research.ts";
 import { normalizeClaims } from "./normalize.ts";
 import { verifyClaims, type Verdict } from "./verify.ts";
 import { synthesizeFinal } from "./final.ts";
 
-// Shared bag of data for one user query. Nodes read/write fields on it.
+// Public shape returned by runResearch (same as before).
 export type State = {
   query: string;
   subQuestions: string[];
   findings: Finding[];
   draft: string;
   verdict: Verdict;
-  retries: number; // 0 or 1
+  retries: number;
   finalReport: string;
 };
 
-// Names of every step in the graph.
-export type NodeName =
-  | "plan"
-  | "research"
-  | "normalize"
-  | "verify"
-  | "final";
-
-// How many times we may loop verify → research.
 const MAX_RETRIES = 1;
 
-// --- Nodes: each one does its job and updates State -----------------------
+// LangGraph state: each field is a channel with a default.
+const GraphState = Annotation.Root({
+  query: Annotation<string>(),
+  subQuestions: Annotation<string[]>({ default: () => [] }),
+  findings: Annotation<Finding[]>({ default: () => [] }),
+  draft: Annotation<string>({ default: () => "" }),
+  verdict: Annotation<Verdict>({ default: () => "pass" }),
+  retries: Annotation<number>({ default: () => 0 }),
+  finalReport: Annotation<string>({ default: () => "" }),
+});
 
-type NodeFn = (state: State) => Promise<void>;
+type GraphStateType = typeof GraphState.State;
 
-const nodes: Record<NodeName, NodeFn> = {
-  async plan(state) {
-    state.subQuestions = await plan(state.query);
-  },
+// --- Nodes (return only what changed) ------------------------------------
 
-  async research(state) {
-    // Sub-questions run in parallel inside research().
-    state.findings = await research(state.subQuestions);
-  },
-
-  async normalize(state) {
-    state.draft = await normalizeClaims(state.query, state.findings);
-  },
-
-  async verify(state) {
-    state.verdict = await verifyClaims(state.draft, state.findings);
-  },
-
-  async final(state) {
-    state.finalReport = await synthesizeFinal(state.query, state.draft);
-  },
-};
-
-// --- Edges: given where we are + state, where do we go next? --------------
-// Return null to stop the graph.
-
-export function nextNode(current: NodeName, state: State): NodeName | null {
-  if (current === "plan") return "research";
-  if (current === "research") return "normalize";
-  if (current === "normalize") return "verify";
-
-  if (current === "verify") {
-    // Conditional edge: fail once → research again; else → final report.
-    if (state.verdict === "revise" && state.retries < MAX_RETRIES) {
-      return "research";
-    }
-    return "final";
-  }
-
-  // final (or unknown) → stop
-  return null;
+async function planNode(state: GraphStateType) {
+  return { subQuestions: await plan(state.query) };
 }
 
-// --- Runner ---------------------------------------------------------------
+async function researchNode(state: GraphStateType) {
+  // If we looped back from verify, count one retry.
+  const retries =
+    state.verdict === "revise" ? state.retries + 1 : state.retries;
+
+  return {
+    findings: await research(state.subQuestions),
+    retries,
+  };
+}
+
+async function normalizeNode(state: GraphStateType) {
+  return { draft: await normalizeClaims(state.query, state.findings) };
+}
+
+async function verifyNode(state: GraphStateType) {
+  return { verdict: await verifyClaims(state.draft, state.findings) };
+}
+
+async function finalNode(state: GraphStateType) {
+  return { finalReport: await synthesizeFinal(state.query, state.draft) };
+}
+
+// --- Conditional edge after verify ---------------------------------------
+
+export function afterVerify(
+  state: Pick<State, "verdict" | "retries">,
+): "research" | "final" {
+  if (state.verdict === "revise" && state.retries < MAX_RETRIES) {
+    return "research";
+  }
+  return "final";
+}
+
+// --- Build graph ---------------------------------------------------------
+
+const graph = new StateGraph(GraphState)
+  .addNode("plan", planNode)
+  .addNode("research", researchNode)
+  .addNode("normalize", normalizeNode)
+  .addNode("verify", verifyNode)
+  .addNode("final", finalNode)
+  .addEdge(START, "plan")
+  .addEdge("plan", "research")
+  .addEdge("research", "normalize")
+  .addEdge("normalize", "verify")
+  .addConditionalEdges("verify", afterVerify)
+  .addEdge("final", END)
+  .compile();
 
 export async function runResearch(query: string): Promise<State> {
-  const state: State = {
-    query,
-    subQuestions: [],
-    findings: [],
-    draft: "",
-    verdict: "pass",
-    retries: 0,
-    finalReport: "",
-  };
-
-  let current: NodeName | null = "plan";
-
-  while (current !== null) {
-    // 1) Run this node
-    await nodes[current](state);
-
-    // 2) Decide the next node
-    const next = nextNode(current, state);
-
-    // 3) If we are looping back to research after a failed verify, count a retry
-    if (current === "verify" && next === "research") {
-      state.retries += 1;
-    }
-
-    current = next;
-  }
-
-  return state;
+  const result = await graph.invoke({ query });
+  return result as State;
 }

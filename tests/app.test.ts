@@ -75,7 +75,6 @@ describe("research", () => {
   });
 
   test("flat merges per-branch finding lists the same way research does", () => {
-    // Mirrors research(): Promise.all → lists → flat()
     const lists = [
       [{ claim: "a" }],
       [{ claim: "b" }, { claim: "c" }],
@@ -91,37 +90,14 @@ describe("pipeline graph", () => {
     expect(typeof runResearch).toBe("function");
   });
 
-  test("nextNode follows the happy path", async () => {
-    const { nextNode } = await import("../src/pipeline.ts");
-    const state = {
-      query: "q",
-      subQuestions: [],
-      findings: [],
-      draft: "",
-      verdict: "pass" as const,
-      retries: 0,
-      finalReport: "",
-    };
-    expect(nextNode("plan", state)).toBe("research");
-    expect(nextNode("research", state)).toBe("normalize");
-    expect(nextNode("normalize", state)).toBe("verify");
-    expect(nextNode("verify", state)).toBe("final");
-    expect(nextNode("final", state)).toBeNull();
+  test("afterVerify: pass → final", async () => {
+    const { afterVerify } = await import("../src/pipeline.ts");
+    expect(afterVerify({ verdict: "pass", retries: 0 })).toBe("final");
   });
 
-  test("nextNode loops research once on revise", async () => {
-    const { nextNode } = await import("../src/pipeline.ts");
-    const state = {
-      query: "q",
-      subQuestions: [],
-      findings: [],
-      draft: "",
-      verdict: "revise" as const,
-      retries: 0,
-      finalReport: "",
-    };
-    expect(nextNode("verify", state)).toBe("research");
-    state.retries = 1;
-    expect(nextNode("verify", state)).toBe("final");
+  test("afterVerify: revise once → research, then final", async () => {
+    const { afterVerify } = await import("../src/pipeline.ts");
+    expect(afterVerify({ verdict: "revise", retries: 0 })).toBe("research");
+    expect(afterVerify({ verdict: "revise", retries: 1 })).toBe("final");
   });
 });

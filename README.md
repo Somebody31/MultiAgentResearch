@@ -2,23 +2,21 @@
 
 Research API: break a question into parts, search, draft, check, then report.
 
-**Stack:** Bun, Hono, MiMo, Tavily  
-**Start here:** `src/pipeline.ts` (small graph: nodes + edges + runner)
+**Stack:** Bun, Hono, LangGraph, MiMo, Tavily  
+**Start here:** `src/pipeline.ts` (LangGraph `StateGraph`)
 
 ## Flow
 
-Hand-rolled graph (no LangGraph): each step is a **node**; `nextNode()` picks the **edge**.
-
 ```
-plan → research → normalize → verify → final
-                      ↑           │
-                      └─ revise once (max 1 retry)
+START → plan → research → normalize → verify → final → END
+                     ↑                    │
+                     └── revise (max 1) ──┘
 ```
 
 | Node | Does |
 |------|------|
 | plan | Big question → smaller questions |
-| research | Search → short facts (sub-questions in parallel) |
+| research | Search → short facts (sub-questions in parallel via `Promise.all`) |
 | normalize | Facts → draft |
 | verify | Draft ok? `pass` / `revise` |
 | final | Draft → report |
@@ -46,7 +44,7 @@ bun run test
 ## Files
 
 ```
-src/pipeline.ts   # graph runner (nodes + nextNode) — read first
+src/pipeline.ts   # LangGraph graph — read first
 src/index.ts      # HTTP
 src/plan.ts
 src/research.ts

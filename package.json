@@ -12,6 +12,8 @@
     "test:ui": "node tests/research-ui.test.mjs"
   },
   "dependencies": {
+    "@langchain/core": "^1.2.3",
+    "@langchain/langgraph": "^1.4.8",
     "hono": "^4.12.30"
   }
 }
