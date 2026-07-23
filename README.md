@@ -81,10 +81,13 @@ corpus/           # local docs for searchDocs
 
 ## Interview demo UI
 
-Open `multi-agent-research-tool.html` in a browser (static file). Mock research jobs with multi-session history — no API keys required. For the real pipeline, use the API above (`bun run dev`).
+Mock research jobs in the browser — no API keys required. For the real pipeline API, use `bun run dev` above.
 
 ```bash
-# optional: serve the UI
-bunx --bun serve . -p 4173
-# then open /multi-agent-research-tool.html
+bun run demo
+# open http://localhost:4173/   (index redirects into the tool)
+# or open multi-agent-research-tool.html directly in a browser
 ```
+
+Do not stop at a directory listing: that means you opened the folder root without `index.html` loading. Use `http://localhost:4173/` or the HTML file itself, not a random path that lists the repo.
+

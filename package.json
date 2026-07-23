@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
+    "demo": "bunx --bun serve . -p 4173",
     "test": "bun test tests/app.test.ts && node tests/research-ui.test.mjs",
     "test:api": "bun test tests/app.test.ts",
     "test:ui": "node tests/research-ui.test.mjs"
