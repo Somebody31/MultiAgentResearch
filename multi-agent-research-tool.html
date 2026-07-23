@@ -1,45 +1,48 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MultiAgentResearch — Demo desk</title>
+  <meta name="description" content="Mock multi-agent research desk: staged pipeline, multi-session jobs, DEMO metrics." />
   <!--
-    THESIS: Plain research console for interview demos — start a job, leave with a report.
-      Multi-session shell; honest job states; mock-first. Refuses agent theater, magazine chrome, ops cosplay.
-    OWN-WORLD: Cool light ground (#f4f5f7), ink (#16181d), muted (#5c6370), border (#d8dce3), accent blue (#1a5fb4).
-      System UI type, 8px radius, one status-dot language. DEMO stamp on synthetic runs.
-    STORY: Interviewer watches a query become a job with id + status, then a readable report they can copy.
-    FIRST VIEWPORT: Sidebar “Sessions” (empty or list) + main compose: title, DEMO note, textarea, Start research.
-    FORM: Functional app shell — list + workspace. Staging: button commit. Seed: user-pinned simple after re-roll.
+    THESIS: A multi-session research desk that shows a fixed staged team (plan → fan-out research → normalize → verify → final), not a chat black box.
+    OWN-WORLD: Category-standard product UI — cool light surfaces, ink type, single blue accent; Linear-density rail + LangSmith-like stage states + Perplexity-like report.
+    STORY: Compose a query, watch the pipeline work, leave with a report and labeled DEMO metrics for resume/interview.
+    FIRST VIEWPORT: Session rail + compose panel + dormant stage rail + zeroed metrics; sample query ready.
+    FORM: Category standard (canon); craft peers Perplexity · Linear · LangSmith; seed direction discarded after canon choice.
   -->
-  <title>Research jobs — demo</title>
   <style>
     :root {
       --bg: #f4f5f7;
-      --surface: #ffffff;
-      --ink: #16181d;
-      --muted: #5c6370;
-      --faint: #8b919c;
-      --border: #d8dce3;
-      --border-strong: #b8bec8;
-      --accent: #1a5fb4;
-      --accent-hover: #154a8f;
-      --accent-soft: #e8f0fa;
-      --ok: #1b7a45;
-      --ok-soft: #e6f5ec;
-      --warn: #9a6700;
-      --warn-soft: #fff6e0;
-      --err: #b42318;
-      --err-soft: #fdecea;
-      --pending: #6b7280;
-      --running: #1a5fb4;
-      --done: #1b7a45;
-      --error: #b42318;
-      --sidebar-w: 260px;
+      --bg-elevated: #ffffff;
+      --bg-muted: #eef0f3;
+      --bg-sidebar: #f7f8fa;
+      --border: #e2e5ea;
+      --border-strong: #cfd4dc;
+      --text: #12141a;
+      --text-secondary: #4a5160;
+      --text-tertiary: #6b7380;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --accent-soft: #eff4ff;
+      --accent-border: #c7d7fe;
+      --success: #0f7a4c;
+      --success-soft: #e8f7ef;
+      --warning: #9a6700;
+      --warning-soft: #fff6e0;
+      --danger: #b42318;
+      --danger-soft: #fef3f2;
+      --running: #2563eb;
       --radius: 10px;
-      --shadow: 0 1px 2px rgba(22, 24, 29, 0.06), 0 4px 12px rgba(22, 24, 29, 0.04);
-      --font: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, sans-serif;
-      --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, monospace;
+      --radius-sm: 6px;
+      --radius-pill: 999px;
+      --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 12px rgba(16, 24, 40, 0.04);
+      --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Menlo, Consolas, monospace;
+      --ease: cubic-bezier(0.16, 1, 0.3, 1);
+      --focus: 0 0 0 2px var(--bg-elevated), 0 0 0 4px var(--accent);
+      --sidebar-w: 260px;
     }
 
     *, *::before, *::after { box-sizing: border-box; }
@@ -47,1078 +50,1444 @@
     body {
       margin: 0;
       font-family: var(--font);
-      font-size: 15px;
+      font-size: 14px;
       line-height: 1.5;
-      color: var(--ink);
+      color: var(--text);
       background: var(--bg);
+      -webkit-font-smoothing: antialiased;
     }
-
-    button, textarea, input { font: inherit; color: inherit; }
-    button {
-      cursor: pointer;
-      border: 1px solid var(--border-strong);
-      background: var(--surface);
-      border-radius: 8px;
-      padding: 0.5rem 0.85rem;
-      line-height: 1.25;
-    }
-    button:hover:not(:disabled) { background: var(--bg); }
-    button:focus-visible,
-    textarea:focus-visible,
-    a:focus-visible {
-      outline: 2px solid var(--accent);
-      outline-offset: 2px;
-    }
-    button:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
-    }
-    button.primary {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: #fff;
-      font-weight: 600;
-    }
-    button.primary:hover:not(:disabled) {
-      background: var(--accent-hover);
-      border-color: var(--accent-hover);
-    }
-    button.ghost {
-      border-color: transparent;
-      background: transparent;
-      color: var(--muted);
-    }
-    button.ghost:hover:not(:disabled) {
-      background: var(--bg);
-      color: var(--ink);
-    }
+    button, input, textarea { font: inherit; color: inherit; }
+    button { cursor: pointer; border: none; background: none; }
+    a { color: var(--accent); }
 
     .app {
       display: grid;
       grid-template-columns: var(--sidebar-w) 1fr;
       grid-template-rows: auto 1fr;
-      min-height: 100%;
-      max-height: 100vh;
+      height: 100%;
+      min-height: 100dvh;
     }
 
+    /* Top bar */
     .topbar {
       grid-column: 1 / -1;
       display: flex;
       align-items: center;
-      gap: 0.75rem;
-      padding: 0.65rem 1rem;
-      background: var(--surface);
+      gap: 16px;
+      padding: 10px 16px;
+      background: var(--bg-elevated);
       border-bottom: 1px solid var(--border);
+      min-height: 52px;
     }
     .brand {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      font-weight: 650;
-      letter-spacing: -0.02em;
-    }
-    .brand-mark {
-      width: 0.55rem;
-      height: 0.55rem;
-      border-radius: 50%;
-      background: var(--accent);
+      gap: 10px;
       flex-shrink: 0;
     }
-    .demo-badge {
-      font-size: 0.7rem;
+    .brand-mark {
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      background: var(--accent);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 12px;
       font-weight: 700;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      color: var(--warn);
-      background: var(--warn-soft);
-      border: 1px solid #f0d78c;
-      border-radius: 999px;
-      padding: 0.15rem 0.5rem;
+      letter-spacing: -0.02em;
     }
-    .topbar-note {
+    .brand h1 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+    .brand p {
+      margin: 0;
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+    .badge-demo {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: var(--radius-pill);
+      background: var(--warning-soft);
+      color: var(--warning);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .metrics {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 4px;
       margin-left: auto;
-      color: var(--muted);
-      font-size: 0.85rem;
+      align-items: center;
     }
-    .menu-btn {
-      display: none;
-      padding: 0.4rem 0.65rem;
+    .metric {
+      display: flex;
+      flex-direction: column;
+      min-width: 68px;
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-muted);
+    }
+    .metric-label {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      letter-spacing: 0.01em;
+    }
+    .metric-value {
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: var(--text);
+    }
+    .metric-value .demo-tag {
+      font-family: var(--font);
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--warning);
+      margin-left: 4px;
+      vertical-align: middle;
     }
 
+    /* Sidebar */
     .sidebar {
-      background: var(--surface);
+      background: var(--bg-sidebar);
       border-right: 1px solid var(--border);
       display: flex;
       flex-direction: column;
       min-height: 0;
-      overflow: hidden;
     }
     .sidebar-head {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 0.5rem;
-      padding: 0.85rem 0.9rem 0.5rem;
+      padding: 14px 14px 10px;
+      gap: 8px;
     }
     .sidebar-head h2 {
       margin: 0;
-      font-size: 0.75rem;
-      font-weight: 650;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      letter-spacing: 0.01em;
     }
+    .btn-new {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 10px;
+      border-radius: var(--radius-sm);
+      background: var(--accent);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      transition: background 160ms var(--ease);
+    }
+    .btn-new:hover { background: var(--accent-hover); }
+    .btn-new:focus-visible { outline: none; box-shadow: var(--focus); }
+
     .session-list {
       list-style: none;
       margin: 0;
-      padding: 0.25rem 0.5rem 1rem;
-      overflow-y: auto;
+      padding: 4px 8px 16px;
+      overflow: auto;
       flex: 1;
     }
-    .session-list li { margin: 0; }
     .session-item {
       width: 100%;
       text-align: left;
-      display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 0.45rem 0.55rem;
-      align-items: start;
-      padding: 0.6rem 0.65rem;
+      padding: 10px 10px;
+      border-radius: var(--radius-sm);
       border: 1px solid transparent;
-      border-radius: var(--radius);
-      background: transparent;
-      margin-bottom: 0.2rem;
+      display: grid;
+      gap: 4px;
+      transition: background 120ms var(--ease), border-color 120ms var(--ease);
     }
-    .session-item:hover { background: var(--bg); }
-    .session-item.active {
-      background: var(--accent-soft);
-      border-color: #c5d8f0;
+    .session-item:hover { background: var(--bg-elevated); }
+    .session-item:focus-visible { outline: none; box-shadow: var(--focus); }
+    .session-item[aria-current="true"] {
+      background: var(--bg-elevated);
+      border-color: var(--border);
+      box-shadow: var(--shadow);
     }
-    .session-item .q {
-      font-size: 0.875rem;
-      font-weight: 550;
-      color: var(--ink);
+    .session-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
-      grid-column: 2;
     }
-    .session-item .meta {
-      grid-column: 2;
-      font-size: 0.75rem;
-      color: var(--faint);
-      font-family: var(--mono);
+    .session-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--text-tertiary);
     }
-    .empty-sessions {
-      padding: 0.75rem 0.9rem;
-      color: var(--muted);
-      font-size: 0.875rem;
-    }
-
     .status-dot {
-      width: 0.5rem;
-      height: 0.5rem;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
-      margin-top: 0.35rem;
-      background: var(--pending);
+      background: var(--border-strong);
       flex-shrink: 0;
     }
-    .status-dot.pending { background: var(--pending); }
+    .status-dot.pending { background: var(--text-tertiary); }
     .status-dot.running {
       background: var(--running);
-      box-shadow: 0 0 0 3px rgba(26, 95, 180, 0.2);
-      animation: pulse-dot 1.4s ease-in-out infinite;
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--running) 25%, transparent);
     }
-    .status-dot.done { background: var(--done); }
-    .status-dot.error { background: var(--error); }
+    .status-dot.done { background: var(--success); }
+    .status-dot.error { background: var(--danger); }
 
-    @keyframes pulse-dot {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.45; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .status-dot.running { animation: none; opacity: 1; }
-      * { scroll-behavior: auto !important; }
+    .sidebar-empty {
+      padding: 24px 16px;
+      color: var(--text-tertiary);
+      font-size: 13px;
+      text-align: center;
     }
 
+    /* Main */
     .main {
       min-width: 0;
       min-height: 0;
       overflow: auto;
-      padding: 1.5rem 1.75rem 2.5rem;
+      padding: 20px 24px 40px;
     }
-    .workspace {
-      max-width: 42rem;
+    .main-inner {
+      max-width: 880px;
       margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
     }
 
-    .panel { display: none; }
-    .panel.active { display: block; }
-
-    .page-title {
-      margin: 0 0 0.35rem;
-      font-size: 1.5rem;
-      font-weight: 650;
-      letter-spacing: -0.025em;
-      line-height: 1.25;
-    }
-    .lead {
-      margin: 0 0 1.25rem;
-      color: var(--muted);
-      max-width: 38rem;
-    }
-
-    .callout {
-      border: 1px solid #f0d78c;
-      background: var(--warn-soft);
+    .panel {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 0.75rem 0.9rem;
-      margin-bottom: 1.25rem;
-      font-size: 0.9rem;
-      color: #5c4a12;
+      box-shadow: var(--shadow);
     }
-    .callout strong { color: var(--ink); }
-
-    .field-label {
-      display: block;
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px 0;
+    }
+    .panel-head h3 {
+      margin: 0;
+      font-size: 13px;
       font-weight: 600;
-      font-size: 0.875rem;
-      margin-bottom: 0.4rem;
+      letter-spacing: -0.01em;
     }
-    textarea#query-input {
-      width: 100%;
-      min-height: 7.5rem;
-      resize: vertical;
-      border: 1px solid var(--border-strong);
-      border-radius: var(--radius);
-      padding: 0.75rem 0.85rem;
-      background: var(--surface);
-      box-shadow: var(--shadow);
-    }
-    textarea#query-input::placeholder { color: var(--faint); }
-    .field-error {
-      color: var(--err);
-      font-size: 0.85rem;
-      margin: 0.4rem 0 0;
-      min-height: 1.2em;
-    }
-    .actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      align-items: center;
-      margin-top: 0.85rem;
-    }
-    .examples {
-      margin-top: 1.5rem;
-    }
-    .examples h3 {
-      margin: 0 0 0.5rem;
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      color: var(--muted);
-      font-weight: 650;
-    }
-    .chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.4rem;
-    }
-    .chip {
-      font-size: 0.8rem;
-      padding: 0.35rem 0.65rem;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--muted);
-    }
-    .chip:hover { border-color: var(--border-strong); color: var(--ink); }
+    .panel-body { padding: 12px 16px 16px; }
 
-    .job-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 1.15rem 1.25rem;
+    /* Compose */
+    .compose-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
     }
-    .job-row {
+    #query-input {
+      width: 100%;
+      min-height: 96px;
+      resize: vertical;
+      padding: 12px 14px;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      background: var(--bg-elevated);
+      color: var(--text);
+      line-height: 1.45;
+      transition: border-color 120ms var(--ease), box-shadow 120ms var(--ease);
+    }
+    #query-input::placeholder { color: var(--text-tertiary); }
+    #query-input:hover { border-color: color-mix(in srgb, var(--border-strong) 60%, var(--text-tertiary)); }
+    #query-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+    }
+    #query-input:disabled {
+      background: var(--bg-muted);
+      color: var(--text-secondary);
+      cursor: not-allowed;
+    }
+    .compose-actions {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.75rem 1.25rem;
       align-items: center;
-      margin-bottom: 0.85rem;
+      gap: 10px;
+      margin-top: 12px;
     }
-    .job-status {
+    .btn-primary {
       display: inline-flex;
       align-items: center;
-      gap: 0.45rem;
+      justify-content: center;
+      gap: 6px;
+      padding: 9px 16px;
+      border-radius: var(--radius-sm);
+      background: var(--accent);
+      color: #fff;
+      font-size: 13px;
       font-weight: 600;
+      transition: background 160ms var(--ease), opacity 160ms var(--ease);
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .btn-primary:focus-visible { outline: none; box-shadow: var(--focus); }
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .btn-ghost:hover { background: var(--bg-muted); color: var(--text); }
+    .btn-ghost:focus-visible { outline: none; box-shadow: var(--focus); }
+    .compose-hint {
+      margin: 0;
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+    .compose-error {
+      margin: 10px 0 0;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      background: var(--danger-soft);
+      color: var(--danger);
+      font-size: 12px;
+      font-weight: 500;
+      display: none;
+    }
+    .compose-error.show { display: block; }
+
+    .samples {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 12px;
+    }
+    .sample-chip {
+      padding: 5px 10px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--border);
+      background: var(--bg-muted);
+      font-size: 12px;
+      color: var(--text-secondary);
+      max-width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: border-color 120ms var(--ease), background 120ms var(--ease);
+    }
+    .sample-chip:hover {
+      border-color: var(--accent-border);
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    .sample-chip:focus-visible { outline: none; box-shadow: var(--focus); }
+
+    /* Stage rail */
+    .stage-rail {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: stretch;
+    }
+    .stage {
+      flex: 1 1 88px;
+      min-width: 84px;
+      padding: 10px 10px 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg-muted);
+      position: relative;
+      transition: border-color 180ms var(--ease), background 180ms var(--ease), box-shadow 180ms var(--ease);
+    }
+    .stage-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+    .stage-state {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--text-tertiary);
       text-transform: capitalize;
     }
-    .job-id {
+    .stage[data-state="idle"] { opacity: 0.72; }
+    .stage[data-state="active"] {
+      border-color: var(--accent-border);
+      background: var(--accent-soft);
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent);
+    }
+    .stage[data-state="active"] .stage-state { color: var(--accent); font-weight: 600; }
+    .stage[data-state="done"] {
+      border-color: color-mix(in srgb, var(--success) 30%, var(--border));
+      background: var(--success-soft);
+    }
+    .stage[data-state="done"] .stage-state { color: var(--success); }
+    .stage[data-state="error"] {
+      border-color: color-mix(in srgb, var(--danger) 35%, var(--border));
+      background: var(--danger-soft);
+    }
+    .stage[data-state="error"] .stage-state { color: var(--danger); }
+    .stage[data-state="revise"] {
+      border-color: color-mix(in srgb, var(--warning) 40%, var(--border));
+      background: var(--warning-soft);
+    }
+    .stage[data-state="revise"] .stage-state { color: var(--warning); font-weight: 600; }
+
+    .pipeline-note {
+      margin: 12px 0 0;
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.45;
+    }
+    .pipeline-note code {
       font-family: var(--mono);
-      font-size: 0.8rem;
-      color: var(--muted);
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 0.2rem 0.45rem;
-    }
-    .job-query {
-      margin: 0 0 0.75rem;
-      color: var(--ink);
-      font-weight: 550;
-    }
-    .job-hint {
-      margin: 0;
-      color: var(--muted);
-      font-size: 0.9rem;
+      font-size: 11px;
+      background: var(--bg-muted);
+      padding: 1px 5px;
+      border-radius: 4px;
     }
 
-    .report-header {
+    /* Research lanes */
+    .lanes {
+      display: grid;
+      gap: 8px;
+    }
+    .lane {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      background: var(--bg);
+      transition: border-color 160ms var(--ease), background 160ms var(--ease);
+    }
+    .lane[data-state="active"] {
+      border-color: var(--accent-border);
+      background: var(--accent-soft);
+    }
+    .lane[data-state="done"] {
+      border-color: color-mix(in srgb, var(--success) 25%, var(--border));
+    }
+    .lane-top {
       display: flex;
-      flex-wrap: wrap;
-      gap: 0.75rem;
       align-items: flex-start;
       justify-content: space-between;
-      margin-bottom: 1rem;
-      padding-bottom: 1rem;
-      border-bottom: 1px solid var(--border);
+      gap: 8px;
     }
-    .report-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem 0.85rem;
-      font-size: 0.8rem;
-      color: var(--muted);
-      font-family: var(--mono);
-      margin-top: 0.35rem;
+    .lane-q {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
     }
+    .lane-badge {
+      flex-shrink: 0;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: var(--text-tertiary);
+      padding: 2px 6px;
+      border-radius: var(--radius-pill);
+      background: var(--bg-muted);
+    }
+    .lane[data-state="active"] .lane-badge {
+      color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 12%, white);
+    }
+    .lane[data-state="done"] .lane-badge {
+      color: var(--success);
+      background: var(--success-soft);
+    }
+    .lane-findings {
+      margin: 8px 0 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 4px;
+    }
+    .lane-findings li {
+      font-size: 12px;
+      color: var(--text-secondary);
+      padding-left: 12px;
+      position: relative;
+    }
+    .lane-findings li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.55em;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--border-strong);
+    }
+    .lanes-empty {
+      font-size: 13px;
+      color: var(--text-tertiary);
+      margin: 0;
+    }
+
+    /* Verdict banner */
+    .verdict {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .verdict.show { display: flex; }
+    .verdict.pass {
+      background: var(--success-soft);
+      color: var(--success);
+    }
+    .verdict.revise {
+      background: var(--warning-soft);
+      color: var(--warning);
+    }
+
+    /* Report */
+    .report-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-strong);
+      background: var(--bg-elevated);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      transition: background 120ms var(--ease), border-color 120ms var(--ease);
+    }
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--bg-muted);
+      color: var(--text);
+    }
+    .btn-secondary:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .btn-secondary:focus-visible { outline: none; box-shadow: var(--focus); }
     .report-body {
-      max-width: 68ch;
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text);
+      max-width: 72ch;
+    }
+    .report-body h1 {
+      font-size: 1.25rem;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+      margin: 0 0 12px;
+      line-height: 1.25;
     }
     .report-body h2 {
-      margin: 1.35rem 0 0.45rem;
-      font-size: 1.1rem;
-      letter-spacing: -0.02em;
+      font-size: 0.95rem;
+      font-weight: 650;
+      margin: 20px 0 8px;
+      letter-spacing: -0.01em;
     }
-    .report-body h2:first-child { margin-top: 0; }
-    .report-body p { margin: 0 0 0.75rem; color: var(--ink); }
+    .report-body p { margin: 0 0 10px; color: var(--text-secondary); }
     .report-body ul {
-      margin: 0 0 0.85rem;
-      padding-left: 1.2rem;
+      margin: 0 0 12px;
+      padding-left: 1.2em;
+      color: var(--text-secondary);
     }
-    .report-body li { margin-bottom: 0.3rem; }
-    .report-body .note {
-      font-size: 0.9rem;
-      color: var(--muted);
-      border-top: 1px solid var(--border);
-      margin-top: 1.5rem;
-      padding-top: 0.85rem;
+    .report-body li { margin-bottom: 4px; }
+    .report-body .meta-line {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
     }
-
-    .error-banner {
-      background: var(--err-soft);
-      border: 1px solid #f0b4ae;
-      color: #7a1a14;
-      border-radius: var(--radius);
-      padding: 0.85rem 1rem;
-      margin-bottom: 1rem;
+    .report-empty {
+      margin: 0;
+      color: var(--text-tertiary);
+      font-size: 13px;
     }
-
-    .sidebar-backdrop {
-      display: none;
+    .toast {
       position: fixed;
-      inset: 0;
-      background: rgba(22, 24, 29, 0.35);
-      z-index: 20;
+      bottom: 20px;
+      right: 20px;
+      padding: 10px 14px;
+      background: var(--text);
+      color: #fff;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: opacity 200ms var(--ease), transform 200ms var(--ease);
+      z-index: 50;
     }
-    .sidebar-backdrop.open { display: block; }
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
 
-    @media (max-width: 800px) {
+    .menu-toggle {
+      display: none;
+      padding: 8px;
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+    }
+    .menu-toggle:hover { background: var(--bg-muted); }
+    .menu-toggle:focus-visible { outline: none; box-shadow: var(--focus); }
+
+    @media (max-width: 820px) {
       .app {
         grid-template-columns: 1fr;
+        grid-template-rows: auto auto 1fr;
       }
-      .menu-btn { display: inline-flex; }
-      .topbar-note { display: none; }
       .sidebar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        bottom: 0;
-        width: min(var(--sidebar-w), 88vw);
-        z-index: 30;
-        transform: translateX(-105%);
-        transition: transform 0.2s ease-out;
-        box-shadow: var(--shadow);
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 240ms var(--ease);
       }
-      .sidebar.open { transform: translateX(0); }
-      .main { padding: 1.15rem 1rem 2rem; }
+      .sidebar.open {
+        max-height: 42vh;
+        overflow: auto;
+      }
+      .menu-toggle { display: inline-flex; }
+      .metrics { gap: 4px; }
+      .metric { min-width: 58px; padding: 3px 7px; }
+      .main { padding: 16px 14px 32px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      .status-dot.running { box-shadow: none; }
     }
   </style>
 </head>
 <body>
   <div class="app" id="app">
     <header class="topbar">
-      <button type="button" class="menu-btn" id="btn-menu" aria-label="Open sessions" aria-controls="sidebar" aria-expanded="false">Sessions</button>
+      <button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-controls="sidebar" title="Sessions">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
       <div class="brand">
-        <span class="brand-mark" aria-hidden="true"></span>
-        <span>Research jobs</span>
+        <div class="brand-mark" aria-hidden="true">MA</div>
+        <div>
+          <h1>MultiAgentResearch</h1>
+          <p>Staged multi-agent desk · <span class="badge-demo">DEMO</span></p>
+        </div>
       </div>
-      <span class="demo-badge" title="Runs are simulated for reliable demos">DEMO</span>
-      <p class="topbar-note">Mock jobs · interview demo</p>
+      <div class="metrics" id="metrics" aria-label="Run metrics (synthetic)">
+        <div class="metric"><span class="metric-label">Wall time</span><span class="metric-value" data-m="wall">—</span></div>
+        <div class="metric"><span class="metric-label">Stages</span><span class="metric-value" data-m="stages">—</span></div>
+        <div class="metric"><span class="metric-label">Fan-out</span><span class="metric-value" data-m="fanout">—</span></div>
+        <div class="metric"><span class="metric-label">Findings</span><span class="metric-value" data-m="findings">—</span></div>
+        <div class="metric"><span class="metric-label">Verdict</span><span class="metric-value" data-m="verdict">—</span></div>
+        <div class="metric"><span class="metric-label">Retry</span><span class="metric-value" data-m="retry">—</span></div>
+        <div class="metric"><span class="metric-label">Tokens</span><span class="metric-value" data-m="tokens">—</span></div>
+        <div class="metric"><span class="metric-label">Cost</span><span class="metric-value" data-m="cost">—</span></div>
+      </div>
     </header>
 
-    <div class="sidebar-backdrop" id="sidebar-backdrop" hidden></div>
-
-    <aside class="sidebar" id="sidebar" aria-label="Sessions">
+    <aside class="sidebar" id="sidebar">
       <div class="sidebar-head">
-        <h2>Sessions</h2>
-        <button type="button" class="ghost" id="btn-new" title="New research">New</button>
+        <h2 id="session-list-label">Sessions</h2>
+        <button type="button" class="btn-new" id="btn-new-session">+ New</button>
       </div>
-      <p class="empty-sessions" id="empty-sessions">No sessions yet. Start a research job to see it here.</p>
-      <ul class="session-list" id="session-list" hidden></ul>
+      <ul class="session-list" id="session-list" role="listbox" aria-labelledby="session-list-label"></ul>
     </aside>
 
     <main class="main">
-      <div class="workspace">
-        <!-- Compose -->
-        <section class="panel active" id="panel-compose" aria-labelledby="compose-title">
-          <h1 class="page-title" id="compose-title">New research</h1>
-          <p class="lead">
-            Enter a question, start a job, and leave with a report.
-            This UI uses mock jobs so a walkthrough does not depend on API keys.
-          </p>
-          <div class="callout" role="note">
-            <strong>DEMO mode.</strong> Progress and the final report are synthetic.
-            They illustrate job states (<code>pending</code> → <code>running</code> → <code>done</code>) and multi-session history — not live model output.
+      <div class="main-inner">
+        <section class="panel" id="panel-compose" aria-labelledby="compose-heading">
+          <div class="panel-head">
+            <h3 id="compose-heading">Compose query</h3>
+            <span class="badge-demo" title="Simulated pipeline — no API keys">Mock pipeline</span>
           </div>
-          <label class="field-label" for="query-input">Query</label>
-          <textarea
-            id="query-input"
-            name="query"
-            rows="5"
-            placeholder="e.g. Compare fan-out vs sequential research for multi-step questions"
-            autocomplete="off"
-          ></textarea>
-          <p class="field-error" id="query-error" role="alert"></p>
-          <div class="actions">
-            <button type="button" class="primary" id="btn-submit">Start research</button>
+          <div class="panel-body">
+            <label class="compose-label" for="query-input">Research question</label>
+            <textarea id="query-input" rows="4" placeholder="Ask a multi-part research question…" spellcheck="true"></textarea>
+            <p class="compose-error" id="compose-error" role="alert"></p>
+            <div class="compose-actions">
+              <button type="button" class="btn-primary" id="btn-run">Run research</button>
+              <p class="compose-hint">Simulates plan → fan-out research → normalize → verify → final. Job id returned immediately (async demo).</p>
+            </div>
+            <div class="samples" id="samples" aria-label="Sample queries"></div>
           </div>
-          <div class="examples">
-            <h3>Example queries</h3>
-            <div class="chips" id="example-chips">
-              <button type="button" class="chip" data-q="What is a staged multi-agent research pipeline?">Staged pipeline</button>
-              <button type="button" class="chip" data-q="Why use async research jobs instead of a long HTTP request?">Async jobs</button>
-              <button type="button" class="chip" data-q="How does plan → research → normalize → verify → final work?">Graph stages</button>
+        </section>
+
+        <section class="panel" id="panel-running" aria-labelledby="pipeline-heading">
+          <div class="panel-head">
+            <h3 id="pipeline-heading">Pipeline</h3>
+            <span class="session-meta" id="job-meta">
+              <span class="status-dot" id="job-dot"></span>
+              <span id="job-status-text">Idle</span>
+              <span id="job-id" hidden></span>
+            </span>
+          </div>
+          <div class="panel-body">
+            <div class="stage-rail" id="stage-rail" role="list" aria-label="Pipeline stages">
+              <div class="stage" data-stage="plan" data-state="idle" role="listitem"><div class="stage-name">Plan</div><div class="stage-state">idle</div></div>
+              <div class="stage" data-stage="research" data-state="idle" role="listitem"><div class="stage-name">Research</div><div class="stage-state">idle</div></div>
+              <div class="stage" data-stage="normalize" data-state="idle" role="listitem"><div class="stage-name">Normalize</div><div class="stage-state">idle</div></div>
+              <div class="stage" data-stage="verify" data-state="idle" role="listitem"><div class="stage-name">Verify</div><div class="stage-state">idle</div></div>
+              <div class="stage" data-stage="final" data-state="idle" role="listitem"><div class="stage-name">Final</div><div class="stage-state">idle</div></div>
+            </div>
+            <p class="pipeline-note">
+              Fixed staged graph with shared state — not a single mega-prompt.
+              Research uses fan-out: one branch per sub-question (<code>Send</code>-style), then fan-in findings.
+            </p>
+            <div class="verdict" id="verdict-banner" role="status"></div>
+            <div style="margin-top:14px">
+              <h3 style="margin:0 0 8px;font-size:12px;font-weight:600;color:var(--text-secondary)">Research lanes</h3>
+              <div class="lanes" id="lanes"><p class="lanes-empty">Sub-questions appear here after plan.</p></div>
             </div>
           </div>
         </section>
 
-        <!-- Running -->
-        <section class="panel" id="panel-running" aria-labelledby="running-title" aria-live="polite">
-          <h1 class="page-title" id="running-title">Research job</h1>
-          <div class="job-card">
-            <div class="job-row">
-              <span class="job-status" id="job-status-label">
-                <span class="status-dot running" id="job-status-dot" aria-hidden="true"></span>
-                <span id="job-status-text">running</span>
-              </span>
-              <span class="job-id" id="job-id">—</span>
-            </div>
-            <p class="job-query" id="job-query"></p>
-            <p class="job-hint" id="job-hint">Simulating work…</p>
-            <div class="actions" style="margin-top:1rem">
-              <button type="button" class="ghost" id="btn-cancel-run" disabled title="Mock runs finish quickly">Stop unavailable in DEMO</button>
+        <section class="panel" id="panel-report" aria-labelledby="report-heading">
+          <div class="panel-head">
+            <h3 id="report-heading">Final report</h3>
+            <div class="report-actions">
+              <button type="button" class="btn-secondary" id="btn-copy-report" disabled>Copy report</button>
+              <button type="button" class="btn-secondary" id="btn-download-md" disabled>Download .md</button>
             </div>
           </div>
-        </section>
-
-        <!-- Report -->
-        <section class="panel" id="panel-report" aria-labelledby="report-title">
-          <div class="report-header">
-            <div>
-              <h1 class="page-title" id="report-title">Report</h1>
-              <div class="report-meta">
-                <span id="report-job-id"></span>
-                <span id="report-status"></span>
-                <span id="report-when"></span>
-              </div>
+          <div class="panel-body">
+            <div class="report-body" id="report-body">
+              <p class="report-empty">Run research to generate a DEMO report.</p>
             </div>
-            <div class="actions">
-              <button type="button" id="btn-copy-report">Copy</button>
-              <button type="button" id="btn-download-md">Download .md</button>
-              <button type="button" class="primary" id="btn-new-from-report">New research</button>
-            </div>
-          </div>
-          <article class="report-body" id="report-body"></article>
-        </section>
-
-        <!-- Error -->
-        <section class="panel" id="panel-error" aria-labelledby="error-title">
-          <h1 class="page-title" id="error-title">Job failed</h1>
-          <div class="error-banner" id="error-message" role="alert"></div>
-          <div class="job-row">
-            <span class="job-id" id="error-job-id"></span>
-          </div>
-          <div class="actions">
-            <button type="button" class="primary" id="btn-retry">Try again</button>
-            <button type="button" id="btn-new-from-error">New research</button>
           </div>
         </section>
       </div>
     </main>
   </div>
 
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
   <script>
 (function () {
   "use strict";
 
-  var STORAGE_KEY = "research-jobs-demo-v1";
-  var MOCK_FAIL_TOKEN = "__fail__";
+  const STORAGE_KEY = "mar-desk-sessions-v1";
+  const STAGES = ["plan", "research", "normalize", "verify", "final"];
+  const STAGE_LABELS = {
+    plan: "Plan",
+    research: "Research",
+    normalize: "Normalize",
+    verify: "Verify",
+    final: "Final",
+  };
+
+  const SAMPLES = [
+    "Compare LangGraph staged pipelines vs a single mega-prompt for multi-hop research.",
+    "What is an async research job API, and why poll instead of holding the HTTP connection?",
+    "How does a verify/revise gate improve faithfulness in multi-agent research reports?",
+  ];
 
   /** @typedef {"pending"|"running"|"done"|"error"} JobStatus */
+  /** @typedef {"idle"|"active"|"done"|"error"|"revise"} StageState */
 
   /**
    * @typedef {object} Session
    * @property {string} id
-   * @property {string} jobId
    * @property {string} query
    * @property {JobStatus} status
-   * @property {string} createdAt
-   * @property {string} [updatedAt]
-   * @property {string} [reportMarkdown]
-   * @property {string} [errorMessage]
-   * @property {boolean} demo
+   * @property {number} createdAt
+   * @property {number} [startedAt]
+   * @property {number} [endedAt]
+   * @property {Record<string, StageState>} stages
+   * @property {Array<{q:string, state:string, findings:string[]}>} lanes
+   * @property {string} [verdict]
+   * @property {number} retries
+   * @property {string} [reportMd]
+   * @property {string} [reportHtml]
+   * @property {object} [metrics]
+   * @property {string} [error]
    */
 
-  /** @type {Session[]} */
-  var sessions = loadSessions();
-  /** @type {string|null} */
-  var activeId = null;
-  /** @type {ReturnType<typeof setTimeout>|null} */
-  var runTimer = null;
-  /** @type {ReturnType<typeof setTimeout>|null} */
-  var runTimer2 = null;
-
-  var el = {
-    sidebar: document.getElementById("sidebar"),
-    backdrop: document.getElementById("sidebar-backdrop"),
-    btnMenu: document.getElementById("btn-menu"),
-    emptySessions: document.getElementById("empty-sessions"),
+  const el = {
     sessionList: document.getElementById("session-list"),
-    queryInput: document.getElementById("query-input"),
-    queryError: document.getElementById("query-error"),
-    btnSubmit: document.getElementById("btn-submit"),
-    btnNew: document.getElementById("btn-new"),
-    panels: {
-      compose: document.getElementById("panel-compose"),
-      running: document.getElementById("panel-running"),
-      report: document.getElementById("panel-report"),
-      error: document.getElementById("panel-error")
-    },
-    jobStatusDot: document.getElementById("job-status-dot"),
-    jobStatusText: document.getElementById("job-status-text"),
-    jobId: document.getElementById("job-id"),
-    jobQuery: document.getElementById("job-query"),
-    jobHint: document.getElementById("job-hint"),
-    reportTitle: document.getElementById("report-title"),
+    query: document.getElementById("query-input"),
+    btnRun: document.getElementById("btn-run"),
+    btnNew: document.getElementById("btn-new-session"),
+    composeError: document.getElementById("compose-error"),
+    samples: document.getElementById("samples"),
+    stageRail: document.getElementById("stage-rail"),
+    lanes: document.getElementById("lanes"),
+    verdict: document.getElementById("verdict-banner"),
     reportBody: document.getElementById("report-body"),
-    reportJobId: document.getElementById("report-job-id"),
-    reportStatus: document.getElementById("report-status"),
-    reportWhen: document.getElementById("report-when"),
-    errorMessage: document.getElementById("error-message"),
-    errorJobId: document.getElementById("error-job-id")
+    btnCopy: document.getElementById("btn-copy-report"),
+    btnDl: document.getElementById("btn-download-md"),
+    jobDot: document.getElementById("job-dot"),
+    jobStatus: document.getElementById("job-status-text"),
+    jobId: document.getElementById("job-id"),
+    metrics: document.getElementById("metrics"),
+    toast: document.getElementById("toast"),
+    sidebar: document.getElementById("sidebar"),
+    menuToggle: document.getElementById("menu-toggle"),
   };
 
-  function escapeHtml(str) {
-    return String(str)
+  /** @type {Session[]} */
+  let sessions = loadSessions();
+  /** @type {string|null} */
+  let activeId = sessions[0]?.id ?? null;
+  /** @type {ReturnType<typeof setTimeout>|null} */
+  let runTimer = null;
+  let toastTimer = null;
+
+  // —— Storage ——
+  function loadSessions() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  function saveSessions() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions.slice(0, 24)));
+    } catch { /* ignore quota */ }
+  }
+
+  function uid() {
+    return crypto.randomUUID ? crypto.randomUUID() : "job-" + Math.random().toString(36).slice(2, 10);
+  }
+
+  function emptyStages() {
+    return Object.fromEntries(STAGES.map((s) => [s, "idle"]));
+  }
+
+  function createSession(query = "") {
+    /** @type {Session} */
+    const s = {
+      id: uid(),
+      query,
+      status: "pending",
+      createdAt: Date.now(),
+      stages: emptyStages(),
+      lanes: [],
+      retries: 0,
+      metrics: null,
+    };
+    sessions.unshift(s);
+    activeId = s.id;
+    saveSessions();
+    return s;
+  }
+
+  function activeSession() {
+    return sessions.find((s) => s.id === activeId) || null;
+  }
+
+  // —— Mock content ——
+  function planSubQuestions(query) {
+    const q = query.trim();
+    const base = [
+      `What are the core mechanisms involved in: ${shorten(q, 72)}?`,
+      `What trade-offs, risks, or failure modes apply?`,
+      `What does a practical implementation look like (APIs, stages, constraints)?`,
+    ];
+    if (q.length > 80 || /compare|vs\.?|versus/i.test(q)) {
+      base.push("How do the alternatives compare on latency, faithfulness, and operational complexity?");
+    }
+    if (/verify|faithful|hallucin/i.test(q)) {
+      base.splice(1, 0, "How does a verify/revise gate change unsupported claims in the draft?");
+    }
+    return base.slice(0, q.length > 120 ? 5 : 4);
+  }
+
+  function shorten(s, n) {
+    return s.length <= n ? s : s.slice(0, n - 1) + "…";
+  }
+
+  function findingsFor(subQ, i) {
+    return [
+      `Finding ${i + 1}a: Structured evidence supports a staged hand-off rather than one opaque completion for “${shorten(subQ, 48)}”.`,
+      `Finding ${i + 1}b: Parallel branches cut wall-clock time when sub-questions are independent (DEMO corpus + web-style hits).`,
+      `Finding ${i + 1}c: Explicit verdicts (pass/revise) make faithfulness reviewable in an interview walkthrough.`,
+    ];
+  }
+
+  function buildReport(session, subQs, findingsFlat, didRevise) {
+    const title = shorten(session.query, 100);
+    const md = [
+      `# ${title}`,
+      ``,
+      `*DEMO report — simulated multi-agent pipeline. Not live model or search output.*`,
+      ``,
+      `## Summary`,
+      ``,
+      `This run decomposed the query into **${subQs.length} sub-questions**, researched them in **parallel fan-out**, merged findings into a draft, ran a **verify** gate${didRevise ? " (one revise pass)" : " (pass on first check)"}, and synthesized this final report.`,
+      ``,
+      `## Architecture exercised`,
+      ``,
+      `- **Plan** — orchestrator splits the query into focused sub-questions.`,
+      `- **Research (fan-out)** — one research branch per sub-question; findings fan-in.`,
+      `- **Normalize** — analysis merges findings into a coherent draft.`,
+      `- **Verify** — critique returns \`pass\` or \`revise\` (max 1 retry).`,
+      `- **Final** — client-facing report from the accepted draft.`,
+      ``,
+      `## Sub-questions`,
+      ``,
+      ...subQs.map((q, i) => `${i + 1}. ${q}`),
+      ``,
+      `## Key findings`,
+      ``,
+      ...findingsFlat.slice(0, 8).map((f) => `- ${f}`),
+      ``,
+      `## Verification`,
+      ``,
+      didRevise
+        ? `Initial verdict was **revise** (draft overreached relative to findings). After one capped research refresh, verdict was **pass**.`
+        : `Verifier returned **pass**: draft claims stayed within the simulated findings set.`,
+      ``,
+      `## Metrics note`,
+      ``,
+      `Wall time, token, and cost figures in the header are **synthetic DEMO numbers** for resume/interview storytelling. They do not measure a production cluster.`,
+      ``,
+    ].join("\n");
+
+    const html = mdToSimpleHtml(md);
+    return { md, html };
+  }
+
+  function mdToSimpleHtml(md) {
+    const lines = md.split("\n");
+    let html = "";
+    let inList = false;
+    const flushList = () => {
+      if (inList) {
+        html += "</ul>";
+        inList = false;
+      }
+    };
+    for (const line of lines) {
+      if (line.startsWith("# ")) {
+        flushList();
+        html += `<h1>${esc(line.slice(2))}</h1>`;
+      } else if (line.startsWith("## ")) {
+        flushList();
+        html += `<h2>${esc(line.slice(3))}</h2>`;
+      } else if (line.startsWith("- ")) {
+        if (!inList) {
+          html += "<ul>";
+          inList = true;
+        }
+        html += `<li>${inline(line.slice(2))}</li>`;
+      } else if (/^\d+\.\s/.test(line)) {
+        if (!inList) {
+          html += "<ul>";
+          inList = true;
+        }
+        html += `<li>${inline(line.replace(/^\d+\.\s/, ""))}</li>`;
+      } else if (line.startsWith("*") && line.endsWith("*")) {
+        flushList();
+        html += `<p class="meta-line">${esc(line.replace(/^\*|\*$/g, ""))}</p>`;
+      } else if (line.trim() === "") {
+        flushList();
+      } else {
+        flushList();
+        html += `<p>${inline(line)}</p>`;
+      }
+    }
+    flushList();
+    return html;
+  }
+
+  function esc(s) {
+    return s
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
   }
 
-  function truncate(s, n) {
-    if (!s) return "";
-    return s.length > n ? s.slice(0, n - 1) + "\u2026" : s;
+  function inline(s) {
+    return esc(s)
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/`([^`]+)`/g, "<code>$1</code>");
   }
 
-  function slugify(s) {
-    return (
-      String(s)
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "")
-        .slice(0, 60) || "report"
-    );
-  }
-
-  function statusLabel(s) {
-    if (s === "pending") return "Pending";
-    if (s === "running") return "Running";
-    if (s === "done") return "Done";
-    if (s === "error") return "Error";
-    return String(s);
-  }
-
-  function uid(prefix) {
-    return (
-      prefix +
-      "-" +
-      Math.random().toString(36).slice(2, 8) +
-      Date.now().toString(36).slice(-4)
-    );
-  }
-
-  function loadSessions() {
-    try {
-      var raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return [];
-      var parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }
-
-  function saveSessions() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
-    } catch {
-      /* ignore quota */
-    }
-  }
-
-  function findSession(id) {
-    for (var i = 0; i < sessions.length; i++) {
-      if (sessions[i].id === id) return sessions[i];
-    }
-    return null;
-  }
-
-  function showPanel(name) {
-    Object.keys(el.panels).forEach(function (k) {
-      el.panels[k].classList.toggle("active", k === name);
+  // —— Simulation ——
+  function sleep(ms) {
+    return new Promise((r) => {
+      runTimer = setTimeout(r, ms);
     });
   }
 
-  function closeSidebar() {
-    el.sidebar.classList.remove("open");
-    el.backdrop.classList.remove("open");
-    el.backdrop.hidden = true;
-    el.btnMenu.setAttribute("aria-expanded", "false");
+  function reduceMotion() {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }
 
-  function openSidebar() {
-    el.sidebar.classList.add("open");
-    el.backdrop.classList.add("open");
-    el.backdrop.hidden = false;
-    el.btnMenu.setAttribute("aria-expanded", "true");
+  function pace(base) {
+    return reduceMotion() ? Math.min(base, 80) : base;
   }
 
-  function renderSessionList() {
-    if (!sessions.length) {
-      el.emptySessions.hidden = false;
-      el.sessionList.hidden = true;
-      el.sessionList.innerHTML = "";
+  async function runSimulation(session) {
+    const query = session.query.trim();
+    if (!query) {
+      session.status = "error";
+      session.error = "Query is empty.";
+      render();
       return;
     }
-    el.emptySessions.hidden = true;
-    el.sessionList.hidden = false;
-    var html = "";
-    for (var i = 0; i < sessions.length; i++) {
-      var s = sessions[i];
-      var active = s.id === activeId ? " active" : "";
-      html +=
-        '<li><button type="button" class="session-item' +
-        active +
-        '" data-id="' +
-        escapeHtml(s.id) +
-        '">' +
-        '<span class="status-dot ' +
-        escapeHtml(s.status) +
-        '" aria-hidden="true"></span>' +
-        '<span class="q">' +
-        escapeHtml(truncate(s.query, 80)) +
-        "</span>" +
-        '<span class="meta">' +
-        escapeHtml(s.jobId) +
-        " · " +
-        escapeHtml(statusLabel(s.status).toLowerCase()) +
-        "</span>" +
-        "</button></li>";
-    }
-    el.sessionList.innerHTML = html;
-  }
 
-  function setRunningView(session) {
-    el.jobStatusDot.className = "status-dot " + session.status;
-    el.jobStatusText.textContent = statusLabel(session.status).toLowerCase();
-    el.jobId.textContent = session.jobId;
-    el.jobQuery.textContent = session.query;
-    if (session.status === "pending") {
-      el.jobHint.textContent = "Job accepted (DEMO). Waiting to start…";
-    } else if (session.status === "running") {
-      el.jobHint.textContent = "Job running (DEMO). Report will appear when status is done.";
-    } else {
-      el.jobHint.textContent = "";
-    }
-    showPanel("running");
-  }
-
-  function markdownToSimpleHtml(md) {
-    var lines = String(md).split("\n");
-    var out = [];
-    var inList = false;
-    for (var i = 0; i < lines.length; i++) {
-      var line = lines[i];
-      if (/^##\s+/.test(line)) {
-        if (inList) {
-          out.push("</ul>");
-          inList = false;
-        }
-        out.push("<h2>" + escapeHtml(line.replace(/^##\s+/, "")) + "</h2>");
-      } else if (/^###\s+/.test(line)) {
-        if (inList) {
-          out.push("</ul>");
-          inList = false;
-        }
-        out.push("<h2>" + escapeHtml(line.replace(/^###\s+/, "")) + "</h2>");
-      } else if (/^[-*]\s+/.test(line)) {
-        if (!inList) {
-          out.push("<ul>");
-          inList = true;
-        }
-        out.push("<li>" + escapeHtml(line.replace(/^[-*]\s+/, "")) + "</li>");
-      } else if (line.trim() === "") {
-        if (inList) {
-          out.push("</ul>");
-          inList = false;
-        }
-      } else if (/^\*[^*]+\*$/.test(line.trim()) || line.indexOf("DEMO") === 0 || line.indexOf("*DEMO") === 0) {
-        if (inList) {
-          out.push("</ul>");
-          inList = false;
-        }
-        out.push('<p class="note">' + escapeHtml(line.replace(/^\*|\*$/g, "")) + "</p>");
-      } else {
-        if (inList) {
-          out.push("</ul>");
-          inList = false;
-        }
-        out.push("<p>" + escapeHtml(line) + "</p>");
-      }
-    }
-    if (inList) out.push("</ul>");
-    return out.join("\n");
-  }
-
-  function setReportView(session) {
-    el.reportTitle.textContent = truncate(session.query, 72) || "Report";
-    el.reportJobId.textContent = session.jobId;
-    el.reportStatus.textContent = "status: done";
-    el.reportWhen.textContent = session.updatedAt
-      ? new Date(session.updatedAt).toLocaleString()
-      : "";
-    el.reportBody.innerHTML = markdownToSimpleHtml(
-      session.reportMarkdown || "_No report body._"
-    );
-    showPanel("report");
-  }
-
-  function setErrorView(session) {
-    el.errorMessage.textContent =
-      session.errorMessage || "The job failed. You can try again with the same query.";
-    el.errorJobId.textContent = session.jobId;
-    showPanel("error");
-  }
-
-  function openSession(id) {
-    var s = findSession(id);
-    if (!s) return;
-    activeId = id;
-    renderSessionList();
-    if (s.status === "pending" || s.status === "running") {
-      setRunningView(s);
-    } else if (s.status === "done") {
-      setReportView(s);
-    } else if (s.status === "error") {
-      setErrorView(s);
-    }
-    closeSidebar();
-  }
-
-  function goCompose(prefill) {
-    activeId = null;
-    clearRunTimers();
-    el.queryError.textContent = "";
-    if (typeof prefill === "string") el.queryInput.value = prefill;
-    else el.queryInput.value = "";
-    renderSessionList();
-    showPanel("compose");
-    closeSidebar();
-    el.queryInput.focus();
-  }
-
-  function clearRunTimers() {
-    if (runTimer) clearTimeout(runTimer);
-    if (runTimer2) clearTimeout(runTimer2);
-    runTimer = null;
-    runTimer2 = null;
-  }
-
-  function buildMockReport(query, jobId) {
-    var q = query.trim();
-    return [
-      "## Summary",
-      "",
-      "This is a **DEMO** final report for the query:",
-      "",
-      "> " + q,
-      "",
-      "In a live system this text would come from the graph after plan → research → normalize → verify → final.",
-      "",
-      "## What a real run would do",
-      "",
-      "- Accept the query as a research job (async; poll by job id).",
-      "- Break the query into sub-questions (plan).",
-      "- Research branches in parallel, then merge findings into a draft.",
-      "- Verify the draft (pass or revise once), then emit a final report.",
-      "",
-      "## Job record",
-      "",
-      "- Job id: `" + jobId + "`",
-      "- Status: `done`",
-      "- Mode: mock (no MiMo / Tavily calls from this page)",
-      "",
-      "*DEMO — synthetic report for interview walkthroughs. Not live model output.*"
-    ].join("\n");
-  }
-
-  function startMockJob(query) {
-    var session = {
-      id: uid("sess"),
-      jobId: uid("job"),
-      query: query,
-      status: "pending",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      demo: true
-    };
-    sessions.unshift(session);
-    activeId = session.id;
+    session.status = "running";
+    session.startedAt = Date.now();
+    session.error = undefined;
+    session.retries = 0;
+    session.verdict = undefined;
+    session.reportMd = undefined;
+    session.reportHtml = undefined;
+    session.metrics = null;
+    session.stages = emptyStages();
+    session.lanes = [];
     saveSessions();
-    renderSessionList();
-    setRunningView(session);
+    render();
+    setRunningUi(true);
 
-    // pending → running shortly, then done (or error if token in query)
-    runTimer = setTimeout(function () {
-      session.status = "running";
-      session.updatedAt = new Date().toISOString();
+    const setStage = (name, state) => {
+      session.stages[name] = state;
       saveSessions();
-      renderSessionList();
-      if (activeId === session.id) setRunningView(session);
+      renderStages(session);
+    };
 
-      runTimer2 = setTimeout(function () {
-        var fail = query.indexOf(MOCK_FAIL_TOKEN) !== -1;
-        session.updatedAt = new Date().toISOString();
-        if (fail) {
-          session.status = "error";
-          session.errorMessage =
-            "Mock error: query contained the failure token. Remove it and try again.";
-        } else {
-          session.status = "done";
-          session.reportMarkdown = buildMockReport(query, session.jobId);
-        }
-        saveSessions();
-        renderSessionList();
-        if (activeId === session.id) {
-          if (fail) setErrorView(session);
-          else setReportView(session);
-        }
-      }, 1600);
-    }, 500);
+    try {
+      // Plan
+      setStage("plan", "active");
+      await sleep(pace(450));
+      const subQs = planSubQuestions(query);
+      session.lanes = subQs.map((q) => ({ q, state: "pending", findings: [] }));
+      setStage("plan", "done");
+      renderLanes(session);
+
+      // Research fan-out (parallel)
+      setStage("research", "active");
+      session.lanes.forEach((l) => {
+        l.state = "active";
+      });
+      renderLanes(session);
+      await sleep(pace(700));
+      await Promise.all(
+        session.lanes.map(async (lane, i) => {
+          await sleep(pace(200 + i * 120));
+          lane.findings = findingsFor(lane.q, i);
+          lane.state = "done";
+          renderLanes(session);
+        })
+      );
+      setStage("research", "done");
+
+      // Normalize
+      setStage("normalize", "active");
+      await sleep(pace(500));
+      setStage("normalize", "done");
+
+      // Verify — ~25% chance of revise once
+      setStage("verify", "active");
+      await sleep(pace(450));
+      const forceRevise = /revise|faithful|unsupported/i.test(query) || Math.random() < 0.28;
+      let didRevise = false;
+      if (forceRevise) {
+        didRevise = true;
+        session.verdict = "revise";
+        session.stages.verify = "revise";
+        renderVerdict(session);
+        renderStages(session);
+        await sleep(pace(400));
+        // retry research once
+        session.retries = 1;
+        setStage("research", "active");
+        session.lanes.forEach((l) => {
+          l.state = "active";
+        });
+        renderLanes(session);
+        await sleep(pace(550));
+        session.lanes.forEach((l, i) => {
+          l.findings = findingsFor(l.q, i).concat(
+            `Retry note: tightened claim language against findings for branch ${i + 1}.`
+          );
+          l.state = "done";
+        });
+        renderLanes(session);
+        setStage("research", "done");
+        setStage("normalize", "active");
+        await sleep(pace(350));
+        setStage("normalize", "done");
+        setStage("verify", "active");
+        await sleep(pace(350));
+      }
+      session.verdict = "pass";
+      setStage("verify", "done");
+      renderVerdict(session);
+
+      // Final
+      setStage("final", "active");
+      await sleep(pace(400));
+      const findingsFlat = session.lanes.flatMap((l) => l.findings);
+      const report = buildReport(session, subQs, findingsFlat, didRevise);
+      session.reportMd = report.md;
+      session.reportHtml = report.html;
+      setStage("final", "done");
+
+      session.status = "done";
+      session.endedAt = Date.now();
+      const wallMs = session.endedAt - (session.startedAt || session.endedAt);
+      const tokens = 1800 + subQs.length * 420 + findingsFlat.length * 90 + (didRevise ? 650 : 0);
+      session.metrics = {
+        wallMs,
+        stages: STAGES.length + (didRevise ? 2 : 0),
+        fanout: subQs.length,
+        findings: findingsFlat.length,
+        verdict: "pass",
+        retry: session.retries,
+        tokens,
+        costUsd: (tokens / 1000) * 0.0024,
+      };
+      saveSessions();
+      render();
+      showToast("Research complete (DEMO)");
+    } catch (err) {
+      session.status = "error";
+      session.error = err instanceof Error ? err.message : String(err);
+      session.endedAt = Date.now();
+      saveSessions();
+      render();
+      showToast("Run failed");
+    } finally {
+      setRunningUi(false);
+    }
   }
 
-  function onSubmit() {
-    var q = el.queryInput.value.trim();
-    el.queryError.textContent = "";
-    if (!q) {
-      el.queryError.textContent = "Enter a query to start a research job.";
-      el.queryInput.focus();
+  function setRunningUi(running) {
+    el.btnRun.disabled = running;
+    el.query.disabled = running;
+    el.btnRun.textContent = running ? "Running…" : "Run research";
+  }
+
+  // —— Render ——
+  function render() {
+    renderSessions();
+    const s = activeSession();
+    if (!s) {
+      el.query.value = "";
+      renderStages(null);
+      renderLanes(null);
+      renderVerdict(null);
+      renderReport(null);
+      renderMetrics(null);
+      renderJobMeta(null);
       return;
     }
-    startMockJob(q);
+    if (document.activeElement !== el.query) {
+      el.query.value = s.query;
+    }
+    el.query.disabled = s.status === "running";
+    el.btnRun.disabled = s.status === "running";
+    el.btnRun.textContent = s.status === "running" ? "Running…" : "Run research";
+    renderStages(s);
+    renderLanes(s);
+    renderVerdict(s);
+    renderReport(s);
+    renderMetrics(s);
+    renderJobMeta(s);
+    if (s.error && s.status === "error") {
+      el.composeError.textContent = s.error;
+      el.composeError.classList.add("show");
+    } else {
+      el.composeError.classList.remove("show");
+    }
   }
 
-  // Events
-  el.btnSubmit.addEventListener("click", onSubmit);
-  el.queryInput.addEventListener("keydown", function (e) {
-    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-      e.preventDefault();
-      onSubmit();
+  function renderSessions() {
+    el.sessionList.innerHTML = "";
+    if (sessions.length === 0) {
+      const empty = document.createElement("li");
+      empty.className = "sidebar-empty";
+      empty.textContent = "No sessions yet. Compose a query and run research.";
+      el.sessionList.appendChild(empty);
+      return;
     }
-  });
-  el.btnNew.addEventListener("click", function () {
-    goCompose();
-  });
-  document.getElementById("btn-new-from-report").addEventListener("click", function () {
-    goCompose();
-  });
-  document.getElementById("btn-new-from-error").addEventListener("click", function () {
-    goCompose();
-  });
-  document.getElementById("btn-retry").addEventListener("click", function () {
-    var s = activeId ? findSession(activeId) : null;
-    goCompose(s ? s.query : "");
-  });
+    for (const s of sessions) {
+      const li = document.createElement("li");
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "session-item";
+      btn.setAttribute("role", "option");
+      if (s.id === activeId) btn.setAttribute("aria-current", "true");
+      btn.innerHTML = `
+        <span class="session-title">${esc(s.query || "Untitled query")}</span>
+        <span class="session-meta">
+          <span class="status-dot ${esc(s.status)}"></span>
+          <span>${esc(s.status)}</span>
+          <span>${formatTime(s.createdAt)}</span>
+        </span>`;
+      btn.addEventListener("click", () => {
+        activeId = s.id;
+        render();
+        el.sidebar.classList.remove("open");
+        el.menuToggle.setAttribute("aria-expanded", "false");
+      });
+      li.appendChild(btn);
+      el.sessionList.appendChild(li);
+    }
+  }
 
-  el.sessionList.addEventListener("click", function (e) {
-    var btn = e.target.closest("[data-id]");
-    if (!btn) return;
-    openSession(btn.getAttribute("data-id"));
-  });
-
-  document.getElementById("example-chips").addEventListener("click", function (e) {
-    var btn = e.target.closest("[data-q]");
-    if (!btn) return;
-    el.queryInput.value = btn.getAttribute("data-q") || "";
-    el.queryInput.focus();
-  });
-
-  document.getElementById("btn-copy-report").addEventListener("click", async function () {
-    var s = activeId ? findSession(activeId) : null;
-    var text = (s && s.reportMarkdown) || el.reportBody.innerText;
+  function formatTime(ts) {
     try {
-      await navigator.clipboard.writeText(text);
-      var btn = document.getElementById("btn-copy-report");
-      var prev = btn.textContent;
-      btn.textContent = "Copied";
-      setTimeout(function () {
-        btn.textContent = prev;
-      }, 1200);
+      return new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(ts);
     } catch {
-      /* ignore */
+      return "";
+    }
+  }
+
+  function renderStages(session) {
+    const nodes = el.stageRail.querySelectorAll(".stage");
+    nodes.forEach((node) => {
+      const name = node.getAttribute("data-stage");
+      const state = session?.stages?.[name] || "idle";
+      node.setAttribute("data-state", state);
+      const stateEl = node.querySelector(".stage-state");
+      if (stateEl) stateEl.textContent = state;
+    });
+  }
+
+  function renderLanes(session) {
+    if (!session || !session.lanes?.length) {
+      el.lanes.innerHTML = `<p class="lanes-empty">Sub-questions appear here after plan.</p>`;
+      return;
+    }
+    el.lanes.innerHTML = session.lanes
+      .map(
+        (lane) => `
+      <div class="lane" data-state="${esc(lane.state)}">
+        <div class="lane-top">
+          <div class="lane-q">${esc(lane.q)}</div>
+          <span class="lane-badge">${esc(lane.state)}</span>
+        </div>
+        ${
+          lane.findings?.length
+            ? `<ul class="lane-findings">${lane.findings.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>`
+            : ""
+        }
+      </div>`
+      )
+      .join("");
+  }
+
+  function renderVerdict(session) {
+    if (!session?.verdict) {
+      el.verdict.className = "verdict";
+      el.verdict.textContent = "";
+      return;
+    }
+    const v = session.verdict;
+    el.verdict.className = `verdict show ${v === "revise" ? "revise" : "pass"}`;
+    el.verdict.textContent =
+      v === "revise"
+        ? "Verdict: revise — refreshing research once (cap 1), then re-check."
+        : "Verdict: pass — draft accepted; synthesizing final report.";
+  }
+
+  function renderReport(session) {
+    if (session?.reportHtml) {
+      el.reportBody.innerHTML = session.reportHtml;
+      el.btnCopy.disabled = false;
+      el.btnDl.disabled = false;
+    } else {
+      el.reportBody.innerHTML = `<p class="report-empty">Run research to generate a DEMO report.</p>`;
+      el.btnCopy.disabled = true;
+      el.btnDl.disabled = true;
+    }
+  }
+
+  function renderMetrics(session) {
+    const m = session?.metrics;
+    const set = (key, val, demo) => {
+      const node = el.metrics.querySelector(`[data-m="${key}"]`);
+      if (!node) return;
+      if (val == null || val === "") {
+        node.textContent = "—";
+        return;
+      }
+      node.innerHTML = esc(String(val)) + (demo ? `<span class="demo-tag">DEMO</span>` : "");
+    };
+    if (!m) {
+      ["wall", "stages", "fanout", "findings", "verdict", "retry", "tokens", "cost"].forEach((k) =>
+        set(k, null)
+      );
+      return;
+    }
+    set("wall", formatWall(m.wallMs), true);
+    set("stages", String(m.stages));
+    set("fanout", "×" + m.fanout);
+    set("findings", String(m.findings));
+    set("verdict", m.verdict);
+    set("retry", String(m.retry));
+    set("tokens", formatNum(m.tokens), true);
+    set("cost", "$" + m.costUsd.toFixed(3), true);
+  }
+
+  function formatWall(ms) {
+    if (ms < 1000) return ms + "ms";
+    return (ms / 1000).toFixed(1) + "s";
+  }
+  function formatNum(n) {
+    return new Intl.NumberFormat().format(n);
+  }
+
+  function renderJobMeta(session) {
+    if (!session) {
+      el.jobDot.className = "status-dot";
+      el.jobStatus.textContent = "Idle";
+      el.jobId.hidden = true;
+      return;
+    }
+    el.jobDot.className = "status-dot " + session.status;
+    el.jobStatus.textContent = session.status;
+    el.jobId.hidden = false;
+    el.jobId.textContent = " · " + session.id.slice(0, 8);
+  }
+
+  function showToast(msg) {
+    el.toast.textContent = msg;
+    el.toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.toast.classList.remove("show"), 2200);
+  }
+
+  function renderSamples() {
+    el.samples.innerHTML = SAMPLES.map(
+      (q) => `<button type="button" class="sample-chip" data-sample="${esc(q)}">${esc(q)}</button>`
+    ).join("");
+    el.samples.querySelectorAll(".sample-chip").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const s = activeSession() || createSession();
+        if (s.status === "running") return;
+        s.query = btn.getAttribute("data-sample") || "";
+        el.query.value = s.query;
+        saveSessions();
+        render();
+        el.query.focus();
+      });
+    });
+  }
+
+  // —— Events ——
+  el.btnNew.addEventListener("click", () => {
+    createSession("");
+    render();
+    el.query.focus();
+  });
+
+  el.btnRun.addEventListener("click", () => {
+    let s = activeSession();
+    const q = el.query.value.trim();
+    if (!q) {
+      el.composeError.textContent = "Enter a research question, or pick a sample below.";
+      el.composeError.classList.add("show");
+      el.query.focus();
+      return;
+    }
+    el.composeError.classList.remove("show");
+    if (!s || (s.status === "done" || s.status === "error") && s.query !== q) {
+      s = createSession(q);
+    } else {
+      s.query = q;
+      // re-run same session
+      s.status = "pending";
+    }
+    saveSessions();
+    render();
+    runSimulation(s);
+  });
+
+  el.query.addEventListener("input", () => {
+    const s = activeSession();
+    if (s && s.status !== "running") {
+      s.query = el.query.value;
+      saveSessions();
+      renderSessions();
     }
   });
 
-  document.getElementById("btn-download-md").addEventListener("click", function () {
-    var s = activeId ? findSession(activeId) : null;
-    var text = (s && s.reportMarkdown) || "";
-    var name = slugify(s ? s.query : "report") + ".md";
-    var blob = new Blob([text], { type: "text/markdown;charset=utf-8" });
-    var a = document.createElement("a");
+  el.btnCopy.addEventListener("click", async () => {
+    const s = activeSession();
+    if (!s?.reportMd) return;
+    try {
+      await navigator.clipboard.writeText(s.reportMd);
+      showToast("Report copied");
+    } catch {
+      showToast("Copy failed — select report text manually");
+    }
+  });
+
+  el.btnDl.addEventListener("click", () => {
+    const s = activeSession();
+    if (!s?.reportMd) return;
+    const blob = new Blob([s.reportMd], { type: "text/markdown;charset=utf-8" });
+    const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = name;
+    a.download = "research-report-demo.md";
     a.click();
     URL.revokeObjectURL(a.href);
+    showToast("Download started");
   });
 
-  el.btnMenu.addEventListener("click", function () {
-    if (el.sidebar.classList.contains("open")) closeSidebar();
-    else openSidebar();
-  });
-  el.backdrop.addEventListener("click", closeSidebar);
-  document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape") closeSidebar();
+  el.menuToggle.addEventListener("click", () => {
+    const open = el.sidebar.classList.toggle("open");
+    el.menuToggle.setAttribute("aria-expanded", open ? "true" : "false");
   });
 
-  // Initial paint
-  renderSessionList();
-  showPanel("compose");
+  // —— Boot ——
+  renderSamples();
+  if (sessions.length === 0) {
+    createSession("");
+  }
+  render();
 
   // Test helpers
   window.__RQ = {
-    escapeHtml: escapeHtml,
-    truncate: truncate,
-    slugify: slugify,
-    statusLabel: statusLabel,
-    getSessions: function () {
-      return sessions.slice();
-    },
-    getActiveId: function () {
-      return activeId;
-    },
-    startMockJob: startMockJob,
-    goCompose: goCompose,
-    openSession: openSession,
-    STORAGE_KEY: STORAGE_KEY,
-    MOCK_FAIL_TOKEN: MOCK_FAIL_TOKEN,
-    /** Faster mock for tests */
-    _setMockDelays: function (pendingMs, runningMs) {
-      window.__RQ._pendingMs = pendingMs;
-      window.__RQ._runningMs = runningMs;
-    }
+    getSessions: () => sessions,
+    getActive: () => activeSession(),
+    run: () => el.btnRun.click(),
+    newSession: () => el.btnNew.click(),
   };
-
-  // Allow tests to speed up by monkey-patching timeouts used in startMockJob
-  var _startMockJob = startMockJob;
-  startMockJob = function (query) {
-    var pendingMs = window.__RQ._pendingMs != null ? window.__RQ._pendingMs : 500;
-    var runningMs = window.__RQ._runningMs != null ? window.__RQ._runningMs : 1600;
-
-    var session = {
-      id: uid("sess"),
-      jobId: uid("job"),
-      query: query,
-      status: "pending",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      demo: true
-    };
-    sessions.unshift(session);
-    activeId = session.id;
-    saveSessions();
-    renderSessionList();
-    setRunningView(session);
-
-    clearRunTimers();
-    runTimer = setTimeout(function () {
-      session.status = "running";
-      session.updatedAt = new Date().toISOString();
-      saveSessions();
-      renderSessionList();
-      if (activeId === session.id) setRunningView(session);
-
-      runTimer2 = setTimeout(function () {
-        var fail = query.indexOf(MOCK_FAIL_TOKEN) !== -1;
-        session.updatedAt = new Date().toISOString();
-        if (fail) {
-          session.status = "error";
-          session.errorMessage =
-            "Mock error: query contained the failure token. Remove it and try again.";
-        } else {
-          session.status = "done";
-          session.reportMarkdown = buildMockReport(query, session.jobId);
-        }
-        saveSessions();
-        renderSessionList();
-        if (activeId === session.id) {
-          if (fail) setErrorView(session);
-          else setReportView(session);
-        }
-      }, runningMs);
-    }, pendingMs);
-  };
-  // rebind submit path — onSubmit closes over startMockJob name in outer scope;
-  // replace reference used by onSubmit by rewriting onSubmit's call: assign to window and redefine onSubmit
-  el.btnSubmit.onclick = null;
-  el.btnSubmit.removeEventListener("click", onSubmit);
-  function onSubmitFast() {
-    var q = el.queryInput.value.trim();
-    el.queryError.textContent = "";
-    if (!q) {
-      el.queryError.textContent = "Enter a query to start a research job.";
-      el.queryInput.focus();
-      return;
-    }
-    startMockJob(q);
-  }
-  el.btnSubmit.addEventListener("click", onSubmitFast);
-  window.__RQ.startMockJob = startMockJob;
 })();
   </script>
 </body>
