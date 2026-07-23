@@ -1,3284 +1,638 @@
-
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#0b0d10" />
-  <meta name="color-scheme" content="dark" />
-  <title>Research</title>
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+  <!--
+    THESIS: Plain research console for interview demos — start a job, leave with a report.
+      Multi-session shell; honest job states; mock-first. Refuses agent theater, magazine chrome, ops cosplay.
+    OWN-WORLD: Cool light ground (#f4f5f7), ink (#16181d), muted (#5c6370), border (#d8dce3), accent blue (#1a5fb4).
+      System UI type, 8px radius, one status-dot language. DEMO stamp on synthetic runs.
+    STORY: Interviewer watches a query become a job with id + status, then a readable report they can copy.
+    FIRST VIEWPORT: Sidebar “Sessions” (empty or list) + main compose: title, DEMO note, textarea, Start research.
+    FORM: Functional app shell — list + workspace. Staging: button commit. Seed: user-pinned simple after re-roll.
+  -->
+  <title>Research jobs — demo</title>
   <style>
-/* Research — ink instrument
-   Quiet craft + signature: serif display, signal teal, dossier sheet */
-:root {
-  --bg: #0b0d10;
-  --bg-elev: #0f1217;
-  --bg-sheet: #10141a;
-  --surface: #151a21;
-  --surface-2: #1a2029;
-  --surface-3: #222933;
+    :root {
+      --bg: #f4f5f7;
+      --surface: #ffffff;
+      --ink: #16181d;
+      --muted: #5c6370;
+      --faint: #8b919c;
+      --border: #d8dce3;
+      --border-strong: #b8bec8;
+      --accent: #1a5fb4;
+      --accent-hover: #154a8f;
+      --accent-soft: #e8f0fa;
+      --ok: #1b7a45;
+      --ok-soft: #e6f5ec;
+      --warn: #9a6700;
+      --warn-soft: #fff6e0;
+      --err: #b42318;
+      --err-soft: #fdecea;
+      --pending: #6b7280;
+      --running: #1a5fb4;
+      --done: #1b7a45;
+      --error: #b42318;
+      --sidebar-w: 260px;
+      --radius: 10px;
+      --shadow: 0 1px 2px rgba(22, 24, 29, 0.06), 0 4px 12px rgba(22, 24, 29, 0.04);
+      --font: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, sans-serif;
+      --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, monospace;
+    }
 
-  --fg: #eceae4;
-  --fg-2: #9aa3b2;
-  --muted: #6b7382;
-  --meta: #525a68;
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      font-size: 15px;
+      line-height: 1.5;
+      color: var(--ink);
+      background: var(--bg);
+    }
 
-  --border: #1e2530;
-  --border-soft: #181e27;
-  --border-strong: #2a3340;
+    button, textarea, input { font: inherit; color: inherit; }
+    button {
+      cursor: pointer;
+      border: 1px solid var(--border-strong);
+      background: var(--surface);
+      border-radius: 8px;
+      padding: 0.5rem 0.85rem;
+      line-height: 1.25;
+    }
+    button:hover:not(:disabled) { background: var(--bg); }
+    button:focus-visible,
+    textarea:focus-visible,
+    a:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      font-weight: 600;
+    }
+    button.primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+    button.ghost {
+      border-color: transparent;
+      background: transparent;
+      color: var(--muted);
+    }
+    button.ghost:hover:not(:disabled) {
+      background: var(--bg);
+      color: var(--ink);
+    }
 
-  --signal: #3ecfbe;
-  --signal-dim: color-mix(in oklab, var(--signal) 18%, transparent);
-  --signal-ink: #0b0d10;
+    .app {
+      display: grid;
+      grid-template-columns: var(--sidebar-w) 1fr;
+      grid-template-rows: auto 1fr;
+      min-height: 100%;
+      max-height: 100vh;
+    }
 
-  --accent: #eceae4;
-  --accent-on: #0b0d10;
-  --accent-hover: #ffffff;
-  --accent-active: #d4d2cb;
+    .topbar {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.65rem 1rem;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+    }
+    .brand-mark {
+      width: 0.55rem;
+      height: 0.55rem;
+      border-radius: 50%;
+      background: var(--accent);
+      flex-shrink: 0;
+    }
+    .demo-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--warn);
+      background: var(--warn-soft);
+      border: 1px solid #f0d78c;
+      border-radius: 999px;
+      padding: 0.15rem 0.5rem;
+    }
+    .topbar-note {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    .menu-btn {
+      display: none;
+      padding: 0.4rem 0.65rem;
+    }
 
-  --success: #3d9a6a;
-  --warn: #c9a227;
-  --danger: #d45454;
-  --info: var(--signal);
+    .sidebar {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .sidebar-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      padding: 0.85rem 0.9rem 0.5rem;
+    }
+    .sidebar-head h2 {
+      margin: 0;
+      font-size: 0.75rem;
+      font-weight: 650;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
+    .session-list {
+      list-style: none;
+      margin: 0;
+      padding: 0.25rem 0.5rem 1rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .session-list li { margin: 0; }
+    .session-item {
+      width: 100%;
+      text-align: left;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.45rem 0.55rem;
+      align-items: start;
+      padding: 0.6rem 0.65rem;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      background: transparent;
+      margin-bottom: 0.2rem;
+    }
+    .session-item:hover { background: var(--bg); }
+    .session-item.active {
+      background: var(--accent-soft);
+      border-color: #c5d8f0;
+    }
+    .session-item .q {
+      font-size: 0.875rem;
+      font-weight: 550;
+      color: var(--ink);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      grid-column: 2;
+    }
+    .session-item .meta {
+      grid-column: 2;
+      font-size: 0.75rem;
+      color: var(--faint);
+      font-family: var(--mono);
+    }
+    .empty-sessions {
+      padding: 0.75rem 0.9rem;
+      color: var(--muted);
+      font-size: 0.875rem;
+    }
 
-  --font-display: "Instrument Serif", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-  --font-body: "Geist", "Geist Sans", -apple-system, "Segoe UI", system-ui, sans-serif;
-  --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Monaco, monospace;
+    .status-dot {
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 50%;
+      margin-top: 0.35rem;
+      background: var(--pending);
+      flex-shrink: 0;
+    }
+    .status-dot.pending { background: var(--pending); }
+    .status-dot.running {
+      background: var(--running);
+      box-shadow: 0 0 0 3px rgba(26, 95, 180, 0.2);
+      animation: pulse-dot 1.4s ease-in-out infinite;
+    }
+    .status-dot.done { background: var(--done); }
+    .status-dot.error { background: var(--error); }
 
-  --text-xs: 12px;
-  --text-sm: 13px;
-  --text-base: 15px;
-  --text-lg: 18px;
-  --text-xl: 22px;
-  --text-2xl: 30px;
-  --text-3xl: 40px;
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.45; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .status-dot.running { animation: none; opacity: 1; }
+      * { scroll-behavior: auto !important; }
+    }
 
-  --leading-body: 1.55;
-  --leading-tight: 1.05;
-  --tracking-display: -0.02em;
+    .main {
+      min-width: 0;
+      min-height: 0;
+      overflow: auto;
+      padding: 1.5rem 1.75rem 2.5rem;
+    }
+    .workspace {
+      max-width: 42rem;
+      margin: 0 auto;
+    }
 
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
-  --space-10: 40px;
-  --space-12: 48px;
+    .panel { display: none; }
+    .panel.active { display: block; }
 
-  --btn-sm-h: 28px;
-  --btn-sm-px: 10px;
-  --btn-sm-fs: var(--text-xs);
-  --btn-sm-gap: 6px;
-  --btn-sm-icon: 12px;
+    .page-title {
+      margin: 0 0 0.35rem;
+      font-size: 1.5rem;
+      font-weight: 650;
+      letter-spacing: -0.025em;
+      line-height: 1.25;
+    }
+    .lead {
+      margin: 0 0 1.25rem;
+      color: var(--muted);
+      max-width: 38rem;
+    }
 
-  --btn-md-h: 32px;
-  --btn-md-px: 12px;
-  --btn-md-fs: var(--text-sm);
-  --btn-md-gap: 6px;
-  --btn-md-icon: 14px;
+    .callout {
+      border: 1px solid #f0d78c;
+      background: var(--warn-soft);
+      border-radius: var(--radius);
+      padding: 0.75rem 0.9rem;
+      margin-bottom: 1.25rem;
+      font-size: 0.9rem;
+      color: #5c4a12;
+    }
+    .callout strong { color: var(--ink); }
 
-  --btn-lg-h: 36px;
-  --btn-lg-px: 14px;
-  --btn-lg-fs: var(--text-sm);
-  --btn-lg-gap: 8px;
-  --btn-lg-icon: 14px;
+    .field-label {
+      display: block;
+      font-weight: 600;
+      font-size: 0.875rem;
+      margin-bottom: 0.4rem;
+    }
+    textarea#query-input {
+      width: 100%;
+      min-height: 7.5rem;
+      resize: vertical;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius);
+      padding: 0.75rem 0.85rem;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    textarea#query-input::placeholder { color: var(--faint); }
+    .field-error {
+      color: var(--err);
+      font-size: 0.85rem;
+      margin: 0.4rem 0 0;
+      min-height: 1.2em;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      margin-top: 0.85rem;
+    }
+    .examples {
+      margin-top: 1.5rem;
+    }
+    .examples h3 {
+      margin: 0 0 0.5rem;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      font-weight: 650;
+    }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+    .chip {
+      font-size: 0.8rem;
+      padding: 0.35rem 0.65rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+    }
+    .chip:hover { border-color: var(--border-strong); color: var(--ink); }
 
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-pill: 9999px;
+    .job-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 1.15rem 1.25rem;
+    }
+    .job-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1.25rem;
+      align-items: center;
+      margin-bottom: 0.85rem;
+    }
+    .job-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-weight: 600;
+      text-transform: capitalize;
+    }
+    .job-id {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      color: var(--muted);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.2rem 0.45rem;
+    }
+    .job-query {
+      margin: 0 0 0.75rem;
+      color: var(--ink);
+      font-weight: 550;
+    }
+    .job-hint {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
 
-  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px color-mix(in oklab, var(--signal) 55%, transparent);
+    .report-header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .report-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 0.85rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      margin-top: 0.35rem;
+    }
+    .report-body {
+      max-width: 68ch;
+    }
+    .report-body h2 {
+      margin: 1.35rem 0 0.45rem;
+      font-size: 1.1rem;
+      letter-spacing: -0.02em;
+    }
+    .report-body h2:first-child { margin-top: 0; }
+    .report-body p { margin: 0 0 0.75rem; color: var(--ink); }
+    .report-body ul {
+      margin: 0 0 0.85rem;
+      padding-left: 1.2rem;
+    }
+    .report-body li { margin-bottom: 0.3rem; }
+    .report-body .note {
+      font-size: 0.9rem;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      margin-top: 1.5rem;
+      padding-top: 0.85rem;
+    }
 
-  --motion-fast: 140ms;
-  --motion-base: 220ms;
-  --motion-panel: 480ms;
-  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
-  --ease-panel: cubic-bezier(0.32, 0.72, 0, 1);
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    .error-banner {
+      background: var(--err-soft);
+      border: 1px solid #f0b4ae;
+      color: #7a1a14;
+      border-radius: var(--radius);
+      padding: 0.85rem 1rem;
+      margin-bottom: 1rem;
+    }
 
-  --sidebar-w: 272px;
-  --topbar-h: 54px;
-  --z-scrim: 25;
-  --z-sidebar: 30;
-  --z-drawer-backdrop: 40;
-  --z-drawer: 50;
-  --z-modal: 55;
-  --z-toast: 80;
-}
+    .sidebar-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(22, 24, 29, 0.35);
+      z-index: 20;
+    }
+    .sidebar-backdrop.open { display: block; }
 
-*, *::before, *::after { box-sizing: border-box; }
-html, body { height: 100%; }
-html { -webkit-text-size-adjust: 100%; color-scheme: dark; }
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--fg);
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  line-height: var(--leading-body);
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  overflow: hidden;
-}
-img, svg { display: block; max-width: 100%; }
-a {
-  color: var(--fg);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  text-decoration-color: var(--border-strong);
-}
-a:hover { text-decoration-color: var(--muted); }
-a.btn { color: inherit; text-decoration: none; }
-a.btn:hover { text-decoration: none; }
-a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
-button { font: inherit; cursor: pointer; color: inherit; background: none; border: none; padding: 0; }
-p { margin: 0; text-wrap: pretty; }
-h1, h2, h3, h4 {
-  margin: 0;
-  text-wrap: balance;
-  font-weight: 500;
-  letter-spacing: var(--tracking-display);
-  line-height: var(--leading-tight);
-}
-::selection {
-  background: color-mix(in oklab, var(--signal) 32%, transparent);
-  color: var(--fg);
-}
-
-* { scrollbar-width: thin; scrollbar-color: #2a3340 transparent; }
-*::-webkit-scrollbar { width: 10px; height: 10px; }
-*::-webkit-scrollbar-track { background: transparent; }
-*::-webkit-scrollbar-thumb {
-  background: #2a3340;
-  border-radius: 99px;
-  border: 3px solid transparent;
-  background-clip: content-box;
-}
-*::-webkit-scrollbar-thumb:hover { background: #3a4555; background-clip: content-box; }
-
-/* ─── shell: left signal spine + quiet ink field ─────────────────── */
-.app {
-  display: grid;
-  grid-template-columns: var(--sidebar-w) 1fr;
-  height: 100vh;
-  min-height: 640px;
-  background:
-    radial-gradient(1200px 600px at 12% -8%, color-mix(in oklab, var(--signal) 4%, transparent), transparent 55%),
-    linear-gradient(180deg, #0e1218 0%, var(--bg) 28%, var(--bg) 100%);
-  position: relative;
-}
-.app::before {
-  content: "";
-  position: fixed;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  z-index: var(--z-drawer);
-  background: linear-gradient(
-    180deg,
-    var(--signal) 0%,
-    color-mix(in oklab, var(--signal) 35%, transparent) 42%,
-    transparent 100%
-  );
-  pointer-events: none;
-}
-/* Fine instrument grain — unique feel without noise overlays */
-.app::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0.035;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size: 180px 180px;
-  mix-blend-mode: soft-light;
-}
-
-/* ─── sidebar ───────────────────────────────────────────────────── */
-.sidebar {
-  display: flex;
-  flex-direction: column;
-  background: color-mix(in oklab, var(--bg-elev) 88%, #000);
-  border-right: 1px solid var(--border);
-  min-width: 0;
-  z-index: 2;
-}
-.sidebar-head {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-4) var(--space-3) var(--space-3);
-  border-bottom: 1px solid var(--border);
-}
-.brand-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  min-height: 28px;
-  padding: 0 2px;
-  margin-bottom: 2px;
-}
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 500;
-  font-size: var(--text-sm);
-  letter-spacing: -0.02em;
-  color: var(--fg);
-}
-.brand-mark {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  background: var(--fg);
-  color: var(--bg);
-  display: grid;
-  place-items: center;
-  font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 400;
-  font-style: italic;
-  line-height: 1;
-  letter-spacing: 0;
-  box-shadow:
-    0 0 0 1px rgba(255,255,255,0.06),
-    0 0 0 3px color-mix(in oklab, var(--signal) 12%, transparent);
-}
-.brand-text {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  line-height: 1.1;
-}
-.brand-name {
-  font-size: var(--text-sm);
-  font-weight: 500;
-  letter-spacing: -0.02em;
-}
-.brand-sub {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 400;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--meta);
-}
-
-/* buttons */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-sm);
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  transition:
-    background var(--motion-fast) var(--ease-standard),
-    color var(--motion-fast) var(--ease-standard),
-    border-color var(--motion-fast) var(--ease-standard),
-    opacity var(--motion-fast) var(--ease-standard),
-    transform var(--motion-fast) var(--ease-standard);
-  white-space: nowrap;
-  height: var(--btn-md-h);
-  padding: 0 var(--btn-md-px);
-  font-size: var(--btn-md-fs);
-  gap: var(--btn-md-gap);
-}
-.btn svg {
-  width: var(--btn-md-icon);
-  height: var(--btn-md-icon);
-  flex-shrink: 0;
-}
-.btn-sm {
-  height: var(--btn-sm-h);
-  padding: 0 var(--btn-sm-px);
-  font-size: var(--btn-sm-fs);
-  gap: var(--btn-sm-gap);
-}
-.btn-sm svg { width: var(--btn-sm-icon); height: var(--btn-sm-icon); }
-.btn-md {
-  height: var(--btn-md-h);
-  padding: 0 var(--btn-md-px);
-  font-size: var(--btn-md-fs);
-  gap: var(--btn-md-gap);
-}
-.btn-md svg { width: var(--btn-md-icon); height: var(--btn-md-icon); }
-.btn-lg {
-  height: var(--btn-lg-h);
-  padding: 0 var(--btn-lg-px);
-  font-size: var(--btn-lg-fs);
-  gap: var(--btn-lg-gap);
-}
-.btn-lg svg { width: var(--btn-lg-icon); height: var(--btn-lg-icon); }
-
-.btn-primary {
-  background: var(--accent);
-  color: var(--accent-on);
-}
-.btn-primary:hover { background: var(--accent-hover); }
-.btn-primary:active {
-  background: var(--accent-active);
-  transform: translateY(0.5px);
-}
-
-.btn-secondary {
-  background: transparent;
-  color: var(--fg);
-  border: 1px solid var(--border-strong);
-}
-.btn-secondary:hover {
-  background: var(--surface);
-  border-color: #3a4555;
-}
-
-.btn-ghost {
-  background: transparent;
-  color: var(--fg-2);
-}
-.btn-ghost:hover {
-  background: var(--surface);
-  color: var(--fg);
-}
-
-.btn-danger-ghost { color: #e07a7a; }
-.btn-danger-ghost:hover {
-  background: rgba(212, 84, 84, 0.1);
-  color: #f0a0a0;
-}
-.btn-danger {
-  background: var(--danger);
-  color: #fff;
-}
-.btn-danger:hover { background: color-mix(in oklab, var(--danger), white 8%); }
-.btn-danger:active { background: color-mix(in oklab, var(--danger), black 10%); }
-
-.btn-block { width: 100%; }
-.btn:disabled,
-.btn[aria-disabled="true"] {
-  opacity: 0.4;
-  cursor: not-allowed;
-  pointer-events: none;
-}
-
-.field-search { position: relative; }
-.field-search svg {
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 14px;
-  height: 14px;
-  color: var(--meta);
-  pointer-events: none;
-}
-.field-search input {
-  width: 100%;
-  height: var(--btn-md-h);
-  padding: 0 10px 0 32px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg);
-  font-size: var(--text-sm);
-  color: var(--fg);
-  transition: border-color var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard);
-}
-.field-search input::placeholder { color: var(--meta); }
-.field-search input:hover { border-color: var(--border-strong); }
-.field-search input:focus-visible {
-  border-color: color-mix(in oklab, var(--signal) 45%, var(--border-strong));
-  background: var(--bg-elev);
-  box-shadow: var(--focus-ring);
-  outline: none;
-}
-
-.session-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--space-2);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.session-list-label {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--meta);
-  padding: var(--space-3) var(--space-2) var(--space-2);
-  font-weight: 500;
-}
-.session-item {
-  display: grid;
-  grid-template-columns: 6px 1fr;
-  gap: var(--space-3);
-  align-items: start;
-  padding: 10px 12px;
-  border-radius: var(--radius-md);
-  text-align: left;
-  width: 100%;
-  transition: background var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard);
-  cursor: pointer;
-  border: 1px solid transparent;
-  position: relative;
-}
-.session-item:hover { background: var(--surface); }
-.session-item.active {
-  background: var(--surface);
-  border-color: var(--border);
-}
-.session-item.active::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 10px;
-  bottom: 10px;
-  width: 2px;
-  border-radius: 2px;
-  background: var(--signal);
-}
-.session-item:focus-visible { box-shadow: var(--focus-ring); }
-
-.session-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  margin-top: 7px;
-  background: var(--meta);
-  flex-shrink: 0;
-}
-.session-dot.complete { background: var(--success); }
-.session-dot.warnings { background: var(--warn); }
-.session-dot.running {
-  background: var(--signal);
-  box-shadow: 0 0 0 3px var(--signal-dim);
-  animation: pulse-dot 1.6s var(--ease-standard) infinite;
-}
-.session-dot.cancelled { background: var(--meta); }
-.session-dot.error { background: var(--danger); }
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
-}
-
-.session-title {
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--fg);
-  line-height: 1.4;
-  letter-spacing: -0.01em;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.session-meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-top: 6px;
-  font-size: 11px;
-  color: var(--meta);
-  font-family: var(--font-mono);
-  font-weight: 400;
-}
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 20px;
-  padding: 0 7px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 500;
-  font-family: var(--font-mono);
-  letter-spacing: 0;
-  background: var(--surface-2);
-  color: var(--muted);
-  border: 1px solid var(--border);
-  width: fit-content;
-  max-width: max-content;
-}
-.badge-success,
-.badge-warn,
-.badge-muted {
-  background: var(--surface-2);
-  color: var(--muted);
-  border-color: var(--border);
-}
-.badge-danger {
-  background: rgba(212, 84, 84, 0.1);
-  color: #e08a8a;
-  border-color: rgba(212, 84, 84, 0.25);
-}
-.badge-accent {
-  background: var(--signal-dim);
-  color: var(--signal);
-  border-color: color-mix(in oklab, var(--signal) 30%, transparent);
-}
-.badge-dot::before {
-  content: "";
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: currentColor;
-  opacity: 0.9;
-}
-
-.sidebar-empty {
-  padding: var(--space-10) var(--space-4);
-  text-align: center;
-  color: var(--muted);
-  font-size: var(--text-sm);
-}
-.sidebar-empty strong {
-  display: block;
-  color: var(--fg);
-  margin-bottom: var(--space-2);
-  font-weight: 500;
-}
-.sidebar-foot {
-  padding: 10px var(--space-4);
-  border-top: 1px solid var(--border);
-  font-size: 11px;
-  color: var(--meta);
-  font-family: var(--font-mono);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-.sidebar-foot .foot-live {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.sidebar-foot .foot-live::before {
-  content: "";
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--signal);
-  box-shadow: 0 0 0 3px var(--signal-dim);
-}
-
-/* ─── main ──────────────────────────────────────────────────────── */
-.main {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  background: transparent;
-  position: relative;
-  z-index: 1;
-}
-.topbar {
-  height: var(--topbar-h);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding: 0 var(--space-5);
-  border-bottom: 1px solid var(--border);
-  background: color-mix(in oklab, var(--bg) 82%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  z-index: 5;
-  flex-shrink: 0;
-}
-.topbar-left {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-width: 0;
-  flex: 1;
-}
-.topbar-query {
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--fg-2);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 42ch;
-  letter-spacing: -0.01em;
-}
-.tabs {
-  display: flex;
-  align-items: stretch;
-  gap: 0;
-  height: var(--topbar-h);
-  padding: 0;
-  background: transparent;
-  margin-left: var(--space-2);
-}
-.tab {
-  height: 100%;
-  padding: 0 14px;
-  border-radius: 0;
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--muted);
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  transition: color var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard);
-  background: transparent;
-}
-.tab:hover { color: var(--fg); background: transparent; }
-.tab.active {
-  background: transparent;
-  color: var(--fg);
-  border-bottom-color: var(--signal);
-  box-shadow: none;
-  border-left: none;
-  border-right: none;
-  border-top: none;
-}
-.tab:disabled,
-.tab[aria-disabled="true"] {
-  opacity: 0.35;
-  cursor: not-allowed;
-  color: var(--meta);
-}
-.tab:disabled:hover,
-.tab[aria-disabled="true"]:hover { color: var(--meta); }
-.topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-shrink: 0;
-}
-.menu-toggle { display: none; flex-shrink: 0; }
-
-.content {
-  flex: 1;
-  overflow: hidden;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-}
-
-/* ─── compose — large editorial brief ───────────────────────────── */
-.compose {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-8) var(--space-6);
-  overflow-y: auto;
-  position: relative;
-}
-.compose::before {
-  content: "";
-  position: absolute;
-  width: min(640px, 90vw);
-  height: 280px;
-  top: 22%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: radial-gradient(ellipse at center, color-mix(in oklab, var(--signal) 9%, transparent), transparent 70%);
-  pointer-events: none;
-  z-index: 0;
-}
-.compose-card {
-  width: min(560px, 100%);
-  background: transparent;
-  border-radius: 0;
-  box-shadow: none;
-  padding: 0;
-  border: none;
-  position: relative;
-  z-index: 1;
-  animation: rise-in 520ms var(--ease-out) both;
-}
-@keyframes rise-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.compose-agents { display: none; }
-
-.compose-card .eyebrow {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--signal);
-  margin-bottom: var(--space-4);
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.compose-card .eyebrow::before {
-  content: "";
-  width: 18px;
-  height: 1px;
-  background: var(--signal);
-  opacity: 0.7;
-}
-.compose-card h1 {
-  font-family: var(--font-display);
-  font-size: clamp(36px, 5.2vw, 52px);
-  margin-bottom: var(--space-4);
-  color: var(--fg);
-  letter-spacing: -0.025em;
-  font-weight: 400;
-  line-height: 0.98;
-  max-width: 13ch;
-}
-.compose-card h1 em {
-  font-style: italic;
-  color: color-mix(in oklab, var(--fg) 88%, var(--signal));
-}
-.compose-card .lead {
-  color: var(--fg-2);
-  margin-bottom: var(--space-5);
-  max-width: 44ch;
-  font-size: var(--text-base);
-  line-height: 1.65;
-}
-/* Signature agent strip — instrument codes, not chips-of-AI */
-.compose-agent-rail {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 14px;
-  margin-bottom: var(--space-6);
-  padding: 10px 0 2px;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-}
-.compose-agent-rail span {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  color: var(--meta);
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.compose-agent-rail span b {
-  font-weight: 500;
-  color: var(--fg-2);
-  letter-spacing: 0.04em;
-}
-.compose-agent-rail span i {
-  font-style: normal;
-  color: var(--signal);
-  opacity: 0.85;
-}
-.compose-input {
-  width: 100%;
-  min-height: 128px;
-  resize: vertical;
-  padding: var(--space-4);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
-  background: var(--bg-sheet);
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  line-height: 1.55;
-  color: var(--fg);
-  transition: border-color var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
-}
-.compose-input::placeholder { color: var(--meta); }
-.compose-input:hover { border-color: #3a4555; }
-.compose-input:focus-visible {
-  border-color: color-mix(in oklab, var(--signal) 50%, var(--border-strong));
-  background: var(--surface);
-  box-shadow: var(--focus-ring);
-  outline: none;
-}
-.compose-input.invalid {
-  border-color: color-mix(in oklab, var(--danger) 70%, #404040);
-}
-.compose-error {
-  display: none;
-  margin-top: var(--space-2);
-  font-size: var(--text-xs);
-  color: #e08a8a;
-  font-family: var(--font-mono);
-}
-.compose-error.show { display: block; }
-.compose-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  margin-top: var(--space-3);
-  flex-wrap: wrap;
-}
-.compose-hint {
-  font-size: 11px;
-  color: var(--meta);
-  font-family: var(--font-mono);
-}
-.topbar-hint {
-  font-size: 11px;
-  color: var(--meta);
-  font-family: var(--font-mono);
-  white-space: nowrap;
-}
-.compose-examples {
-  margin-top: var(--space-8);
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  border-top: 1px solid var(--border);
-  padding-top: var(--space-4);
-}
-.compose-examples-label {
-  width: 100%;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--meta);
-  margin-bottom: var(--space-2);
-  font-weight: 500;
-}
-.compose-examples-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.chip {
-  height: auto;
-  min-height: 40px;
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  font-size: var(--text-sm);
-  color: var(--fg-2);
-  background: transparent;
-  border: 1px solid transparent;
-  transition: background var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard);
-  display: grid;
-  grid-template-columns: 28px 1fr;
-  gap: var(--space-3);
-  align-items: center;
-  text-align: left;
-  width: 100%;
-}
-.chip .chip-n {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--meta);
-}
-.chip:hover {
-  background: var(--surface);
-  color: var(--fg);
-  border-color: var(--border);
-  transform: none;
-}
-.chip:hover .chip-n { color: var(--signal); }
-
-/* ─── report — dossier sheet ────────────────────────────────────── */
-.panel {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--space-6) var(--space-6) var(--space-12);
-  background:
-    radial-gradient(900px 420px at 50% -10%, color-mix(in oklab, var(--signal) 5%, transparent), transparent 60%);
-}
-.panel-inner {
-  max-width: 720px;
-  margin: 0 auto;
-  background:
-    linear-gradient(165deg, color-mix(in oklab, var(--signal) 3%, var(--bg-sheet)) 0%, var(--bg-sheet) 28%),
-    var(--bg-sheet);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-8) var(--space-8) var(--space-10);
-  box-shadow:
-    0 1px 0 rgba(255,255,255,0.03) inset,
-    0 24px 64px -32px rgba(0,0,0,0.55);
-  animation: rise-in 480ms var(--ease-out) both;
-  position: relative;
-  overflow: hidden;
-}
-.panel-inner::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 24px;
-  right: 24px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--signal) 40%, transparent), transparent);
-  opacity: 0.7;
-}
-/* Dossier folio stamp — editorial signature */
-.panel-inner::after {
-  content: "DOSSIER";
-  position: absolute;
-  top: 22px;
-  right: 22px;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.22em;
-  color: var(--meta);
-  opacity: 0.45;
-  pointer-events: none;
-}
-
-.degraded-banner {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  background: rgba(201, 162, 39, 0.08);
-  border: 1px solid rgba(201, 162, 39, 0.28);
-  margin-bottom: var(--space-6);
-}
-.degraded-banner svg {
-  width: 16px;
-  height: 16px;
-  color: var(--warn);
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-.degraded-banner strong {
-  display: block;
-  font-size: var(--text-sm);
-  color: var(--fg);
-  margin-bottom: 2px;
-}
-.degraded-banner p { font-size: var(--text-sm); color: var(--fg-2); }
-
-.report-header {
-  margin-bottom: var(--space-8);
-  padding-bottom: var(--space-6);
-  border-bottom: 1px solid var(--border);
-}
-.report-header .eyebrow {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--signal);
-  margin-bottom: var(--space-3);
-  font-weight: 500;
-}
-.report-header h1 {
-  font-family: var(--font-display);
-  font-size: clamp(30px, 4vw, 40px);
-  letter-spacing: -0.02em;
-  line-height: 1.05;
-  margin-bottom: var(--space-4);
-  max-width: 16ch;
-  color: var(--fg);
-  font-weight: 400;
-}
-.report-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 0;
-  font-size: 11px;
-  color: var(--meta);
-  font-family: var(--font-mono);
-  align-items: center;
-}
-.report-meta > span {
-  display: inline-flex;
-  align-items: center;
-}
-.report-meta > span:not(:last-child)::after {
-  content: "";
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: var(--meta);
-  margin: 0 10px;
-  opacity: 0.7;
-}
-
-.report-body {
-  max-width: 58ch;
-  font-size: var(--text-base);
-  line-height: 1.72;
-  color: var(--fg-2);
-}
-.report-body h2 {
-  font-family: var(--font-display);
-  font-size: 26px;
-  letter-spacing: -0.015em;
-  line-height: 1.1;
-  color: var(--fg);
-  margin: var(--space-10) 0 var(--space-3);
-  font-weight: 400;
-}
-.report-body h3 {
-  font-size: var(--text-base);
-  letter-spacing: -0.015em;
-  color: var(--fg);
-  margin: var(--space-6) 0 var(--space-2);
-  font-weight: 600;
-  font-family: var(--font-body);
-}
-.report-body > p:first-child {
-  color: var(--fg-2);
-  max-width: 54ch;
-  font-size: 16px;
-  line-height: 1.72;
-}
-.report-body p + p { margin-top: var(--space-3); }
-.report-body ul {
-  margin: var(--space-3) 0 0;
-  padding-left: 1.15em;
-  color: var(--fg-2);
-}
-.report-body li + li { margin-top: var(--space-2); }
-.report-body li::marker { color: var(--signal); }
-.report-body li strong { color: var(--fg); font-weight: 600; }
-.report-body .callout {
-  margin: var(--space-6) 0;
-  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-5);
-  border-radius: var(--radius-md);
-  background: color-mix(in oklab, var(--signal) 6%, var(--surface));
-  border: 1px solid color-mix(in oklab, var(--signal) 18%, var(--border));
-  border-left: 2px solid var(--signal);
-  font-size: var(--text-sm);
-  line-height: 1.65;
-  color: var(--fg-2);
-  position: relative;
-}
-.report-body .callout::before { display: none; }
-.report-body .callout strong {
-  color: var(--fg);
-  font-family: var(--font-body);
-}
-.report-body .table-scroll {
-  width: 100%;
-  overflow-x: auto;
-  margin: var(--space-5) 0;
-  -webkit-overflow-scrolling: touch;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: var(--bg-elev);
-}
-.report-body table {
-  width: 100%;
-  min-width: 420px;
-  border-collapse: collapse;
-  margin: 0;
-  font-size: var(--text-sm);
-}
-.report-body th,
-.report-body td {
-  text-align: left;
-  padding: 11px 14px;
-  border-bottom: 1px solid var(--border);
-}
-.report-body tr:last-child td { border-bottom: none; }
-.report-body th {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--meta);
-  font-weight: 500;
-  background: rgba(255,255,255,0.015);
-}
-.report-body td { color: var(--fg-2); }
-.report-body td:first-child { color: var(--fg); font-weight: 500; }
-.report-body tbody tr:hover td { background: rgba(255,255,255,0.015); }
-
-.sources {
-  margin-top: var(--space-10);
-  border-top: 1px solid var(--border);
-  padding-top: var(--space-3);
-}
-.sources-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: var(--space-3) 0;
-  text-align: left;
-  cursor: pointer;
-}
-.sources-toggle:hover .sources-toggle-label { color: var(--fg); }
-.sources-toggle-label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-weight: 600;
-  font-size: var(--text-sm);
-  color: var(--fg-2);
-  transition: color var(--motion-fast) var(--ease-standard);
-}
-.sources-toggle-label svg {
-  width: 14px;
-  height: 14px;
-  transition: transform var(--motion-fast) var(--ease-standard);
-  color: var(--signal);
-}
-.sources.open .sources-toggle-label svg { transform: rotate(90deg); }
-.sources-count {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--meta);
-}
-.sources-list {
-  display: none;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding-bottom: var(--space-2);
-}
-.sources.open .sources-list { display: flex; }
-.source-item {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: var(--space-3);
-  align-items: start;
-  padding: 12px 14px;
-  border-radius: var(--radius-md);
-  background: transparent;
-  border: 1px solid var(--border);
-  text-align: left;
-  width: 100%;
-  transition: background var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard);
-  cursor: pointer;
-}
-.source-item:hover {
-  background: var(--surface);
-  border-color: color-mix(in oklab, var(--signal) 25%, var(--border));
-  transform: none;
-  box-shadow: none;
-}
-.source-title {
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--fg);
-  margin-bottom: 2px;
-  display: block;
-}
-.source-url {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--meta);
-  word-break: break-all;
-  display: block;
-}
-.source-agents {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  justify-content: flex-end;
-}
-.source-agents-modal {
-  justify-content: flex-start;
-  margin-bottom: var(--space-2);
-}
-
-/* ─── live trace — instrument lanes ─────────────────────────────── */
-.trace-wrap {
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  padding: var(--space-4) var(--space-5) var(--space-5);
-  animation: rise-in 400ms var(--ease-out) both;
-  position: relative;
-}
-/* Live ticks re-render the DOM — never restart the entrance fade */
-.trace-wrap.is-running,
-.trace-wrap.is-finishing {
-  animation: none;
-}
-.trace-wrap.is-running::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(720px 280px at 50% 0%, color-mix(in oklab, var(--signal) 7%, transparent), transparent 70%);
-  z-index: 0;
-}
-.trace-toolbar {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: var(--space-3);
-  flex-shrink: 0;
-  position: relative;
-  z-index: 1;
-}
-.trace-toolbar-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-.trace-status {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  font-size: 11px;
-  color: var(--meta);
-  font-family: var(--font-mono);
-  flex-wrap: wrap;
-}
-.trace-status .trace-active-count {
-  color: var(--signal);
-}
-.trace-status [data-trace-hint].trace-active-count {
-  font-weight: 500;
-}
-.trace-progress {
-  height: 2px;
-  width: 100%;
-  background: var(--border);
-  border-radius: 99px;
-  overflow: hidden;
-  position: relative;
-}
-.trace-progress-fill {
-  height: 100%;
-  width: var(--p, 0%);
-  background: linear-gradient(90deg, color-mix(in oklab, var(--signal) 55%, var(--border)), var(--signal));
-  border-radius: 99px;
-  transition: width 280ms var(--ease-standard);
-  box-shadow: 0 0 12px color-mix(in oklab, var(--signal) 35%, transparent);
-}
-.trace-wrap:not(.is-running) .trace-progress { display: none; }
-.trace-wrap.is-finishing .trace-progress-fill {
-  background: var(--signal);
-  width: 100% !important;
-}
-
-.lanes {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-3);
-  overflow: hidden;
-  position: relative;
-  z-index: 1;
-}
-.lane {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  background: var(--bg-sheet);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  border: 1px solid var(--border);
-  transition:
-    border-color 320ms var(--ease-standard),
-    opacity 320ms var(--ease-standard),
-    box-shadow 320ms var(--ease-standard),
-    transform 320ms var(--ease-out),
-    background 320ms var(--ease-standard);
-  position: relative;
-  box-shadow: none;
-}
-.lane::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: transparent;
-  z-index: 1;
-  transition: background 320ms var(--ease-standard), opacity 320ms var(--ease-standard);
-}
-
-/* Active — lit instrument */
-.lane.is-active {
-  border-color: color-mix(in oklab, var(--signal) 48%, var(--border));
-  box-shadow:
-    0 0 0 1px color-mix(in oklab, var(--signal) 14%, transparent),
-    0 12px 28px -18px color-mix(in oklab, var(--signal) 35%, transparent);
-  transform: translateY(-2px);
-  background: color-mix(in oklab, var(--signal) 4%, var(--bg-sheet));
-  opacity: 1;
-  z-index: 2;
-}
-.lane.is-active::before {
-  background: linear-gradient(90deg, transparent, var(--signal), transparent);
-  opacity: 1;
-  animation: edge-pulse 1.8s var(--ease-standard) infinite;
-}
-.lane.is-active .lane-head {
-  background: color-mix(in oklab, var(--signal) 8%, transparent);
-}
-.lane.is-active .lane-name .lane-code { color: var(--signal); }
-.lane.is-active .badge-accent {
-  animation: badge-soft 1.6s var(--ease-standard) infinite;
-}
-
-/* Done mid-run / finished */
-.lane.is-done {
-  opacity: 0.92;
-  border-color: var(--border);
-}
-.lane.is-done .lane-name .lane-code {
-  color: color-mix(in oklab, var(--signal) 55%, var(--meta));
-}
-.lane.is-done::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 2px;
-  bottom: 0;
-  background: color-mix(in oklab, var(--signal) 35%, transparent);
-  opacity: 0.7;
-}
-
-/* Queued */
-.lane.is-waiting {
-  opacity: 0.48;
-}
-.lane.is-waiting .lane-name { color: var(--muted); font-weight: 500; }
-.lane.is-waiting .lane-waiting strong {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.lane.is-waiting .lane-waiting strong::after {
-  content: "";
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--meta);
-  animation: queue-dot 1.2s var(--ease-standard) infinite;
-  box-shadow:
-    7px 0 0 var(--meta),
-    14px 0 0 var(--meta);
-}
-
-.trace-wrap.is-finishing .lane {
-  opacity: 1;
-  transform: none;
-  border-color: color-mix(in oklab, var(--signal) 22%, var(--border));
-}
-.trace-wrap.is-finishing .lane::before {
-  background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--signal) 55%, transparent), transparent);
-  opacity: 0.7;
-}
-
-.lane-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  padding: 12px 12px 11px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-  background: transparent;
-  transition: background 280ms var(--ease-standard);
-}
-.lane-name {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  letter-spacing: -0.015em;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.lane-name .lane-code {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  color: var(--meta);
-  min-width: 1.4em;
-  transition: color 280ms var(--ease-standard);
-}
-.lane-name::before { display: none; }
-.lane-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  scroll-behavior: smooth;
-  background: transparent;
-}
-.trace-entry {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 9px 10px;
-  border-radius: var(--radius-sm);
-  transition: background var(--motion-fast) var(--ease-standard);
-  cursor: pointer;
-  border: 1px solid transparent;
-}
-.trace-entry.is-new {
-  animation: entry-in 480ms var(--ease-out) both;
-  background: color-mix(in oklab, var(--signal) 7%, transparent);
-  border-color: color-mix(in oklab, var(--signal) 14%, transparent);
-}
-.trace-entry:hover {
-  background: var(--surface);
-  border-color: transparent;
-}
-.trace-entry.is-new:hover {
-  background: color-mix(in oklab, var(--signal) 10%, var(--surface));
-}
-.trace-entry:focus-visible { box-shadow: var(--focus-ring); }
-.trace-entry.error {
-  background: rgba(212, 84, 84, 0.08);
-  border-color: transparent;
-}
-.trace-entry.error:hover {
-  background: rgba(212, 84, 84, 0.12);
-}
-.trace-entry-time {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--meta);
-  margin-bottom: 3px;
-  letter-spacing: 0;
-}
-.trace-entry-text {
-  font-size: var(--text-sm);
-  color: var(--fg-2);
-  line-height: 1.45;
-}
-.trace-entry.error .trace-entry-text { color: #e08a8a; }
-.lane-waiting {
-  padding: var(--space-8) var(--space-3);
-  text-align: center;
-  color: var(--meta);
-  font-size: 11px;
-  font-family: var(--font-mono);
-  line-height: 1.5;
-}
-.lane-waiting strong {
-  display: block;
-  color: var(--fg-2);
-  font-weight: 500;
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  margin-bottom: 2px;
-  letter-spacing: -0.01em;
-}
-.lane-live-bar {
-  height: 2px;
-  background: transparent;
-  flex-shrink: 0;
-  overflow: hidden;
-  position: relative;
-}
-.lane.is-active .lane-live-bar {
-  background: color-mix(in oklab, var(--signal) 16%, transparent);
-}
-.lane.is-active .lane-live-bar::after {
-  content: "";
-  display: block;
-  height: 100%;
-  width: 38%;
-  background: linear-gradient(90deg, transparent, var(--signal), transparent);
-  animation: lane-scan 1.15s linear infinite;
-  opacity: 1;
-}
-.lane.is-done .lane-live-bar {
-  background: color-mix(in oklab, var(--signal) 10%, transparent);
-}
-
-@keyframes lane-scan {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(320%); }
-}
-@keyframes entry-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-@keyframes edge-pulse {
-  0%, 100% { opacity: 0.55; }
-  50% { opacity: 1; }
-}
-@keyframes badge-soft {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.65; }
-}
-@keyframes queue-dot {
-  0%, 100% {
-    opacity: 0.35;
-    box-shadow: 7px 0 0 rgba(107, 115, 130, 0.35), 14px 0 0 rgba(107, 115, 130, 0.2);
-  }
-  40% {
-    opacity: 1;
-    box-shadow: 7px 0 0 var(--meta), 14px 0 0 rgba(107, 115, 130, 0.45);
-  }
-}
-
-/* ─── drawer ────────────────────────────────────────────────────── */
-.drawer-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(4, 6, 10, 0.62);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--motion-panel) var(--ease-panel);
-  z-index: var(--z-drawer-backdrop);
-}
-.drawer-backdrop.open {
-  opacity: 1;
-  pointer-events: auto;
-}
-.drawer {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: min(420px, 100vw);
-  background: var(--bg-elev);
-  border-left: 1px solid var(--border);
-  box-shadow: -16px 0 48px rgba(0,0,0,0.35);
-  transform: translateX(100%);
-  transition: transform var(--motion-panel) var(--ease-panel);
-  z-index: var(--z-drawer);
-  display: flex;
-  flex-direction: column;
-  will-change: transform;
-}
-.drawer.open { transform: translateX(0); }
-.drawer-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-5) var(--space-4) var(--space-4);
-  border-bottom: 1px solid var(--border);
-  background: transparent;
-  position: relative;
-}
-.drawer-head::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: var(--signal);
-  opacity: 0.7;
-}
-.drawer-head h2 {
-  font-family: var(--font-display);
-  font-size: 22px;
-  letter-spacing: -0.015em;
-  line-height: 1.2;
-  font-weight: 400;
-}
-.drawer-sub {
-  margin-top: 6px;
-  font-size: 11px;
-  color: var(--meta);
-  font-family: var(--font-mono);
-}
-.drawer-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-.drawer-section label {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--meta);
-  margin-bottom: var(--space-2);
-  font-weight: 500;
-}
-.drawer-pre {
-  margin: 0;
-  padding: var(--space-3);
-  border-radius: var(--radius-md);
-  background: var(--bg);
-  border: 1px solid var(--border);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.55;
-  color: var(--fg-2);
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-/* ─── toast ─────────────────────────────────────────────────────── */
-.toast {
-  position: fixed;
-  bottom: var(--space-5);
-  left: 50%;
-  transform: translateX(-50%) translateY(8px);
-  background: var(--surface-3);
-  color: var(--fg);
-  padding: 10px 16px;
-  border-radius: var(--radius-sm);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--motion-base) var(--ease-standard),
-              transform var(--motion-base) var(--ease-standard);
-  z-index: var(--z-toast);
-  border: 1px solid var(--border-strong);
-  box-shadow: 0 12px 32px rgba(0,0,0,0.4);
-  max-width: min(400px, calc(100vw - 32px));
-  text-align: center;
-}
-.toast.show {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
-.toast.toast-destructive {
-  background: var(--surface-3);
-  color: var(--fg);
-  border-color: rgba(212, 84, 84, 0.4);
-  font-weight: 600;
-  border-radius: var(--radius-sm);
-}
-.toast.toast-destructive::before {
-  content: "";
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--danger);
-  margin-right: 8px;
-  vertical-align: 1px;
-}
-
-/* ─── modals ────────────────────────────────────────────────────── */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(4, 6, 10, 0.65);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--motion-panel) var(--ease-panel);
-  z-index: var(--z-modal);
-  display: grid;
-  place-items: center;
-  padding: var(--space-6);
-}
-.modal-backdrop.open {
-  opacity: 1;
-  pointer-events: auto;
-}
-.modal {
-  width: min(420px, 100%);
-  background: var(--bg-elev);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  box-shadow: 0 20px 56px rgba(0,0,0,0.5);
-  padding: var(--space-5);
-  transform: translateY(8px);
-  transition: transform var(--motion-panel) var(--ease-panel);
-  will-change: transform;
-  position: relative;
-  overflow: hidden;
-}
-.modal::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 20px;
-  right: 20px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--signal) 45%, transparent), transparent);
-}
-.modal-backdrop.open .modal { transform: translateY(0); }
-.modal h3 {
-  font-family: var(--font-display);
-  font-size: 26px;
-  margin-bottom: var(--space-2);
-  letter-spacing: -0.015em;
-  font-weight: 400;
-  line-height: 1.1;
-}
-.modal p {
-  color: var(--fg-2);
-  font-size: var(--text-sm);
-  margin-bottom: var(--space-4);
-  line-height: 1.55;
-}
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  margin-top: var(--space-5);
-}
-
-.hidden { display: none !important; }
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-.sidebar-scrim {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(4, 6, 10, 0.55);
-  z-index: var(--z-scrim);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--motion-base) var(--ease-standard);
-}
-.sidebar-scrim.open {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-/* ─── responsive ────────────────────────────────────────────────── */
-@media (max-width: 1100px) {
-  .lanes { grid-template-columns: repeat(2, minmax(0, 1fr)); overflow-y: auto; }
-  .topbar-query { max-width: 28ch; }
-}
-@media (max-width: 860px) {
-  .app { grid-template-columns: 1fr; }
-  .app::before { display: none; }
-  .menu-toggle { display: inline-flex; }
-  .sidebar-scrim { display: block; }
-  .sidebar {
-    position: fixed;
-    inset: 0 auto 0 0;
-    width: min(var(--sidebar-w), 88vw);
-    transform: translateX(-100%);
-    transition: transform var(--motion-panel) var(--ease-panel);
-    z-index: var(--z-sidebar);
-    box-shadow: none;
-    background: var(--bg-elev);
-  }
-  .sidebar.mobile-open {
-    transform: translateX(0);
-    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.45);
-  }
-  .topbar {
-    padding: 0 var(--space-3);
-    gap: var(--space-2);
-  }
-  .topbar-left { gap: var(--space-2); }
-  .topbar-query {
-    max-width: 14ch;
-    font-size: 12px;
-  }
-  .tabs { margin-left: 0; }
-  .tab {
-    padding: 0 8px;
-    font-size: 12px;
-    white-space: nowrap;
-  }
-  .topbar-actions .btn .btn-label-full { display: none; }
-  .topbar-actions { gap: 4px; }
-  .topbar-actions .btn { padding: 0 8px; font-size: 12px; }
-  .topbar-hint { display: none; }
-  .lanes {
-    grid-template-columns: 1fr;
-    overflow-y: auto;
-    gap: var(--space-2);
-  }
-  .panel { padding: var(--space-3); }
-  .panel-inner { padding: var(--space-5); }
-  .panel-inner::after { top: 14px; right: 14px; }
-  .trace-wrap { padding: var(--space-3); }
-  .trace-status .trace-hint-narrow-hide { display: none; }
-  .compose { padding: var(--space-4); }
-  .compose-card { padding: 0; }
-  .compose-card h1 { max-width: none; font-size: clamp(30px, 9vw, 40px); }
-  .compose-agent-rail { gap: 8px 12px; }
-  .chip { min-height: 44px; }
-  .modal-actions { flex-wrap: wrap; }
-  .modal-actions .btn { flex: 1 1 auto; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-  .lane.is-active .lane-live-bar::after { display: none; }
-  .lane.is-active::before { animation: none; }
-  .lane.is-active .badge-accent { animation: none; }
-  .lane.is-waiting .lane-waiting strong::after { animation: none; }
-  .trace-entry.is-new { animation: none; }
-  .session-dot.running { animation: none; }
-  .compose::before { display: none; }
-}
-</style>
+    @media (max-width: 800px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+      .menu-btn { display: inline-flex; }
+      .topbar-note { display: none; }
+      .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: min(var(--sidebar-w), 88vw);
+        z-index: 30;
+        transform: translateX(-105%);
+        transition: transform 0.2s ease-out;
+        box-shadow: var(--shadow);
+      }
+      .sidebar.open { transform: translateX(0); }
+      .main { padding: 1.15rem 1rem 2rem; }
+    }
+  </style>
 </head>
 <body>
-  <div class="app" id="app" data-od-id="app-shell">
-    <div class="sidebar-scrim" id="sidebar-scrim" hidden></div>
-    <!-- SIDEBAR -->
-    <aside class="sidebar" id="sidebar" aria-label="Research sessions" data-od-id="sidebar">
-      <div class="sidebar-head">
-        <div class="brand-row">
-          <div class="brand" data-od-id="brand">
-            <span class="brand-mark">R</span>
-            <span class="brand-text">
-              <span class="brand-name">Research</span>
-              <span class="brand-sub">Dossier</span>
-            </span>
-          </div>
-        </div>
-        <button type="button" class="btn btn-md btn-primary btn-block" id="btn-new-research" data-od-id="btn-new-research" title="Start a new research query">
-          <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-          New Research
-        </button>
-        <div class="field-search">
-          <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.4"/><path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-          <input type="search" id="session-filter" placeholder="Filter sessions…" aria-label="Filter sessions by query" data-od-id="session-filter" />
-        </div>
+  <div class="app" id="app">
+    <header class="topbar">
+      <button type="button" class="menu-btn" id="btn-menu" aria-label="Open sessions" aria-controls="sidebar" aria-expanded="false">Sessions</button>
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>Research jobs</span>
       </div>
-      <div class="session-list" id="session-list" role="listbox" aria-label="Past sessions" data-od-id="session-list"></div>
-      <div class="sidebar-foot"><span class="foot-live">4 agents</span><span>LangGraph</span></div>
+      <span class="demo-badge" title="Runs are simulated for reliable demos">DEMO</span>
+      <p class="topbar-note">Mock jobs · interview demo</p>
+    </header>
+
+    <div class="sidebar-backdrop" id="sidebar-backdrop" hidden></div>
+
+    <aside class="sidebar" id="sidebar" aria-label="Sessions">
+      <div class="sidebar-head">
+        <h2>Sessions</h2>
+        <button type="button" class="ghost" id="btn-new" title="New research">New</button>
+      </div>
+      <p class="empty-sessions" id="empty-sessions">No sessions yet. Start a research job to see it here.</p>
+      <ul class="session-list" id="session-list" hidden></ul>
     </aside>
 
-    <!-- MAIN -->
-    <main class="main" id="main" data-od-id="main">
-      <header class="topbar" id="topbar" data-od-id="topbar">
-        <div class="topbar-left">
-          <button type="button" class="btn btn-md btn-ghost menu-toggle" id="menu-toggle" aria-label="Open sessions sidebar" aria-controls="sidebar" aria-expanded="false" data-od-id="menu-toggle">
-            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" aria-hidden="true"><path d="M2.5 4h11M2.5 8h11M2.5 12h11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-          </button>
-          <div class="topbar-query" id="topbar-query" data-od-id="topbar-query">—</div>
-          <div class="tabs" id="view-tabs" role="tablist" aria-label="Session views" data-od-id="view-tabs">
-            <button type="button" class="tab" role="tab" data-view="report" id="tab-report" aria-controls="content">Report</button>
-            <button type="button" class="tab" role="tab" data-view="trace" id="tab-trace" aria-controls="content">Live Trace</button>
+    <main class="main">
+      <div class="workspace">
+        <!-- Compose -->
+        <section class="panel active" id="panel-compose" aria-labelledby="compose-title">
+          <h1 class="page-title" id="compose-title">New research</h1>
+          <p class="lead">
+            Enter a question, start a job, and leave with a report.
+            This UI uses mock jobs so a walkthrough does not depend on API keys.
+          </p>
+          <div class="callout" role="note">
+            <strong>DEMO mode.</strong> Progress and the final report are synthetic.
+            They illustrate job states (<code>pending</code> → <code>running</code> → <code>done</code>) and multi-session history — not live model output.
           </div>
-        </div>
-        <div class="topbar-actions" id="topbar-actions" data-od-id="topbar-actions"></div>
-      </header>
+          <label class="field-label" for="query-input">Query</label>
+          <textarea
+            id="query-input"
+            name="query"
+            rows="5"
+            placeholder="e.g. Compare fan-out vs sequential research for multi-step questions"
+            autocomplete="off"
+          ></textarea>
+          <p class="field-error" id="query-error" role="alert"></p>
+          <div class="actions">
+            <button type="button" class="primary" id="btn-submit">Start research</button>
+          </div>
+          <div class="examples">
+            <h3>Example queries</h3>
+            <div class="chips" id="example-chips">
+              <button type="button" class="chip" data-q="What is a staged multi-agent research pipeline?">Staged pipeline</button>
+              <button type="button" class="chip" data-q="Why use async research jobs instead of a long HTTP request?">Async jobs</button>
+              <button type="button" class="chip" data-q="How does plan → research → normalize → verify → final work?">Graph stages</button>
+            </div>
+          </div>
+        </section>
 
-      <div class="content" id="content" data-od-id="content" role="region" aria-label="Session workspace">
-        <!-- filled by JS -->
+        <!-- Running -->
+        <section class="panel" id="panel-running" aria-labelledby="running-title" aria-live="polite">
+          <h1 class="page-title" id="running-title">Research job</h1>
+          <div class="job-card">
+            <div class="job-row">
+              <span class="job-status" id="job-status-label">
+                <span class="status-dot running" id="job-status-dot" aria-hidden="true"></span>
+                <span id="job-status-text">running</span>
+              </span>
+              <span class="job-id" id="job-id">—</span>
+            </div>
+            <p class="job-query" id="job-query"></p>
+            <p class="job-hint" id="job-hint">Simulating work…</p>
+            <div class="actions" style="margin-top:1rem">
+              <button type="button" class="ghost" id="btn-cancel-run" disabled title="Mock runs finish quickly">Stop unavailable in DEMO</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Report -->
+        <section class="panel" id="panel-report" aria-labelledby="report-title">
+          <div class="report-header">
+            <div>
+              <h1 class="page-title" id="report-title">Report</h1>
+              <div class="report-meta">
+                <span id="report-job-id"></span>
+                <span id="report-status"></span>
+                <span id="report-when"></span>
+              </div>
+            </div>
+            <div class="actions">
+              <button type="button" id="btn-copy-report">Copy</button>
+              <button type="button" id="btn-download-md">Download .md</button>
+              <button type="button" class="primary" id="btn-new-from-report">New research</button>
+            </div>
+          </div>
+          <article class="report-body" id="report-body"></article>
+        </section>
+
+        <!-- Error -->
+        <section class="panel" id="panel-error" aria-labelledby="error-title">
+          <h1 class="page-title" id="error-title">Job failed</h1>
+          <div class="error-banner" id="error-message" role="alert"></div>
+          <div class="job-row">
+            <span class="job-id" id="error-job-id"></span>
+          </div>
+          <div class="actions">
+            <button type="button" class="primary" id="btn-retry">Try again</button>
+            <button type="button" id="btn-new-from-error">New research</button>
+          </div>
+        </section>
       </div>
     </main>
   </div>
-
-  <!-- Trace entry drawer -->
-  <div class="drawer-backdrop" id="drawer-backdrop" aria-hidden="true"></div>
-  <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title" aria-hidden="true">
-    <div class="drawer-head">
-      <div>
-        <h2 id="drawer-title">Action detail</h2>
-        <div class="drawer-sub" id="drawer-sub"></div>
-      </div>
-      <button type="button" class="btn btn-sm btn-ghost" id="drawer-close" aria-label="Close drawer">
-        <svg viewBox="0 0 16 16" width="16" height="16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      </button>
-    </div>
-    <div class="drawer-body" id="drawer-body"></div>
-  </aside>
-
-  <!-- Source detail modal -->
-  <div class="modal-backdrop" id="source-modal" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="source-modal-title">
-      <h3 id="source-modal-title">Source</h3>
-      <p id="source-modal-body"></p>
-      <div id="source-modal-agents" class="source-agents source-agents-modal"></div>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-md btn-secondary" id="source-modal-close">Close</button>
-        <a class="btn btn-md btn-primary" id="source-modal-open" href="#" target="_blank" rel="noopener">Open source</a>
-      </div>
-    </div>
-  </div>
-
-  <!-- Stop research confirm (destructive friction) -->
-  <div class="modal-backdrop" id="cancel-modal" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cancel-modal-title">
-      <h3 id="cancel-modal-title">Stop this research?</h3>
-      <p id="cancel-modal-body">Active agent lanes will halt immediately. No report will be generated, and partial trace output stays available for review.</p>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-md btn-secondary" id="cancel-modal-keep">Keep running</button>
-        <button type="button" class="btn btn-md btn-danger" id="cancel-modal-confirm">Stop research</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true" data-od-id="toast"></div>
 
   <script>
 (function () {
   "use strict";
 
-  const AGENTS = ["Analyst", "Researcher", "Fact-checker", "Synthesizer"];
-  const AGENT_CODES = { Analyst: "01", Researcher: "02", "Fact-checker": "03", Synthesizer: "04" };
+  var STORAGE_KEY = "research-jobs-demo-v1";
+  var MOCK_FAIL_TOKEN = "__fail__";
 
-  /* ─── seed data ───────────────────────────────────────────────── */
-  const sessions = [
-    {
-      id: "s1",
-      query: "Vendor risk assessment: Lacework vs Wiz for cloud security posture management in a SOC 2 Type II environment",
-      state: "complete",
-      createdAt: "2026-07-14T15:22:00Z",
-      duration: "4m 12s",
-      degraded: false,
-      report: {
-        title: "Vendor risk: Lacework vs Wiz for CSPM",
-        eyebrow: "Enterprise research · Vendor risk",
-        html: `
-          <p>This assessment compares <strong>Lacework</strong> and <strong>Wiz</strong> as primary cloud security posture management (CSPM) platforms for an organization operating under SOC 2 Type II controls, with multi-cloud workloads on AWS and Azure.</p>
+  /** @typedef {"pending"|"running"|"done"|"error"} JobStatus */
 
-          <h2>Executive summary</h2>
-          <p>For a mid-market enterprise (~800 cloud accounts, ~4k workloads) prioritizing time-to-value and attack-path visibility, <strong>Wiz is the stronger default choice</strong>. Lacework remains competitive where polygraph-style behavioral anomaly detection and long-horizon runtime telemetry are weighted higher than agentless coverage breadth.</p>
-          <div class="callout"><strong>Recommendation:</strong> Pilot Wiz on production AWS accounts first; keep Lacework shortlisted only if the security team requires its specific polygraph behavioral model or already holds multi-year Lacework commercial terms.</div>
+  /**
+   * @typedef {object} Session
+   * @property {string} id
+   * @property {string} jobId
+   * @property {string} query
+   * @property {JobStatus} status
+   * @property {string} createdAt
+   * @property {string} [updatedAt]
+   * @property {string} [reportMarkdown]
+   * @property {string} [errorMessage]
+   * @property {boolean} demo
+   */
 
-          <h2>Decision criteria</h2>
-          <table>
-            <thead><tr><th>Criterion</th><th>Weight</th><th>Lacework</th><th>Wiz</th></tr></thead>
-            <tbody>
-              <tr><td>Agentless coverage</td><td>25%</td><td>Strong</td><td>Industry-leading</td></tr>
-              <tr><td>Attack path / toxic combo</td><td>20%</td><td>Good</td><td>Excellent</td></tr>
-              <tr><td>Runtime / behavioral detection</td><td>15%</td><td>Excellent</td><td>Good</td></tr>
-              <tr><td>SOC 2 evidence packaging</td><td>15%</td><td>Strong</td><td>Strong</td></tr>
-              <tr><td>Time-to-value (90 days)</td><td>15%</td><td>Moderate</td><td>Fast</td></tr>
-              <tr><td>Commercial flexibility</td><td>10%</td><td>Variable</td><td>Premium-priced</td></tr>
-            </tbody>
-          </table>
+  /** @type {Session[]} */
+  var sessions = loadSessions();
+  /** @type {string|null} */
+  var activeId = null;
+  /** @type {ReturnType<typeof setTimeout>|null} */
+  var runTimer = null;
+  /** @type {ReturnType<typeof setTimeout>|null} */
+  var runTimer2 = null;
 
-          <h2>Risk findings</h2>
-          <h3>Shared risks</h3>
-          <ul>
-            <li><strong>Data residency &amp; SaaS tenancy:</strong> Both are multi-tenant SaaS. Confirm region pinning and subprocessors against your DPA and customer data-flow maps before production ingest of workload metadata.</li>
-            <li><strong>Alert volume:</strong> Without careful policy tuning, both platforms can overwhelm a 6–8 person SecOps team in the first 30–60 days.</li>
-            <li><strong>Identity integrations:</strong> Full value depends on correct IAM / Entra / Okta graph connectors; incomplete identity ingest was the top cause of false-negative risk in peer deployments reviewed.</li>
-          </ul>
-          <h3>Vendor-specific risks</h3>
-          <ul>
-            <li><strong>Lacework:</strong> Product roadmap consolidation after Fortinet acquisition warrants contractual exit clauses and roadmap SLAs in the MSA. Validate continued investment in polygraph analytics through 2027.</li>
-            <li><strong>Wiz:</strong> Premium list pricing and seat/account scaling can create budget shock at enterprise expansion. Negotiate multi-year commit with true-up caps before PO.</li>
-          </ul>
-
-          <h2>SOC 2 Type II alignment</h2>
-          <p>Both vendors publish SOC 2 Type II reports covering Security and Availability. Neither replaces your own control evidence: map CSPM findings into CC6 / CC7 change-management and vulnerability-management control narratives. Wiz’s export formats integrate slightly more cleanly with common GRC tools (Drata, Vanta, Secureframe) based on public integration catalogs as of Q2 2026.</p>
-
-          <h2>Suggested pilot plan (30 days)</h2>
-          <ul>
-            <li><strong>Week 1:</strong> Connect read-only roles for 2 AWS prod accounts + 1 Azure subscription; baseline inventory accuracy.</li>
-            <li><strong>Week 2:</strong> Enable attack-path policies; measure true-positive rate with SecOps review of top 25 findings.</li>
-            <li><strong>Week 3:</strong> Wire SIEM (Splunk / Sentinel) and on-call routing; test break-glass identity paths.</li>
-            <li><strong>Week 4:</strong> Score against decision matrix; legal review of DPA, subprocessors, and termination assistance.</li>
-          </ul>
-        `,
-        sources: [
-          { id: "src1", title: "Wiz Security Whitepaper — Agentless Graph Model", url: "https://www.wiz.io/blog/agentless-cloud-security", agents: ["Researcher", "Analyst"] },
-          { id: "src2", title: "Lacework Polygraph Data Platform Overview", url: "https://www.lacework.com/platform", agents: ["Researcher"] },
-          { id: "src3", title: "SOC 2 Type II Trust Center — Wiz", url: "https://security.wiz.io", agents: ["Fact-checker", "Analyst"] },
-          { id: "src4", title: "Fortinet Completes Acquisition of Lacework", url: "https://www.fortinet.com/corporate/about-us/newsroom", agents: ["Researcher", "Fact-checker"] },
-          { id: "src5", title: "Gartner Market Guide for CSPM (summary notes)", url: "https://www.gartner.com/en/documents", agents: ["Analyst", "Synthesizer"] },
-          { id: "src6", title: "CSA Cloud Controls Matrix mapping notes", url: "https://cloudsecurityalliance.org/research/cloud-controls-matrix", agents: ["Fact-checker", "Synthesizer"] }
-        ]
-      },
-      lanes: buildLanesComplete()
+  var el = {
+    sidebar: document.getElementById("sidebar"),
+    backdrop: document.getElementById("sidebar-backdrop"),
+    btnMenu: document.getElementById("btn-menu"),
+    emptySessions: document.getElementById("empty-sessions"),
+    sessionList: document.getElementById("session-list"),
+    queryInput: document.getElementById("query-input"),
+    queryError: document.getElementById("query-error"),
+    btnSubmit: document.getElementById("btn-submit"),
+    btnNew: document.getElementById("btn-new"),
+    panels: {
+      compose: document.getElementById("panel-compose"),
+      running: document.getElementById("panel-running"),
+      report: document.getElementById("panel-report"),
+      error: document.getElementById("panel-error")
     },
-    {
-      id: "s2",
-      query: "Competitor landscape: Segment vs RudderStack for enterprise CDP migration off a homegrown event pipeline",
-      state: "warnings",
-      createdAt: "2026-07-13T11:04:00Z",
-      duration: "5m 48s",
-      degraded: true,
-      degradedNote: "Fact-checker lane failed after retries (upstream rate limit on regulatory source fetch). Synthesis used Analyst + Researcher outputs only — regulatory claims should be re-verified before board circulation.",
-      report: {
-        title: "CDP migration: Segment vs RudderStack",
-        eyebrow: "Enterprise research · Competitive analysis",
-        html: `
-          <p>Comparative analysis of <strong>Twilio Segment</strong> and <strong>RudderStack</strong> as replacements for a homegrown event collection pipeline (~2.1B events/month, 40 destinations, multi-region EU/US).</p>
+    jobStatusDot: document.getElementById("job-status-dot"),
+    jobStatusText: document.getElementById("job-status-text"),
+    jobId: document.getElementById("job-id"),
+    jobQuery: document.getElementById("job-query"),
+    jobHint: document.getElementById("job-hint"),
+    reportTitle: document.getElementById("report-title"),
+    reportBody: document.getElementById("report-body"),
+    reportJobId: document.getElementById("report-job-id"),
+    reportStatus: document.getElementById("report-status"),
+    reportWhen: document.getElementById("report-when"),
+    errorMessage: document.getElementById("error-message"),
+    errorJobId: document.getElementById("error-job-id")
+  };
 
-          <h2>Executive summary</h2>
-          <p><strong>RudderStack is the better migration fit</strong> when warehouse-native control, open-source optionality, and lower destination lock-in matter more than Segment’s broader destination catalog and polished reverse-ETL ecosystem. Segment remains preferable if marketing ops ownership and out-of-the-box audience tooling dominate the scorecard.</p>
-          <div class="callout"><strong>Degraded coverage:</strong> Regulatory / GDPR subprocessors verification is incomplete because the Fact-checker lane failed. Do not treat EU data-residency claims below as fully validated.</div>
-
-          <h2>Capability comparison</h2>
-          <table>
-            <thead><tr><th>Area</th><th>Segment</th><th>RudderStack</th></tr></thead>
-            <tbody>
-              <tr><td>Collection SDKs</td><td>Mature, wide</td><td>Strong, warehouse-first</td></tr>
-              <tr><td>Warehouse-native</td><td>Available (Profiles, etc.)</td><td>Core product model</td></tr>
-              <tr><td>Destination catalog</td><td>Largest</td><td>Growing; self-host transforms</td></tr>
-              <tr><td>Self-host / VPC</td><td>Limited</td><td>First-class</td></tr>
-              <tr><td>Pricing model</td><td>MTU / volume heavy</td><td>Event + warehouse oriented</td></tr>
-              <tr><td>Migration tooling</td><td>Partner-led</td><td>Schema mapping + TF patterns</td></tr>
-            </tbody>
-          </table>
-
-          <h2>Migration risks from homegrown pipeline</h2>
-          <ul>
-            <li><strong>Schema drift:</strong> Homegrown pipelines often embed ad-hoc properties. Budget 3–4 weeks for tracking-plan normalization before cutover.</li>
-            <li><strong>Duplicate events:</strong> Dual-write windows create attribution noise; enforce messageId idempotency at destinations.</li>
-            <li><strong>PII leakage:</strong> Source middleware must re-apply hashing / drop rules currently living in custom Node workers.</li>
-            <li><strong>Latency SLOs:</strong> Real-time destinations (Intercom, Braze) need separate SLO validation from warehouse loads.</li>
-          </ul>
-
-          <h2>Commercial notes</h2>
-          <p>At ~2.1B events/month, Segment list pricing typically requires enterprise negotiation. RudderStack quotes more predictably when warehouse compute is already budgeted in Snowflake/BigQuery. Run a 90-day TCO with: platform fees, warehouse compute uplift, engineering migration hours, and destination connector maintenance.</p>
-
-          <h2>Recommended next steps</h2>
-          <ul>
-            <li>Re-run Fact-checker after rate-limit cooldown for DPA / subprocessor verification (EU regions).</li>
-            <li>Spike dual-write of 5 critical sources for 14 days with volume sampling.</li>
-            <li>Score RFP responses on warehouse-native transforms, VPC peering, and support SLAs.</li>
-          </ul>
-        `,
-        sources: [
-          { id: "src7", title: "Segment Protocols & Tracking Plans docs", url: "https://segment.com/docs/protocols", agents: ["Researcher", "Analyst"] },
-          { id: "src8", title: "RudderStack Architecture — Warehouse Native", url: "https://www.rudderstack.com/docs", agents: ["Researcher"] },
-          { id: "src9", title: "Twilio Segment pricing page (public)", url: "https://segment.com/pricing", agents: ["Analyst"] },
-          { id: "src10", title: "RudderStack vs Segment comparison (vendor)", url: "https://www.rudderstack.com/blog", agents: ["Researcher", "Synthesizer"] },
-          { id: "src11", title: "Regulatory sources (fetch failed)", url: "https://eur-lex.europa.eu", agents: ["Fact-checker"] }
-        ]
-      },
-      lanes: buildLanesDegraded()
-    },
-    {
-      id: "s3",
-      query: "Market scan: managed Kubernetes platforms for regulated fintech (EKS vs GKE vs AKS) with data-residency constraints",
-      state: "cancelled",
-      createdAt: "2026-07-12T16:40:00Z",
-      duration: "1m 8s",
-      degraded: false,
-      report: null,
-      lanes: buildLanesCancelled()
-    }
-  ];
-
-  function buildLanesComplete() {
-    return {
-      Analyst: [
-        { t: "15:22:08", text: "Parsed query into decision criteria weights", input: "User query + default enterprise vendor-risk rubric", output: "Criteria: agentless coverage 25%, attack path 20%, runtime 15%, SOC2 15%, TTV 15%, commercial 10%." },
-        { t: "15:23:41", text: "Built comparative scorecard skeleton", input: "Criteria weights + product category CSPM", output: "6-row matrix Lacework vs Wiz; placeholders for evidence links." },
-        { t: "15:25:02", text: "Scored both vendors against matrix", input: "Researcher briefs v2", output: "Wiz leads coverage/attack-path/TTV; Lacework leads runtime behavioral." }
-      ],
-      Researcher: [
-        { t: "15:22:09", text: "Retrieved product docs & trust centers", input: "Queries: Lacework CSPM, Wiz agentless graph", output: "12 candidate sources; 8 retained after relevance filter." },
-        { t: "15:23:18", text: "Extracted capability claims", input: "Source set src1–src4", output: "Agentless inventory, toxic combination graphs, polygraph behavioral model." },
-        { t: "15:24:55", text: "Collected acquisition & pricing signals", input: "Fortinet/Lacework newsroom; Wiz commercial notes", output: "Acquisition risk flag on Lacework; premium pricing flag on Wiz." }
-      ],
-      "Fact-checker": [
-        { t: "15:22:40", text: "Waiting for Researcher source pack", input: "—", output: "Lane idle until sources ready." },
-        { t: "15:24:10", text: "Verified SOC 2 availability claims", input: "Trust center pages for both vendors", output: "Both publish SOC 2 Type II (Security, Availability). Dates within 12 months." },
-        { t: "15:25:33", text: "Cross-checked acquisition announcement", input: "Fortinet press release", output: "Acquisition confirmed; no contradictory primary sources found." }
-      ],
-      Synthesizer: [
-        { t: "15:25:50", text: "Merged lane outputs into outline", input: "Analyst matrix + Researcher notes + Fact-checker verifications", output: "Report outline with exec summary, risks, pilot plan." },
-        { t: "15:26:40", text: "Wrote recommendation + pilot plan", input: "Outline + decision weights", output: "Prefer Wiz for default pilot; Lacework conditional shortlist." },
-        { t: "15:27:12", text: "Attached sources & finalized report", input: "Source list with agent provenance", output: "6 sources tagged; report state → complete." }
-      ]
-    };
-  }
-
-  function buildLanesDegraded() {
-    return {
-      Analyst: [
-        { t: "11:04:12", text: "Scoped CDP migration decision frame", input: "Query: Segment vs RudderStack off homegrown", output: "Frame: warehouse-native vs catalog breadth; volume 2.1B/mo." },
-        { t: "11:06:01", text: "Drafted TCO comparison axes", input: "Volume + destination count + regions", output: "Platform fee, warehouse compute, eng hours, connector ops." },
-        { t: "11:08:20", text: "Ranked fit for homegrown replacement", input: "Researcher capability notes", output: "RudderStack preferred for warehouse-native + VPC; Segment for marketing ops." }
-      ],
-      Researcher: [
-        { t: "11:04:13", text: "Pulled Segment Protocols & pricing docs", input: "segment.com/docs, pricing", output: "Protocols maturity; MTU pricing pattern." },
-        { t: "11:05:44", text: "Pulled RudderStack architecture docs", input: "rudderstack.com/docs", output: "Warehouse-native transforms; self-host options." },
-        { t: "11:07:30", text: "Compiled destination & migration notes", input: "Vendor blogs + public catalogs", output: "Segment larger catalog; RudderStack stronger self-host path." }
-      ],
-      "Fact-checker": [
-        { t: "11:04:50", text: "Queued GDPR / subprocessor checks", input: "Regulatory verification pack", output: "Planned fetches: EUR-Lex guidance, vendor DPAs." },
-        { t: "11:07:55", text: "Source fetch failed — HTTP 429", input: "GET eur-lex.europa.eu (batch)", output: "Rate limited after 3 requests; retry scheduled." },
-        { t: "11:08:40", text: "Retry #1 failed — timeout", input: "Retry with backoff 20s", output: "Upstream timeout 30s; no body." },
-        { t: "11:09:22", text: "Retries exhausted — lane error", input: "Max retries = 2", output: "ERROR: Fact-checker contribution unavailable. Downstream should flag degraded report.", error: true }
-      ],
-      Synthesizer: [
-        { t: "11:09:30", text: "Detected missing Fact-checker pack", input: "Lane states", output: "Proceeding with Analyst + Researcher only; set degraded=true." },
-        { t: "11:10:18", text: "Drafted report with warning banner", input: "Partial evidence graph", output: "Exec summary + migration risks; regulatory section marked incomplete." },
-        { t: "11:11:02", text: "Published complete-with-warnings", input: "Report + source provenance", output: "Session state → warnings; 5 sources (1 failed)." }
-      ]
-    };
-  }
-
-  function buildLanesCancelled() {
-    return {
-      Analyst: [
-        { t: "16:40:08", text: "Parsed query into research objectives", input: "User query + fintech K8s constraints", output: "Objectives: residency, managed control plane, compliance mappings." },
-        { t: "16:40:44", text: "Drafted evaluation criteria", input: "Objectives", output: "Weights: residency 30%, ops model 25%, compliance 20%, cost 15%, ecosystem 10%." },
-        { t: "16:41:08", text: "Run cancelled by user", input: "Stop control", output: "Lane halted; no further actions." }
-      ],
-      Researcher: [
-        { t: "16:40:09", text: "Issued web & document retrieval", input: "EKS / GKE / AKS + residency", output: "Retrieval fan-out started across public docs and cloud trust centers." },
-        { t: "16:40:52", text: "Ranked sources by relevance", input: "Raw retrieval set", output: "Top 9 sources retained pending fact-check." },
-        { t: "16:41:08", text: "Run cancelled by user", input: "Stop control", output: "Lane halted; no further actions." }
-      ],
-      "Fact-checker": [
-        { t: "16:40:50", text: "Waiting for Researcher source pack", input: "—", output: "Lane idle until sources ready." },
-        { t: "16:41:08", text: "Run cancelled by user", input: "Stop control", output: "Lane halted before claim inventory." }
-      ],
-      Synthesizer: []
-    };
-  }
-
-  /* ─── state ───────────────────────────────────────────────────── */
-  let activeId = "s1";
-  let view = "report"; // report | trace | compose
-  let composeMode = false;
-  let runTimer = null;
-  let toastTimer = null;
-  let drawerEntry = null;
-  let lastFocusEl = null;
-  let sidebarOpen = false;
-  const autoScrollPaused = {}; // laneName -> bool
-
-  const $ = (sel, el = document) => el.querySelector(sel);
-  const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
-
-  function setSidebarOpen(open) {
-    sidebarOpen = !!open;
-    const sidebar = $("#sidebar");
-    const scrim = $("#sidebar-scrim");
-    const toggle = $("#menu-toggle");
-    if (!sidebar || !toggle) return;
-    sidebar.classList.toggle("mobile-open", sidebarOpen);
-    if (scrim) {
-      scrim.hidden = !sidebarOpen;
-      scrim.classList.toggle("open", sidebarOpen);
-    }
-    toggle.setAttribute("aria-expanded", sidebarOpen ? "true" : "false");
-    toggle.setAttribute("aria-label", sidebarOpen ? "Close sessions sidebar" : "Open sessions sidebar");
-  }
-
-  function fmtRelative(iso) {
-    const d = new Date(iso);
-    const days = Math.round((Date.now() - d.getTime()) / 86400000);
-    if (days <= 0) return "Today";
-    if (days === 1) return "Yesterday";
-    if (days < 7) return days + "d ago";
-    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  }
-
-  function stateLabel(s) {
-    if (s === "complete") return { text: "Complete", cls: "badge-muted", dot: "complete" };
-    if (s === "warnings") return { text: "Warnings", cls: "badge-muted", dot: "warnings" };
-    if (s === "running") return { text: "Running", cls: "badge-accent", dot: "running" };
-    if (s === "cancelled") return { text: "Cancelled", cls: "badge-muted", dot: "cancelled" };
-    if (s === "error") return { text: "Error", cls: "badge-danger", dot: "error" };
-    return { text: String(s || "Unknown"), cls: "badge-muted", dot: "" };
-  }
-
-  /** Pure helper: recompute concurrent lane states from timing windows. */
-  function recomputeLaneStates(session, elapsed, opts) {
-    const windowMs = (opts && opts.activeWindow) || 950;
-    const agents = (opts && opts.agents) || AGENTS;
-    const agentLastAt = session._agentLastAt || {};
-    const lanes = session.lanes || {};
-    const next = {};
-    agents.forEach((a) => {
-      const has = lanes[a] && lanes[a].length > 0;
-      const last = agentLastAt[a];
-      const recent = last != null && elapsed - last < windowMs;
-      if (recent) next[a] = "active";
-      else if (has) next[a] = "complete";
-      else next[a] = "waiting";
-    });
-    const anyActive = agents.some((a) => next[a] === "active");
-    const scriptRemaining = opts && typeof opts.scriptRemaining === "number" ? opts.scriptRemaining : 0;
-    if (!anyActive && session._lastAgent && scriptRemaining > 0 && agents.indexOf(session._lastAgent) >= 0) {
-      next[session._lastAgent] = "active";
-    }
-    return next;
-  }
-
-  function countActiveLanes(laneState, agents) {
-    const list = agents || AGENTS;
-    const map = laneState || {};
-    return list.filter((a) => map[a] === "active").length;
-  }
-
-  function traceHintText(session, activeCount) {
-    if (session._finishing) return "All lanes complete — opening report";
-    if (session.state === "running") {
-      if (activeCount > 1) return activeCount + " agents writing";
-      if (activeCount === 1) return "1 agent writing";
-      return "Graph spinning up…";
-    }
-    if (session.state === "cancelled") return "Run stopped — partial trace only";
-    return "Auto-scroll pauses when you scroll a lane up";
-  }
-
-  /* ─── overlay focus trap / body lock ──────────────────────────── */
-  let focusTrapCleanup = null;
-  let bodyLockCount = 0;
-
-  function lockBodyScroll() {
-    bodyLockCount += 1;
-    if (bodyLockCount === 1) {
-      document.documentElement.style.overflow = "hidden";
-    }
-  }
-  function unlockBodyScroll() {
-    bodyLockCount = Math.max(0, bodyLockCount - 1);
-    if (bodyLockCount === 0) {
-      document.documentElement.style.overflow = "";
-    }
-  }
-
-  function getFocusable(root) {
-    if (!root) return [];
-    return $$(
-      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      root
-    ).filter((el) => !el.hasAttribute("disabled") && el.offsetParent !== null);
-  }
-
-  function trapFocus(root) {
-    releaseFocusTrap();
-    const onKey = (e) => {
-      if (e.key !== "Tab") return;
-      const nodes = getFocusable(root);
-      if (!nodes.length) return;
-      const first = nodes[0];
-      const last = nodes[nodes.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    focusTrapCleanup = () => {
-      document.removeEventListener("keydown", onKey);
-      focusTrapCleanup = null;
-    };
-  }
-
-  function releaseFocusTrap() {
-    if (focusTrapCleanup) focusTrapCleanup();
-  }
-
-  function activeSession() {
-    return sessions.find((s) => s.id === activeId) || null;
-  }
-
-  function showToast(msg, opts) {
-    const t = $("#toast");
-    const variant = (opts && opts.variant) || "default";
-    const duration = (opts && opts.duration) || (variant === "destructive" ? 3600 : 2200);
-    t.textContent = msg;
-    t.classList.toggle("toast-destructive", variant === "destructive");
-    t.setAttribute("aria-live", variant === "destructive" ? "assertive" : "polite");
-    t.classList.add("show");
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => {
-      t.classList.remove("show");
-      t.classList.remove("toast-destructive");
-      t.setAttribute("aria-live", "polite");
-    }, duration);
-  }
-
-  /* ─── render sidebar ──────────────────────────────────────────── */
-  function renderSidebar() {
-    const list = $("#session-list");
-    const filter = ($("#session-filter").value || "").trim().toLowerCase();
-    const filtered = sessions.filter((s) => !filter || s.query.toLowerCase().includes(filter));
-
-    if (!filtered.length) {
-      list.innerHTML = `<div class="sidebar-empty"><strong>No sessions</strong>${filter ? "Try a different filter." : "Start with New Research."}</div>`;
-      return;
-    }
-
-    list.innerHTML =
-      `<div class="session-list-label">Sessions</div>` +
-      filtered
-        .map((s) => {
-          const st = stateLabel(s.state);
-          const active = s.id === activeId && !composeMode ? " active" : "";
-          return `
-          <button type="button" class="session-item${active}" role="option" aria-selected="${s.id === activeId && !composeMode}" data-id="${s.id}" title="${escapeAttr(s.query)}">
-            <span class="session-dot ${st.dot}" aria-hidden="true"></span>
-            <span>
-              <span class="session-title">${escapeHtml(truncate(s.query, 88))}</span>
-              <span class="session-meta">
-                <span class="badge ${st.cls} badge-dot">${st.text}</span>
-                <span>${fmtRelative(s.createdAt)}</span>
-              </span>
-            </span>
-          </button>`;
-        })
-        .join("");
-  }
-
-  /* ─── topbar ──────────────────────────────────────────────────── */
-  function renderTopbar() {
-    const s = activeSession();
-    const tabs = $("#view-tabs");
-    const actions = $("#topbar-actions");
-    const q = $("#topbar-query");
-
-    if (composeMode || !s) {
-      q.textContent = "New research";
-      tabs.classList.add("hidden");
-      actions.innerHTML = "";
-      return;
-    }
-
-    tabs.classList.remove("hidden");
-    q.textContent = s.query;
-    q.title = s.query;
-
-    $$(".tab", tabs).forEach((tab) => {
-      tab.classList.toggle("active", tab.dataset.view === view);
-      tab.setAttribute("aria-selected", tab.dataset.view === view ? "true" : "false");
-      // Disable report tab if no report yet
-      if (tab.dataset.view === "report") {
-        const hasReport = s.state === "complete" || s.state === "warnings";
-        tab.disabled = !hasReport;
-        tab.setAttribute("aria-disabled", hasReport ? "false" : "true");
-        tab.removeAttribute("style");
-      } else {
-        tab.disabled = false;
-        tab.setAttribute("aria-disabled", "false");
-      }
-    });
-
-    if (s.state === "running") {
-      actions.innerHTML = `
-        <button type="button" class="btn btn-md btn-secondary btn-danger-ghost" id="btn-stop" data-od-id="btn-stop">
-          <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="4" y="4" width="8" height="8" rx="1" fill="currentColor"/></svg>
-          Stop
-        </button>`;
-      $("#btn-stop").onclick = openCancelModal;
-    } else if (view === "report" && (s.state === "complete" || s.state === "warnings")) {
-      actions.innerHTML = `
-        <button type="button" class="btn btn-md btn-ghost" id="btn-back-trace" data-od-id="btn-back-trace" title="Back to Live Trace">Trace</button>
-        <button type="button" class="btn btn-md btn-secondary" id="btn-copy" data-od-id="btn-copy">Copy</button>
-        <button type="button" class="btn btn-md btn-primary" id="btn-md" data-od-id="btn-md">.md</button>`;
-      $("#btn-back-trace").onclick = () => { view = "trace"; render(); };
-      $("#btn-copy").onclick = copyReport;
-      $("#btn-md").onclick = downloadMarkdown;
-    } else if (view === "trace" && (s.state === "complete" || s.state === "warnings")) {
-      actions.innerHTML = `
-        <button type="button" class="btn btn-md btn-primary" id="btn-to-report" data-od-id="btn-to-report">View report</button>`;
-      $("#btn-to-report").onclick = () => { view = "report"; render(); };
-    } else if (s.state === "cancelled") {
-      actions.innerHTML = `<span class="topbar-hint">No report — run was stopped</span>`;
-    } else {
-      actions.innerHTML = "";
-    }
-  }
-
-  /* ─── content ─────────────────────────────────────────────────── */
-  function renderContent() {
-    const root = $("#content");
-    if (composeMode) {
-      root.innerHTML = renderCompose();
-      wireCompose();
-      return;
-    }
-    const s = activeSession();
-    if (!s) {
-      composeMode = true;
-      return renderContent();
-    }
-    if (view === "report" && (s.state === "complete" || s.state === "warnings")) {
-      root.innerHTML = renderReport(s);
-      wireReport(s);
-    } else {
-      view = "trace";
-      root.innerHTML = renderTrace(s);
-      wireTrace(s);
-    }
-  }
-
-  function renderCompose() {
-    return `
-      <div class="compose" data-od-id="compose">
-        <div class="compose-card" data-od-id="compose-card">
-          <div class="eyebrow">New research</div>
-          <h1 data-od-id="compose-title">What should we <em>look into?</em></h1>
-          <p class="lead">Four agents work the brief in parallel—analysis, retrieval, verification, synthesis. Built for competitor scans, vendor risk, and market diligence.</p>
-          <div class="compose-agent-rail" aria-hidden="true">
-            <span><i>01</i><b>Analyst</b></span>
-            <span><i>02</i><b>Researcher</b></span>
-            <span><i>03</i><b>Fact-checker</b></span>
-            <span><i>04</i><b>Synthesizer</b></span>
-          </div>
-          <label class="sr-only" for="compose-input">Research query</label>
-          <textarea class="compose-input" id="compose-input" data-od-id="compose-input" placeholder="e.g. Assess vendor risk of adopting CrowdStrike Falcon vs SentinelOne for a 3,000-endpoint fleet under ISO 27001…" rows="5" aria-describedby="compose-hint compose-error" aria-invalid="false"></textarea>
-          <div class="compose-error" id="compose-error" role="alert"></div>
-          <div class="compose-foot">
-            <span class="compose-hint" id="compose-hint">Enter to submit · Shift+Enter for newline</span>
-            <button type="button" class="btn btn-md btn-primary" id="btn-submit" data-od-id="btn-submit">
-              Run research
-              <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
-          </div>
-          <div class="compose-examples" data-od-id="compose-examples">
-            <span class="compose-examples-label">Start from an example</span>
-            <div class="compose-examples-list">
-              <button type="button" class="chip" data-q="Vendor risk: Okta vs Microsoft Entra ID for workforce SSO consolidation across 12 acquired entities"><span class="chip-n">01</span><span>Okta vs Entra ID</span></button>
-              <button type="button" class="chip" data-q="Competitive analysis: Databricks vs Snowflake for a fintech data platform modernizing off Teradata"><span class="chip-n">02</span><span>Databricks vs Snowflake</span></button>
-              <button type="button" class="chip" data-q="Assess switching cost and vendor lock-in for replacing Splunk with Elastic + Grafana stack"><span class="chip-n">03</span><span>Splunk exit risk</span></button>
-            </div>
-          </div>
-        </div>
-      </div>`;
-  }
-
-  function wireCompose() {
-    const input = $("#compose-input");
-    const submit = $("#btn-submit");
-    const err = $("#compose-error");
-    input.focus();
-    const clearError = () => {
-      input.classList.remove("invalid");
-      input.setAttribute("aria-invalid", "false");
-      if (err) {
-        err.textContent = "";
-        err.classList.remove("show");
-      }
-    };
-    submit.onclick = () => submitQuery(input.value);
-    input.addEventListener("input", clearError);
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        submitQuery(input.value);
-      }
-    });
-    $$(".chip").forEach((c) => {
-      c.onclick = () => {
-        input.value = c.dataset.q;
-        clearError();
-        input.focus();
-      };
-    });
-  }
-
-  function renderReport(s) {
-    const r = s.report;
-    const degraded = s.degraded
-      ? `<div class="degraded-banner" role="status">
-          <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 7v4M10 14h.01M9.1 3.5l-7.2 12.4a1 1 0 00.87 1.5h14.46a1 1 0 00.87-1.5L10.9 3.5a1 1 0 00-1.8 0z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <div>
-            <strong>Report completed with warnings</strong>
-            <p>${escapeHtml(s.degradedNote || "One or more agent lanes failed; treat incomplete sections with caution.")}</p>
-          </div>
-        </div>`
-      : "";
-
-    const sources = (r.sources || [])
-      .map(
-        (src) => `
-      <button type="button" class="source-item" data-src="${src.id}">
-        <span>
-          <span class="source-title">${escapeHtml(src.title)}</span>
-          <span class="source-url">${escapeHtml(src.url)}</span>
-        </span>
-        <span class="source-agents">
-          ${src.agents.map((a) => `<span class="badge badge-muted">${escapeHtml(a)}</span>`).join("")}
-        </span>
-      </button>`
-      )
-      .join("");
-
-    return `
-      <div class="panel" id="report-panel">
-        <div class="panel-inner">
-          ${degraded}
-          <header class="report-header" data-od-id="report-header">
-            <div class="eyebrow">${escapeHtml(r.eyebrow)}</div>
-            <h1 data-od-id="report-title">${escapeHtml(r.title)}</h1>
-            <div class="report-meta">
-              <span>${fmtRelative(s.createdAt)}</span>
-              <span>${escapeHtml(s.duration)}</span>
-              <span>4 agents</span>
-              <span>${(r.sources || []).length} sources</span>
-            </div>
-          </header>
-          <article class="report-body" id="report-body">
-            ${r.html}
-          </article>
-          <section class="sources" id="sources" data-od-id="sources">
-            <button type="button" class="sources-toggle" id="sources-toggle" aria-expanded="false" aria-controls="sources-list">
-              <span class="sources-toggle-label">
-                <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                Sources
-              </span>
-              <span class="sources-count">${(r.sources || []).length} documents</span>
-            </button>
-            <div class="sources-list" id="sources-list" role="region" aria-label="Source documents">
-              ${sources}
-            </div>
-          </section>
-        </div>
-      </div>`;
-  }
-
-  function wireReport(s) {
-    const toggle = $("#sources-toggle");
-    const box = $("#sources");
-    toggle.onclick = () => {
-      const open = box.classList.toggle("open");
-      toggle.setAttribute("aria-expanded", open ? "true" : "false");
-    };
-    // Horizontal scroll wrappers for tables (mobile)
-    $$("#report-body table").forEach((table) => {
-      if (table.parentElement && table.parentElement.classList.contains("table-scroll")) return;
-      const wrap = document.createElement("div");
-      wrap.className = "table-scroll";
-      table.parentNode.insertBefore(wrap, table);
-      wrap.appendChild(table);
-    });
-    $$(".source-item").forEach((el) => {
-      el.onclick = () => {
-        const src = s.report.sources.find((x) => x.id === el.dataset.src);
-        if (src) openSourceModal(src);
-      };
-    });
-  }
-
-  function emptyLaneMessage(s, name, laneState) {
-    if (s.state === "cancelled") {
-      return `<div class="lane-waiting"><strong>No activity</strong>Stopped before this lane started</div>`;
-    }
-    if (s.state === "running" && laneState === "waiting") {
-      return `<div class="lane-waiting"><strong>Queued</strong>Waiting for upstream work…</div>`;
-    }
-    if (laneState === "waiting" || !laneState) {
-      return `<div class="lane-waiting"><strong>Idle</strong>No entries in this lane</div>`;
-    }
-    return `<div class="lane-waiting">Waiting…</div>`;
-  }
-
-  function lanePresentation(s, name) {
-    const running = s.state === "running";
-    const finishing = !!s._finishing;
-    const entries = (s.lanes && s.lanes[name]) || [];
-    const last = entries[entries.length - 1];
-    let laneState = "waiting";
-    if (running || finishing) {
-      if (s._laneState && s._laneState[name]) laneState = s._laneState[name];
-      else if (entries.length) laneState = "active";
-    } else if (last && last.error) laneState = "error";
-    else if (entries.length) laneState = "complete";
-    else if (s.state === "cancelled") laneState = "waiting";
-
-    let badgeCls = "badge-muted";
-    let badgeText = "Waiting";
-    if (laneState === "active") { badgeCls = "badge-accent"; badgeText = "Active"; }
-    if (laneState === "complete") {
-      badgeCls = "badge-muted";
-      badgeText = running || finishing ? "Done" : "Complete";
-    }
-    if (laneState === "error") { badgeCls = "badge-danger"; badgeText = "Error"; }
-    if (s.state === "cancelled") {
-      badgeCls = "badge-muted";
-      badgeText = entries.length ? "Stopped" : "Idle";
-    }
-
-    let laneMod = "";
-    if ((running || finishing) && laneState === "active") laneMod = "is-active";
-    else if ((running || finishing) && laneState === "complete") laneMod = "is-done";
-    else if ((running || finishing) && laneState === "waiting") laneMod = "is-waiting";
-    else if (s.state === "cancelled" && !entries.length) laneMod = "is-waiting";
-    else if (!running && !finishing && entries.length) laneMod = "is-done";
-
-    return { laneState, badgeCls, badgeText, laneMod, entries };
-  }
-
-  function renderEntryHtml(name, e, i, now) {
-    const isNew = e._at && now - e._at < 750;
-    return `
-            <button type="button" class="trace-entry${e.error ? " error" : ""}${isNew ? " is-new" : ""}" data-agent="${escapeAttr(name)}" data-idx="${i}">
-              <div class="trace-entry-time">${escapeHtml(e.t)}</div>
-              <div class="trace-entry-text">${escapeHtml(e.text)}</div>
-            </button>`;
-  }
-
-  function renderTrace(s) {
-    const st = stateLabel(s.state);
-    const running = s.state === "running";
-    const finishing = !!s._finishing;
-    const progress = Math.max(0, Math.min(100, s._progress || 0));
-    const activeCount = countActiveLanes(s._laneState);
-    const now = Date.now();
-    const hint = traceHintText(s, activeCount);
-
-    const lanes = AGENTS.map((name) => {
-      const { laneState, badgeCls, badgeText, laneMod, entries } = lanePresentation(s, name);
-      const body =
-        entries.length === 0
-          ? emptyLaneMessage(s, name, laneState)
-          : entries.map((e, i) => renderEntryHtml(name, e, i, now)).join("");
-
-      return `
-        <section class="lane${laneMod ? " " + laneMod : ""}" data-od-id="lane-${name.toLowerCase()}" data-agent="${escapeAttr(name)}" data-lane-state="${escapeAttr(laneState)}">
-          <div class="lane-head">
-            <span class="lane-name"><span class="lane-code">${AGENT_CODES[name] || ""}</span>${escapeHtml(name)}</span>
-            <span class="badge ${badgeCls}${laneState === "active" ? " badge-dot" : ""}" data-lane-badge>${badgeText}</span>
-          </div>
-          <div class="lane-live-bar" aria-hidden="true"></div>
-          <div class="lane-body" data-lane-scroll="${escapeAttr(name)}">${body}</div>
-        </section>`;
-    }).join("");
-
-    const wrapClass = [
-      "trace-wrap",
-      running ? "is-running" : "",
-      finishing ? "is-finishing is-running" : ""
-    ].filter(Boolean).join(" ");
-
-    return `
-      <div class="${wrapClass}" data-od-id="trace-view">
-        <div class="trace-toolbar">
-          <div class="trace-toolbar-row">
-            <div class="trace-status" role="status" aria-live="polite" aria-atomic="true">
-              <span class="badge ${finishing ? "badge-accent" : st.cls} badge-dot" data-trace-badge>${finishing ? "Finalizing" : st.text}</span>
-              <span data-trace-duration>${escapeHtml(s.duration || "—")}</span>
-              <span class="trace-hint-narrow-hide" aria-hidden="true">·</span>
-              <span data-trace-hint class="${running && activeCount ? "trace-active-count" : ""}">${escapeHtml(hint)}</span>
-            </div>
-          </div>
-          <div class="trace-progress" style="--p:${progress}%" aria-hidden="true" data-trace-progress>
-            <div class="trace-progress-fill"></div>
-          </div>
-        </div>
-        <div class="lanes" id="lanes">${lanes}</div>
-      </div>`;
-  }
-
-  function bindTraceEntry(el, s) {
-    el.onclick = () => {
-      const agent = el.dataset.agent;
-      const idx = +el.dataset.idx;
-      const entry = s.lanes[agent] && s.lanes[agent][idx];
-      if (entry) openDrawer(agent, idx, entry, s);
-    };
-  }
-
-  function wireTrace(s) {
-    $$(".trace-entry").forEach((el) => bindTraceEntry(el, s));
-    $$("[data-lane-scroll]").forEach((body) => {
-      if (body.dataset.scrollWired === "1") return;
-      body.dataset.scrollWired = "1";
-      const name = body.dataset.laneScroll;
-      body.addEventListener("scroll", () => {
-        const nearBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 40;
-        autoScrollPaused[name] = !nearBottom;
-      });
-    });
-    $$("[data-lane-scroll]").forEach((body) => {
-      const name = body.dataset.laneScroll;
-      if (!autoScrollPaused[name]) body.scrollTop = body.scrollHeight;
-    });
-  }
-
-  /** Patch Live Trace in place — avoids full-panel re-render / animation restarts. */
-  function patchTrace(s) {
-    const wrap = document.querySelector('[data-od-id="trace-view"]');
-    if (!wrap) return false;
-
-    const running = s.state === "running";
-    const finishing = !!s._finishing;
-    const progress = Math.max(0, Math.min(100, s._progress || 0));
-    const activeCount = countActiveLanes(s._laneState);
-    const st = stateLabel(s.state);
-    const now = Date.now();
-
-    wrap.classList.toggle("is-running", running || finishing);
-    wrap.classList.toggle("is-finishing", finishing);
-
-    const badge = wrap.querySelector("[data-trace-badge]");
-    if (badge) {
-      badge.className = "badge " + (finishing ? "badge-accent" : st.cls) + " badge-dot";
-      badge.textContent = finishing ? "Finalizing" : st.text;
-    }
-    const dur = wrap.querySelector("[data-trace-duration]");
-    if (dur) dur.textContent = s.duration || "—";
-    const hintEl = wrap.querySelector("[data-trace-hint]");
-    if (hintEl) {
-      const hint = traceHintText(s, activeCount);
-      hintEl.textContent = hint;
-      hintEl.classList.toggle("trace-active-count", !!(running && activeCount));
-    }
-    const prog = wrap.querySelector("[data-trace-progress]");
-    if (prog) prog.style.setProperty("--p", progress + "%");
-
-    AGENTS.forEach((name) => {
-      const { laneState, badgeCls, badgeText, laneMod, entries } = lanePresentation(s, name);
-      const lane = wrap.querySelector('.lane[data-agent="' + CSS.escape(name) + '"]');
-      if (!lane) return;
-
-      lane.classList.remove("is-active", "is-done", "is-waiting");
-      if (laneMod) lane.classList.add(laneMod);
-      lane.dataset.laneState = laneState;
-
-      const laneBadge = lane.querySelector("[data-lane-badge]");
-      if (laneBadge) {
-        laneBadge.className = "badge " + badgeCls + (laneState === "active" ? " badge-dot" : "");
-        laneBadge.textContent = badgeText;
-      }
-
-      const body = lane.querySelector("[data-lane-scroll]");
-      if (!body) return;
-
-      if (entries.length === 0) {
-        if (!body.querySelector(".lane-waiting") || body.querySelectorAll(".trace-entry").length) {
-          body.innerHTML = emptyLaneMessage(s, name, laneState);
-        }
-        return;
-      }
-
-      // Drop empty state if entries arrived
-      if (body.querySelector(".lane-waiting")) body.innerHTML = "";
-
-      const existing = body.querySelectorAll(".trace-entry").length;
-      for (let i = existing; i < entries.length; i++) {
-        const tmp = document.createElement("div");
-        tmp.innerHTML = renderEntryHtml(name, entries[i], i, now).trim();
-        const btn = tmp.firstElementChild;
-        if (btn) {
-          bindTraceEntry(btn, s);
-          body.appendChild(btn);
-        }
-      }
-
-      // Refresh is-new flags without rebuilding list
-      body.querySelectorAll(".trace-entry").forEach((el, i) => {
-        const e = entries[i];
-        if (!e) return;
-        const isNew = e._at && now - e._at < 750;
-        el.classList.toggle("is-new", !!isNew);
-        el.classList.toggle("error", !!e.error);
-      });
-
-      if (!autoScrollPaused[name]) body.scrollTop = body.scrollHeight;
-    });
-
-    return true;
-  }
-
-  /* ─── drawer ──────────────────────────────────────────────────── */
-  function openDrawer(agent, idx, entry, session) {
-    lastFocusEl = document.activeElement;
-    drawerEntry = { agent, idx, entry };
-    $("#drawer-title").textContent = entry.text;
-    $("#drawer-sub").textContent = `${agent} · step ${idx + 1} of ${session.lanes[agent].length} · ${entry.t}`;
-    $("#drawer-body").innerHTML = `
-      <div class="drawer-section">
-        <label>Agent</label>
-        <div><span class="badge badge-muted">${escapeHtml(agent)}</span>${entry.error ? ' <span class="badge badge-danger">Error</span>' : ""}</div>
-      </div>
-      <div class="drawer-section">
-        <label>Input</label>
-        <pre class="drawer-pre">${escapeHtml(entry.input || "—")}</pre>
-      </div>
-      <div class="drawer-section">
-        <label>Output</label>
-        <pre class="drawer-pre">${escapeHtml(entry.output || "—")}</pre>
-      </div>`;
-    $("#drawer").classList.add("open");
-    $("#drawer-backdrop").classList.add("open");
-    $("#drawer").setAttribute("aria-hidden", "false");
-    $("#drawer-backdrop").setAttribute("aria-hidden", "false");
-    lockBodyScroll();
-    trapFocus($("#drawer"));
-    $("#drawer-close").focus();
-  }
-
-  function closeDrawer() {
-    if (!$("#drawer").classList.contains("open")) return;
-    $("#drawer").classList.remove("open");
-    $("#drawer-backdrop").classList.remove("open");
-    $("#drawer").setAttribute("aria-hidden", "true");
-    $("#drawer-backdrop").setAttribute("aria-hidden", "true");
-    drawerEntry = null;
-    releaseFocusTrap();
-    unlockBodyScroll();
-    if (lastFocusEl && typeof lastFocusEl.focus === "function") {
-      try { lastFocusEl.focus(); } catch (_) { /* ignore */ }
-    }
-    lastFocusEl = null;
-  }
-
-  /* ─── source modal ────────────────────────────────────────────── */
-  function openSourceModal(src) {
-    lastFocusEl = document.activeElement;
-    $("#source-modal-title").textContent = src.title;
-    $("#source-modal-body").textContent = src.url;
-    $("#source-modal-agents").innerHTML = src.agents
-      .map((a) => `<span class="badge badge-muted">${escapeHtml(a)}</span>`)
-      .join("");
-    const link = $("#source-modal-open");
-    link.href = src.url;
-    $("#source-modal").classList.add("open");
-    $("#source-modal").setAttribute("aria-hidden", "false");
-    lockBodyScroll();
-    trapFocus($("#source-modal .modal") || $("#source-modal"));
-    $("#source-modal-close").focus();
-  }
-
-  function closeSourceModal() {
-    if (!$("#source-modal").classList.contains("open")) return;
-    $("#source-modal").classList.remove("open");
-    $("#source-modal").setAttribute("aria-hidden", "true");
-    releaseFocusTrap();
-    unlockBodyScroll();
-    if (lastFocusEl && typeof lastFocusEl.focus === "function") {
-      try { lastFocusEl.focus(); } catch (_) { /* ignore */ }
-    }
-    lastFocusEl = null;
-  }
-
-  /* ─── actions ─────────────────────────────────────────────────── */
-  function copyReport() {
-    const s = activeSession();
-    if (!s || !s.report) return;
-    const text = reportToMarkdown(s);
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(
-        () => showToast("Report copied"),
-        () => fallbackCopy(text)
-      );
-    } else {
-      fallbackCopy(text);
-    }
-  }
-
-  function fallbackCopy(text) {
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    document.body.appendChild(ta);
-    ta.select();
-    try {
-      document.execCommand("copy");
-      showToast("Report copied");
-    } catch {
-      showToast("Copy failed");
-    }
-    ta.remove();
-  }
-
-  function downloadMarkdown() {
-    const s = activeSession();
-    if (!s || !s.report) return;
-    const md = reportToMarkdown(s);
-    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = slugify(s.report.title) + ".md";
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      URL.revokeObjectURL(a.href);
-      a.remove();
-    }, 500);
-    showToast("Markdown downloaded");
-  }
-
-  function reportToMarkdown(s) {
-    const r = s.report;
-    const tmp = document.createElement("div");
-    tmp.innerHTML = r.html;
-    let body = "";
-    tmp.childNodes.forEach((node) => {
-      if (node.nodeType !== 1) return;
-      const tag = node.tagName.toLowerCase();
-      if (tag === "h2") body += `\n## ${node.textContent.trim()}\n\n`;
-      else if (tag === "h3") body += `\n### ${node.textContent.trim()}\n\n`;
-      else if (tag === "p") body += `${node.textContent.trim()}\n\n`;
-      else if (tag === "div") body += `> ${node.textContent.trim()}\n\n`;
-      else if (tag === "ul") {
-        node.querySelectorAll("li").forEach((li) => {
-          body += `- ${li.textContent.trim()}\n`;
-        });
-        body += "\n";
-      } else if (tag === "table") {
-        const rows = [...node.querySelectorAll("tr")];
-        rows.forEach((tr, i) => {
-          const cells = [...tr.children].map((c) => c.textContent.trim());
-          body += `| ${cells.join(" | ")} |\n`;
-          if (i === 0) body += `| ${cells.map(() => "---").join(" | ")} |\n`;
-        });
-        body += "\n";
-      }
-    });
-    let sources = "\n## Sources\n\n";
-    (r.sources || []).forEach((src) => {
-      sources += `- [${src.title}](${src.url}) — ${src.agents.join(", ")}\n`;
-    });
-    const warn = s.degraded ? `\n> **Warning:** ${s.degradedNote}\n` : "";
-    return `# ${r.title}\n\n*Query:* ${s.query}\n${warn}\n${body}${sources}`;
-  }
-
-  function submitQuery(raw) {
-    const q = (raw || "").trim();
-    const input = $("#compose-input");
-    const err = $("#compose-error");
-    if (!q) {
-      if (input) {
-        input.classList.add("invalid");
-        input.setAttribute("aria-invalid", "true");
-        input.focus();
-        if (err) {
-          err.textContent = "Enter a research query to run the agent graph.";
-          err.classList.add("show");
-        }
-        showToast("Enter a research query");
-      }
-      return;
-    }
-    const id = "s" + Date.now();
-    const now = new Date();
-    const session = {
-      id,
-      query: q,
-      state: "running",
-      createdAt: now.toISOString(),
-      duration: "0s",
-      degraded: false,
-      report: null,
-      lanes: { Analyst: [], Researcher: [], "Fact-checker": [], Synthesizer: [] },
-      _laneState: { Analyst: "waiting", Researcher: "waiting", "Fact-checker": "waiting", Synthesizer: "waiting" },
-      _start: Date.now()
-    };
-    sessions.unshift(session);
-    activeId = id;
-    composeMode = false;
-    view = "trace";
-    render();
-    simulateRun(session);
-  }
-
-  function simulateRun(session) {
-    clearInterval(runTimer);
-    if (session._finishTimer) {
-      clearTimeout(session._finishTimer);
-      session._finishTimer = null;
-    }
-
-    const script = [
-      { at: 350, agent: "Analyst", text: "Parsed query into research objectives", input: session.query, output: "Objectives extracted; domain classified as enterprise research." },
-      { at: 480, agent: "Researcher", text: "Issued web & document retrieval", input: "Primary entities from query", output: "Retrieval fan-out started across public docs and filings." },
-      { at: 1100, agent: "Analyst", text: "Drafted evaluation criteria", input: "Objectives", output: "Weighted criteria drafted for scoring." },
-      { at: 1450, agent: "Researcher", text: "Ranked sources by relevance", input: "Raw retrieval set", output: "Top sources retained for fact-checking." },
-      { at: 1900, agent: "Fact-checker", text: "Validating primary claims", input: "Researcher source pack", output: "Claim inventory created; checking dates and attributions." },
-      { at: 2400, agent: "Researcher", text: "Extracted competitive differentiators", input: "Filtered sources", output: "Differentiator table for synthesis." },
-      { at: 2700, agent: "Analyst", text: "Scored options against criteria", input: "Evidence + criteria", output: "Preliminary ranking complete." },
-      { at: 3100, agent: "Fact-checker", text: "Confirmed no contradictory filings", input: "Claim inventory", output: "No hard contradictions in public sources reviewed." },
-      { at: 3600, agent: "Synthesizer", text: "Composing executive summary", input: "All lane outputs", output: "Outline locked; writing recommendation." },
-      { at: 4300, agent: "Synthesizer", text: "Finalized report & source map", input: "Draft + provenance", output: "Report ready." }
-    ];
-    const totalMs = 4800;
-    const ACTIVE_WINDOW = 950;
-
-    session._agentLastAt = {};
-    session._lastAgent = null;
-    session._progress = 0;
-    session._finishing = false;
-    AGENTS.forEach((a) => { session._laneState[a] = "waiting"; });
-
-    let i = 0;
-    const start = Date.now();
-
-    function recomputeStates(elapsed) {
-      session._laneState = recomputeLaneStates(session, elapsed, {
-        activeWindow: ACTIVE_WINDOW,
-        agents: AGENTS,
-        scriptRemaining: script.length - i
-      });
-    }
-
-    function paint(forceFull) {
-      if (activeId === session.id && view === "trace" && !composeMode) {
-        renderTopbar();
-        renderSidebar();
-        const root = $("#content");
-        const canPatch = !forceFull && root.querySelector('[data-od-id="trace-view"]');
-        if (canPatch && patchTrace(session)) {
-          return;
-        }
-        root.innerHTML = renderTrace(session);
-        wireTrace(session);
-      } else {
-        renderSidebar();
-        renderTopbar();
-      }
-    }
-
-    function finishRun() {
-      clearInterval(runTimer);
-      runTimer = null;
-      AGENTS.forEach((a) => { session._laneState[a] = "complete"; });
-      session._progress = 100;
-      session._finishing = true;
-      session.state = "complete";
-      session.duration = Math.round((Date.now() - start) / 1000) + "s";
-      session.report = buildLiveReport(session);
-      paint();
-
-      session._finishTimer = setTimeout(() => {
-        session._finishing = false;
-        session._finishTimer = null;
-        if (activeId === session.id && !composeMode) {
-          view = "report";
-          render();
-          showToast("Report ready");
-        }
-      }, 780);
-    }
-
-    function tick() {
-      const elapsed = Date.now() - start;
-      session.duration = Math.round(elapsed / 1000) + "s";
-      session._progress = Math.min(99, Math.round((elapsed / totalMs) * 100));
-
-      while (i < script.length && script[i].at <= elapsed) {
-        const step = script[i++];
-        const t = new Date();
-        const ts = t.toTimeString().slice(0, 8);
-        session.lanes[step.agent].push({
-          t: ts,
-          text: step.text,
-          input: step.input,
-          output: step.output,
-          _at: Date.now()
-        });
-        session._agentLastAt[step.agent] = elapsed;
-        session._lastAgent = step.agent;
-      }
-
-      recomputeStates(elapsed);
-
-      if (i >= script.length && elapsed > totalMs) {
-        finishRun();
-        return;
-      }
-
-      paint();
-    }
-
-    runTimer = setInterval(tick, 160);
-    tick();
-  }
-
-  function buildLiveReport(session) {
-    const q = escapeHtml(session.query);
-    const shortTitle = truncate(session.query, 64);
-    return {
-      title: shortTitle,
-      eyebrow: "Enterprise research · Live run",
-      html: `
-        <p>Multi-agent research run completed for the query below. Analyst, Researcher, Fact-checker, and Synthesizer produced a structured diligence starter — not a substitute for vendor NDA materials or a formal RFP scorecard.</p>
-        <div class="callout"><strong>Query:</strong> ${q}</div>
-
-        <h2>Executive summary</h2>
-        <p>The graph framed decision criteria, assembled a ranked public-source pack, validated primary claims for hard contradictions, and synthesized a recommendation narrative. <strong>Use this as the first-pass brief</strong> before commercial negotiation or technical pilot design.</p>
-        <div class="callout"><strong>Working recommendation:</strong> Prioritize options that clear identity, data-residency, and evidence-export bars in the first 30 days; defer pure feature breadth until those gates pass.</div>
-
-        <h2>Decision frame (Analyst)</h2>
-        <table>
-          <thead><tr><th>Criterion</th><th>Weight</th><th>What was scored</th></tr></thead>
-          <tbody>
-            <tr><td>Fit to stated constraints</td><td>30%</td><td>Direct match to query objectives and hard requirements</td></tr>
-            <tr><td>Evidence quality</td><td>25%</td><td>Primary docs, trust centers, public filings</td></tr>
-            <tr><td>Risk / lock-in</td><td>20%</td><td>Commercial, operational, and exit exposure</td></tr>
-            <tr><td>Time-to-value</td><td>15%</td><td>Pilotability within ~90 days</td></tr>
-            <tr><td>Ops burden</td><td>10%</td><td>Ongoing integration and staffing load</td></tr>
-          </tbody>
-        </table>
-
-        <h2>Lane contributions</h2>
-        <ul>
-          <li><strong>Analyst:</strong> Parsed objectives, weighted criteria, and preliminary option scoring.</li>
-          <li><strong>Researcher:</strong> Retrieval fan-out, relevance ranking, and differentiator extraction.</li>
-          <li><strong>Fact-checker:</strong> Claim inventory against public materials; no hard contradictions in the sampled set.</li>
-          <li><strong>Synthesizer:</strong> Executive narrative, residual risks, and follow-up actions with source map.</li>
-        </ul>
-
-        <h2>Residual risks</h2>
-        <ul>
-          <li><strong>Public-source bias:</strong> Marketing pages and blogs over-index on strengths; treat capability claims as provisional until demo or sandbox proof.</li>
-          <li><strong>Commercial opacity:</strong> List pricing rarely matches enterprise quotes — model TCO with procurement, not the public calculator alone.</li>
-          <li><strong>Integration debt:</strong> Identity, SIEM, and data-plane connectors often dominate schedule risk over core product fit.</li>
-        </ul>
-
-        <h2>Recommended next steps</h2>
-        <ul>
-          <li>Request vendor DPAs, subprocessors, and latest SOC 2 / ISO packs under NDA.</li>
-          <li>Run a 2-week technical pilot against production-like accounts with success metrics written before kickoff.</li>
-          <li>Model 3-year TCO including implementation, platform fees, and ops headcount.</li>
-          <li>Re-run Fact-checker after any regulatory or acquisition news material to the shortlist.</li>
-        </ul>
-      `,
-      sources: [
-        { id: "live1", title: "Primary retrieval pack (session)", url: "https://example.com/research/" + session.id, agents: ["Researcher", "Fact-checker"] },
-        { id: "live2", title: "Analyst criteria worksheet", url: "https://example.com/criteria/" + session.id, agents: ["Analyst"] },
-        { id: "live3", title: "Claim inventory (Fact-checker)", url: "https://example.com/claims/" + session.id, agents: ["Fact-checker"] },
-        { id: "live4", title: "Synthesizer outline & recommendation", url: "https://example.com/outline/" + session.id, agents: ["Synthesizer", "Analyst"] },
-        { id: "live5", title: "Risk & lock-in notes", url: "https://example.com/risks/" + session.id, agents: ["Analyst", "Synthesizer"] }
-      ]
-    };
-  }
-
-  function openCancelModal() {
-    const s = activeSession();
-    if (!s || s.state !== "running") return;
-    lastFocusEl = document.activeElement;
-    const modal = $("#cancel-modal");
-    modal.classList.add("open");
-    modal.setAttribute("aria-hidden", "false");
-    lockBodyScroll();
-    trapFocus($("#cancel-modal .modal") || modal);
-    $("#cancel-modal-confirm").focus();
-  }
-
-  function closeCancelModal() {
-    const modal = $("#cancel-modal");
-    if (!modal.classList.contains("open")) return;
-    modal.classList.remove("open");
-    modal.setAttribute("aria-hidden", "true");
-    releaseFocusTrap();
-    unlockBodyScroll();
-    if (lastFocusEl && typeof lastFocusEl.focus === "function") {
-      try { lastFocusEl.focus(); } catch (_) { /* ignore */ }
-    }
-    lastFocusEl = null;
-  }
-
-  function cancelRun() {
-    const s = activeSession();
-    if (!s || (s.state !== "running" && !s._finishing)) return;
-    closeCancelModal();
-    clearInterval(runTimer);
-    runTimer = null;
-    if (s._finishTimer) {
-      clearTimeout(s._finishTimer);
-      s._finishTimer = null;
-    }
-    s._finishing = false;
-    s.state = "cancelled";
-    s.duration = Math.round((Date.now() - (s._start || Date.now())) / 1000) + "s";
-    AGENTS.forEach((a) => {
-      if (s._laneState[a] === "active" || s._laneState[a] === "waiting") {
-        if (s.lanes[a].length) s._laneState[a] = "complete";
-        else s._laneState[a] = "waiting";
-      }
-    });
-    AGENTS.forEach((a) => {
-      if (s.lanes[a].length) {
-        s.lanes[a].push({
-          t: new Date().toTimeString().slice(0, 8),
-          text: "Run cancelled by user",
-          input: "Stop control",
-          output: "Lane halted; no further actions.",
-          error: false
-        });
-      }
-    });
-    s.report = null;
-    view = "trace";
-    render();
-    showToast("Research stopped — no report generated", { variant: "destructive", duration: 3800 });
-  }
-
-  /* ─── master render ───────────────────────────────────────────── */
-  function render() {
-    renderSidebar();
-    renderTopbar();
-    renderContent();
-  }
-
-  /* ─── events ──────────────────────────────────────────────────── */
-  $("#btn-new-research").addEventListener("click", () => {
-    composeMode = true;
-    view = "compose";
-    setSidebarOpen(false);
-    render();
-  });
-
-  $("#session-list").addEventListener("click", (e) => {
-    const item = e.target.closest(".session-item");
-    if (!item) return;
-    activeId = item.dataset.id;
-    composeMode = false;
-    const s = activeSession();
-    view = s && (s.state === "complete" || s.state === "warnings") ? "report" : "trace";
-    setSidebarOpen(false);
-    render();
-  });
-
-  $("#session-filter").addEventListener("input", renderSidebar);
-
-  $("#view-tabs").addEventListener("click", (e) => {
-    const tab = e.target.closest(".tab");
-    if (!tab || tab.disabled) return;
-    view = tab.dataset.view;
-    render();
-  });
-
-  $("#menu-toggle").addEventListener("click", () => setSidebarOpen(!sidebarOpen));
-  $("#sidebar-scrim").addEventListener("click", () => setSidebarOpen(false));
-  window.addEventListener("resize", () => {
-    if (window.innerWidth > 860 && sidebarOpen) setSidebarOpen(false);
-  });
-
-  $("#drawer-close").addEventListener("click", closeDrawer);
-  $("#drawer-backdrop").addEventListener("click", closeDrawer);
-  $("#source-modal-close").addEventListener("click", closeSourceModal);
-  $("#source-modal").addEventListener("click", (e) => {
-    if (e.target === $("#source-modal")) closeSourceModal();
-  });
-  $("#cancel-modal-keep").addEventListener("click", closeCancelModal);
-  $("#cancel-modal-confirm").addEventListener("click", cancelRun);
-  $("#cancel-modal").addEventListener("click", (e) => {
-    if (e.target === $("#cancel-modal")) closeCancelModal();
-  });
-
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      if ($("#drawer").classList.contains("open")) closeDrawer();
-      else if ($("#cancel-modal").classList.contains("open")) closeCancelModal();
-      else if ($("#source-modal").classList.contains("open")) closeSourceModal();
-      else if (sidebarOpen) setSidebarOpen(false);
-    }
-  });
-
-  /* ─── utils ───────────────────────────────────────────────────── */
   function escapeHtml(str) {
     return String(str)
       .replace(/&/g, "&amp;")
@@ -3286,41 +640,485 @@ h1, h2, h3, h4 {
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
   }
-  function escapeAttr(str) {
-    return escapeHtml(str).replace(/'/g, "&#39;");
-  }
-  function truncate(str, n) {
-    if (!str) return "";
-    return str.length > n ? str.slice(0, n - 1) + "…" : str;
-  }
-  function slugify(str) {
-    return String(str)
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "")
-      .slice(0, 60) || "report";
+
+  function truncate(s, n) {
+    if (!s) return "";
+    return s.length > n ? s.slice(0, n - 1) + "\u2026" : s;
   }
 
-  /* Expose pure helpers for tests (no Node require of the page). */
-  window.__ResearchUI = {
-    AGENTS,
-    AGENT_CODES,
-    stateLabel,
-    recomputeLaneStates,
-    countActiveLanes,
-    traceHintText,
-    escapeHtml,
-    escapeAttr,
-    truncate,
-    slugify,
-    reportToMarkdown
+  function slugify(s) {
+    return (
+      String(s)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "")
+        .slice(0, 60) || "report"
+    );
+  }
+
+  function statusLabel(s) {
+    if (s === "pending") return "Pending";
+    if (s === "running") return "Running";
+    if (s === "done") return "Done";
+    if (s === "error") return "Error";
+    return String(s);
+  }
+
+  function uid(prefix) {
+    return (
+      prefix +
+      "-" +
+      Math.random().toString(36).slice(2, 8) +
+      Date.now().toString(36).slice(-4)
+    );
+  }
+
+  function loadSessions() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return [];
+      var parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveSessions() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+    } catch {
+      /* ignore quota */
+    }
+  }
+
+  function findSession(id) {
+    for (var i = 0; i < sessions.length; i++) {
+      if (sessions[i].id === id) return sessions[i];
+    }
+    return null;
+  }
+
+  function showPanel(name) {
+    Object.keys(el.panels).forEach(function (k) {
+      el.panels[k].classList.toggle("active", k === name);
+    });
+  }
+
+  function closeSidebar() {
+    el.sidebar.classList.remove("open");
+    el.backdrop.classList.remove("open");
+    el.backdrop.hidden = true;
+    el.btnMenu.setAttribute("aria-expanded", "false");
+  }
+
+  function openSidebar() {
+    el.sidebar.classList.add("open");
+    el.backdrop.classList.add("open");
+    el.backdrop.hidden = false;
+    el.btnMenu.setAttribute("aria-expanded", "true");
+  }
+
+  function renderSessionList() {
+    if (!sessions.length) {
+      el.emptySessions.hidden = false;
+      el.sessionList.hidden = true;
+      el.sessionList.innerHTML = "";
+      return;
+    }
+    el.emptySessions.hidden = true;
+    el.sessionList.hidden = false;
+    var html = "";
+    for (var i = 0; i < sessions.length; i++) {
+      var s = sessions[i];
+      var active = s.id === activeId ? " active" : "";
+      html +=
+        '<li><button type="button" class="session-item' +
+        active +
+        '" data-id="' +
+        escapeHtml(s.id) +
+        '">' +
+        '<span class="status-dot ' +
+        escapeHtml(s.status) +
+        '" aria-hidden="true"></span>' +
+        '<span class="q">' +
+        escapeHtml(truncate(s.query, 80)) +
+        "</span>" +
+        '<span class="meta">' +
+        escapeHtml(s.jobId) +
+        " · " +
+        escapeHtml(statusLabel(s.status).toLowerCase()) +
+        "</span>" +
+        "</button></li>";
+    }
+    el.sessionList.innerHTML = html;
+  }
+
+  function setRunningView(session) {
+    el.jobStatusDot.className = "status-dot " + session.status;
+    el.jobStatusText.textContent = statusLabel(session.status).toLowerCase();
+    el.jobId.textContent = session.jobId;
+    el.jobQuery.textContent = session.query;
+    if (session.status === "pending") {
+      el.jobHint.textContent = "Job accepted (DEMO). Waiting to start…";
+    } else if (session.status === "running") {
+      el.jobHint.textContent = "Job running (DEMO). Report will appear when status is done.";
+    } else {
+      el.jobHint.textContent = "";
+    }
+    showPanel("running");
+  }
+
+  function markdownToSimpleHtml(md) {
+    var lines = String(md).split("\n");
+    var out = [];
+    var inList = false;
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+      if (/^##\s+/.test(line)) {
+        if (inList) {
+          out.push("</ul>");
+          inList = false;
+        }
+        out.push("<h2>" + escapeHtml(line.replace(/^##\s+/, "")) + "</h2>");
+      } else if (/^###\s+/.test(line)) {
+        if (inList) {
+          out.push("</ul>");
+          inList = false;
+        }
+        out.push("<h2>" + escapeHtml(line.replace(/^###\s+/, "")) + "</h2>");
+      } else if (/^[-*]\s+/.test(line)) {
+        if (!inList) {
+          out.push("<ul>");
+          inList = true;
+        }
+        out.push("<li>" + escapeHtml(line.replace(/^[-*]\s+/, "")) + "</li>");
+      } else if (line.trim() === "") {
+        if (inList) {
+          out.push("</ul>");
+          inList = false;
+        }
+      } else if (/^\*[^*]+\*$/.test(line.trim()) || line.indexOf("DEMO") === 0 || line.indexOf("*DEMO") === 0) {
+        if (inList) {
+          out.push("</ul>");
+          inList = false;
+        }
+        out.push('<p class="note">' + escapeHtml(line.replace(/^\*|\*$/g, "")) + "</p>");
+      } else {
+        if (inList) {
+          out.push("</ul>");
+          inList = false;
+        }
+        out.push("<p>" + escapeHtml(line) + "</p>");
+      }
+    }
+    if (inList) out.push("</ul>");
+    return out.join("\n");
+  }
+
+  function setReportView(session) {
+    el.reportTitle.textContent = truncate(session.query, 72) || "Report";
+    el.reportJobId.textContent = session.jobId;
+    el.reportStatus.textContent = "status: done";
+    el.reportWhen.textContent = session.updatedAt
+      ? new Date(session.updatedAt).toLocaleString()
+      : "";
+    el.reportBody.innerHTML = markdownToSimpleHtml(
+      session.reportMarkdown || "_No report body._"
+    );
+    showPanel("report");
+  }
+
+  function setErrorView(session) {
+    el.errorMessage.textContent =
+      session.errorMessage || "The job failed. You can try again with the same query.";
+    el.errorJobId.textContent = session.jobId;
+    showPanel("error");
+  }
+
+  function openSession(id) {
+    var s = findSession(id);
+    if (!s) return;
+    activeId = id;
+    renderSessionList();
+    if (s.status === "pending" || s.status === "running") {
+      setRunningView(s);
+    } else if (s.status === "done") {
+      setReportView(s);
+    } else if (s.status === "error") {
+      setErrorView(s);
+    }
+    closeSidebar();
+  }
+
+  function goCompose(prefill) {
+    activeId = null;
+    clearRunTimers();
+    el.queryError.textContent = "";
+    if (typeof prefill === "string") el.queryInput.value = prefill;
+    else el.queryInput.value = "";
+    renderSessionList();
+    showPanel("compose");
+    closeSidebar();
+    el.queryInput.focus();
+  }
+
+  function clearRunTimers() {
+    if (runTimer) clearTimeout(runTimer);
+    if (runTimer2) clearTimeout(runTimer2);
+    runTimer = null;
+    runTimer2 = null;
+  }
+
+  function buildMockReport(query, jobId) {
+    var q = query.trim();
+    return [
+      "## Summary",
+      "",
+      "This is a **DEMO** final report for the query:",
+      "",
+      "> " + q,
+      "",
+      "In a live system this text would come from the graph after plan → research → normalize → verify → final.",
+      "",
+      "## What a real run would do",
+      "",
+      "- Accept the query as a research job (async; poll by job id).",
+      "- Break the query into sub-questions (plan).",
+      "- Research branches in parallel, then merge findings into a draft.",
+      "- Verify the draft (pass or revise once), then emit a final report.",
+      "",
+      "## Job record",
+      "",
+      "- Job id: `" + jobId + "`",
+      "- Status: `done`",
+      "- Mode: mock (no MiMo / Tavily calls from this page)",
+      "",
+      "*DEMO — synthetic report for interview walkthroughs. Not live model output.*"
+    ].join("\n");
+  }
+
+  function startMockJob(query) {
+    var session = {
+      id: uid("sess"),
+      jobId: uid("job"),
+      query: query,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      demo: true
+    };
+    sessions.unshift(session);
+    activeId = session.id;
+    saveSessions();
+    renderSessionList();
+    setRunningView(session);
+
+    // pending → running shortly, then done (or error if token in query)
+    runTimer = setTimeout(function () {
+      session.status = "running";
+      session.updatedAt = new Date().toISOString();
+      saveSessions();
+      renderSessionList();
+      if (activeId === session.id) setRunningView(session);
+
+      runTimer2 = setTimeout(function () {
+        var fail = query.indexOf(MOCK_FAIL_TOKEN) !== -1;
+        session.updatedAt = new Date().toISOString();
+        if (fail) {
+          session.status = "error";
+          session.errorMessage =
+            "Mock error: query contained the failure token. Remove it and try again.";
+        } else {
+          session.status = "done";
+          session.reportMarkdown = buildMockReport(query, session.jobId);
+        }
+        saveSessions();
+        renderSessionList();
+        if (activeId === session.id) {
+          if (fail) setErrorView(session);
+          else setReportView(session);
+        }
+      }, 1600);
+    }, 500);
+  }
+
+  function onSubmit() {
+    var q = el.queryInput.value.trim();
+    el.queryError.textContent = "";
+    if (!q) {
+      el.queryError.textContent = "Enter a query to start a research job.";
+      el.queryInput.focus();
+      return;
+    }
+    startMockJob(q);
+  }
+
+  // Events
+  el.btnSubmit.addEventListener("click", onSubmit);
+  el.queryInput.addEventListener("keydown", function (e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      e.preventDefault();
+      onSubmit();
+    }
+  });
+  el.btnNew.addEventListener("click", function () {
+    goCompose();
+  });
+  document.getElementById("btn-new-from-report").addEventListener("click", function () {
+    goCompose();
+  });
+  document.getElementById("btn-new-from-error").addEventListener("click", function () {
+    goCompose();
+  });
+  document.getElementById("btn-retry").addEventListener("click", function () {
+    var s = activeId ? findSession(activeId) : null;
+    goCompose(s ? s.query : "");
+  });
+
+  el.sessionList.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-id]");
+    if (!btn) return;
+    openSession(btn.getAttribute("data-id"));
+  });
+
+  document.getElementById("example-chips").addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-q]");
+    if (!btn) return;
+    el.queryInput.value = btn.getAttribute("data-q") || "";
+    el.queryInput.focus();
+  });
+
+  document.getElementById("btn-copy-report").addEventListener("click", async function () {
+    var s = activeId ? findSession(activeId) : null;
+    var text = (s && s.reportMarkdown) || el.reportBody.innerText;
+    try {
+      await navigator.clipboard.writeText(text);
+      var btn = document.getElementById("btn-copy-report");
+      var prev = btn.textContent;
+      btn.textContent = "Copied";
+      setTimeout(function () {
+        btn.textContent = prev;
+      }, 1200);
+    } catch {
+      /* ignore */
+    }
+  });
+
+  document.getElementById("btn-download-md").addEventListener("click", function () {
+    var s = activeId ? findSession(activeId) : null;
+    var text = (s && s.reportMarkdown) || "";
+    var name = slugify(s ? s.query : "report") + ".md";
+    var blob = new Blob([text], { type: "text/markdown;charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  el.btnMenu.addEventListener("click", function () {
+    if (el.sidebar.classList.contains("open")) closeSidebar();
+    else openSidebar();
+  });
+  el.backdrop.addEventListener("click", closeSidebar);
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") closeSidebar();
+  });
+
+  // Initial paint
+  renderSessionList();
+  showPanel("compose");
+
+  // Test helpers
+  window.__RQ = {
+    escapeHtml: escapeHtml,
+    truncate: truncate,
+    slugify: slugify,
+    statusLabel: statusLabel,
+    getSessions: function () {
+      return sessions.slice();
+    },
+    getActiveId: function () {
+      return activeId;
+    },
+    startMockJob: startMockJob,
+    goCompose: goCompose,
+    openSession: openSession,
+    STORAGE_KEY: STORAGE_KEY,
+    MOCK_FAIL_TOKEN: MOCK_FAIL_TOKEN,
+    /** Faster mock for tests */
+    _setMockDelays: function (pendingMs, runningMs) {
+      window.__RQ._pendingMs = pendingMs;
+      window.__RQ._runningMs = runningMs;
+    }
   };
 
-  /* ─── init: open completed report for evaluators ──────────────── */
-  activeId = "s1";
-  composeMode = false;
-  view = "report";
-  render();
+  // Allow tests to speed up by monkey-patching timeouts used in startMockJob
+  var _startMockJob = startMockJob;
+  startMockJob = function (query) {
+    var pendingMs = window.__RQ._pendingMs != null ? window.__RQ._pendingMs : 500;
+    var runningMs = window.__RQ._runningMs != null ? window.__RQ._runningMs : 1600;
+
+    var session = {
+      id: uid("sess"),
+      jobId: uid("job"),
+      query: query,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      demo: true
+    };
+    sessions.unshift(session);
+    activeId = session.id;
+    saveSessions();
+    renderSessionList();
+    setRunningView(session);
+
+    clearRunTimers();
+    runTimer = setTimeout(function () {
+      session.status = "running";
+      session.updatedAt = new Date().toISOString();
+      saveSessions();
+      renderSessionList();
+      if (activeId === session.id) setRunningView(session);
+
+      runTimer2 = setTimeout(function () {
+        var fail = query.indexOf(MOCK_FAIL_TOKEN) !== -1;
+        session.updatedAt = new Date().toISOString();
+        if (fail) {
+          session.status = "error";
+          session.errorMessage =
+            "Mock error: query contained the failure token. Remove it and try again.";
+        } else {
+          session.status = "done";
+          session.reportMarkdown = buildMockReport(query, session.jobId);
+        }
+        saveSessions();
+        renderSessionList();
+        if (activeId === session.id) {
+          if (fail) setErrorView(session);
+          else setReportView(session);
+        }
+      }, runningMs);
+    }, pendingMs);
+  };
+  // rebind submit path — onSubmit closes over startMockJob name in outer scope;
+  // replace reference used by onSubmit by rewriting onSubmit's call: assign to window and redefine onSubmit
+  el.btnSubmit.onclick = null;
+  el.btnSubmit.removeEventListener("click", onSubmit);
+  function onSubmitFast() {
+    var q = el.queryInput.value.trim();
+    el.queryError.textContent = "";
+    if (!q) {
+      el.queryError.textContent = "Enter a query to start a research job.";
+      el.queryInput.focus();
+      return;
+    }
+    startMockJob(q);
+  }
+  el.btnSubmit.addEventListener("click", onSubmitFast);
+  window.__RQ.startMockJob = startMockJob;
 })();
   </script>
 </body>
