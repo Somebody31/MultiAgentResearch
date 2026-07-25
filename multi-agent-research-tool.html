@@ -493,15 +493,65 @@ a:hover { color: color-mix(in oklab, var(--led) 80%, #fff); }
 }
 .arrangement-bridge {
   margin: 0;
-  font-size: var(--fs-sm); color: var(--muted); max-width: 44ch;
-  line-height: 1.45;
+  max-width: 48ch;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  color: var(--fg-2);
 }
 .arrangement-bridge strong { color: var(--fg); font-weight: 700; }
+/* Console meter plate for run status (not soft pill chips) */
 .trace-status {
-  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2);
-  font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-2);
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
   flex-shrink: 0;
-  padding-bottom: 2px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--track);
+}
+.trace-status .status-led {
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  background: currentColor;
+  flex-shrink: 0;
+  color: var(--border-strong);
+}
+.trace-status .status-led.badge-complete { color: var(--play); }
+.trace-status .status-led.badge-running,
+.trace-status .status-led.badge-accent { color: var(--led); }
+.trace-status .status-led.badge-warnings { color: var(--warn); }
+.trace-status .status-led.badge-error,
+.trace-status .status-led.badge-cancelled { color: var(--danger); }
+.trace-status .badge {
+  border: none;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  letter-spacing: 0.05em;
+  font-size: 12px;
+}
+.trace-status .badge-complete { color: var(--play); }
+.trace-status .badge-running,
+.trace-status .badge-accent { color: var(--led); }
+.trace-status .badge-warnings { color: var(--warn); }
+.trace-status .badge-error,
+.trace-status .badge-cancelled { color: var(--danger); }
+.trace-status [data-trace-hint] {
+  color: var(--fg-2);
+  font-weight: 500;
+}
+.trace-status [data-trace-hint]::before {
+  content: "·";
+  margin-right: 8px;
+  color: var(--border-strong);
 }
 .trace-active-count { color: var(--led); font-weight: 700; }
 
@@ -514,21 +564,34 @@ a:hover { color: color-mix(in oklab, var(--led) 80%, #fff); }
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
 }
+/* Console segment chips (not soft SaaS pills): left LED + track body */
 .stage {
-  display: inline-flex; align-items: center; gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  background: transparent;
-  border-radius: var(--radius-pill);
-  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
   min-width: 0;
+  padding: 0 10px 0 8px;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
   color: var(--muted);
+  box-shadow: none;
   transition: background var(--motion), border-color var(--motion), color var(--motion), box-shadow var(--motion);
+}
+.stage-led {
+  width: 3px;
+  height: 14px;
+  border-radius: 1px;
+  background: var(--border-strong);
+  flex-shrink: 0;
 }
 .stage.is-done {
   color: var(--fg-2);
-  border-color: color-mix(in oklab, var(--play) 28%, transparent);
-  background: color-mix(in oklab, var(--play) 8%, transparent);
+  border-color: color-mix(in oklab, var(--play) 40%, var(--border));
+  background: var(--track);
 }
+.stage.is-done .stage-led { background: var(--play); }
 .stage.is-current {
   border-color: color-mix(in oklab, var(--led) 55%, transparent);
   background: var(--led);
@@ -536,19 +599,27 @@ a:hover { color: color-mix(in oklab, var(--led) 80%, #fff); }
   font-weight: 700;
   box-shadow: 0 0 0 3px var(--led-soft), 0 1px 0 color-mix(in oklab, #fff 18%, transparent) inset;
 }
+.stage.is-current .stage-led {
+  background: var(--btn-ink);
+  opacity: 0.72;
+}
 .stage.is-pending { opacity: 0.45; }
 .stage-name {
-  font-size: var(--fs-sm); font-weight: 700;
+  font-size: var(--fs-sm);
+  font-weight: 600;
   white-space: nowrap;
   letter-spacing: -0.01em;
 }
+.stage.is-current .stage-name { font-weight: 700; }
 .stage-meta {
-  font-family: var(--mono); font-size: var(--fs-xs); font-weight: 700;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  font-weight: 600;
   white-space: nowrap;
-  opacity: 0.85;
+  opacity: 0.9;
 }
 .stage.is-current .stage-meta { color: var(--btn-ink); opacity: 0.75; }
-.stage.is-done .stage-meta { color: var(--play); }
+.stage.is-done .stage-meta { color: var(--play); opacity: 1; }
 
 /* Compact track rows — expand for detail */
 .track-stack, .lanes {
@@ -570,39 +641,79 @@ a:hover { color: color-mix(in oklab, var(--led) 80%, #fff); }
   box-shadow: inset 3px 0 0 var(--led), 0 0 0 1px var(--led-soft);
 }
 .lane.is-error { border-color: color-mix(in oklab, var(--danger) 45%, var(--border)); }
+/* Two-row multitrack channel head — square arm bar, not soft orb accordion */
 .lane-head {
-  display: flex; align-items: center; gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  min-height: 44px;
+  display: grid;
+  grid-template-columns: 12px 1fr auto;
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  row-gap: 2px;
+  align-items: center;
   width: 100%;
+  min-height: 48px;
+  padding: 10px 14px;
   text-align: left;
   cursor: pointer;
   color: inherit;
   background: transparent;
+  border: 0;
 }
-.lane-head:hover { background: color-mix(in oklab, var(--bg) 35%, transparent); }
-.lane-head:focus-visible { box-shadow: inset 0 0 0 2px var(--led-glow); }
-.lane-top { display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; }
+.lane-head:hover { background: color-mix(in oklab, var(--bg) 40%, transparent); }
+.lane-head:focus-visible { box-shadow: inset 0 0 0 2px var(--led-glow); outline: none; }
+.lane-top {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
 .lane-led {
-  width: 10px; height: 10px; border-radius: 50%; background: var(--meta); flex-shrink: 0;
+  width: 4px;
+  height: 22px;
+  border-radius: 1px;
+  background: var(--meta);
+  flex-shrink: 0;
+  box-shadow: none;
 }
 .lane.is-active .lane-led {
   background: var(--led);
-  box-shadow: 0 0 0 4px var(--led-glow);
+  box-shadow: 0 0 0 3px var(--led-soft);
   animation: pulse-led 1.2s ease-in-out infinite;
 }
 .lane.is-complete .lane-led { background: var(--play); animation: none; box-shadow: none; }
 .lane.is-error .lane-led { background: var(--danger); animation: none; box-shadow: none; }
 .lane-code {
-  font-family: var(--mono); font-size: var(--fs-xs); font-weight: 700; color: var(--meta);
-  letter-spacing: 0.04em;
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  align-self: center;
 }
 .lane.is-active .lane-code { color: var(--led); }
-.lane-name { font-weight: 700; font-size: var(--fs-md); color: var(--fg); flex: 1; min-width: 0; letter-spacing: -0.01em; }
+.lane-name {
+  grid-column: 2;
+  grid-row: 1;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--fg);
+  min-width: 0;
+  letter-spacing: -0.015em;
+}
 .lane-summary {
-  font-family: var(--mono); font-size: var(--fs-xs); font-weight: 600; color: var(--meta);
-  margin-left: auto; flex-shrink: 0;
-  text-transform: uppercase; letter-spacing: 0.04em;
+  grid-column: 2;
+  grid-row: 2;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--meta);
+  margin-left: 0;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  justify-self: start;
 }
 .lane.is-active .lane-summary { color: var(--led); }
 .lane-body {
@@ -1458,6 +1569,7 @@ a:hover { color: color-mix(in oklab, var(--led) 80%, #fff); }
       if (st.id === "research" && m.fanOut) meta = `×${m.fanOut}`;
       else if (st.id === "verify" && m.verdict !== "—") meta = m.verdict;
       return `<div class="stage ${cls}" role="listitem">
+        <span class="stage-led" aria-hidden="true"></span>
         <span class="stage-name">${st.name}</span>
         ${meta ? `<span class="stage-meta">${escapeHtml(meta)}</span>` : ""}
       </div>`;
@@ -1818,14 +1930,16 @@ a:hover { color: color-mix(in oklab, var(--led) 80%, #fff); }
       return `
         <section class="lane${laneMod ? " " + laneMod : ""}${ledCls ? " " + ledCls : ""}${isOpen ? " is-open" : ""}" data-od-id="lane-${name.toLowerCase()}" data-agent="${escapeAttr(name)}" data-lane-state="${escapeAttr(laneState)}">
           <div class="lane-live-bar" aria-hidden="true"></div>
+
           <button type="button" class="lane-head" data-lane-toggle="${escapeAttr(name)}" aria-expanded="${isOpen ? "true" : "false"}">
             <span class="lane-top">
               <span class="lane-led" aria-hidden="true"></span>
-              <span class="lane-code">T${AGENT_CODES[name] || ""}</span>
             </span>
             <span class="lane-name">${escapeHtml(name)}</span>
             <span class="lane-summary" data-lane-badge>${escapeHtml(summary)}</span>
+            <span class="lane-code">T${AGENT_CODES[name] || ""}</span>
           </button>
+
           <div class="lane-body">
             <div class="lane-entries" data-lane-scroll="${escapeAttr(name)}">${body}</div>
           </div>
@@ -1846,6 +1960,7 @@ a:hover { color: color-mix(in oklab, var(--led) 80%, #fff); }
             <p class="arrangement-bridge">Pipeline steps above. <strong>Research</strong> runs parallel tracks below — expand a track for detail.</p>
           </div>
           <div class="trace-status" role="status" aria-live="polite" aria-atomic="true">
+            <span class="status-led ${finishing ? "badge-accent" : st.cls}" aria-hidden="true"></span>
             <span class="badge ${finishing ? "badge-accent" : st.cls}" data-trace-badge>${finishing ? "Finalizing" : st.text}</span>
             <span data-trace-hint class="${running && activeCount ? "trace-active-count" : ""}">${escapeHtml(hint)}</span>
           </div>
@@ -1909,10 +2024,13 @@ a:hover { color: color-mix(in oklab, var(--led) 80%, #fff); }
     wrap.classList.toggle("is-finishing", finishing);
 
     const badge = wrap.querySelector("[data-trace-badge]");
+    const badgeCls = finishing ? "badge-accent" : st.cls;
     if (badge) {
-      badge.className = "badge " + (finishing ? "badge-accent" : st.cls);
+      badge.className = "badge " + badgeCls;
       badge.textContent = finishing ? "Finalizing" : st.text;
     }
+    const statusLed = wrap.querySelector(".trace-status .status-led");
+    if (statusLed) statusLed.className = "status-led " + badgeCls;
     const hintEl = wrap.querySelector("[data-trace-hint]");
     if (hintEl) {
       const hint = traceHintText(s, activeCount);
