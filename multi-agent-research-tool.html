@@ -1,1493 +1,2449 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MultiAgentResearch — Demo desk</title>
-  <meta name="description" content="Mock multi-agent research desk: staged pipeline, multi-session jobs, DEMO metrics." />
-  <!--
-    THESIS: A multi-session research desk that shows a fixed staged team (plan → fan-out research → normalize → verify → final), not a chat black box.
-    OWN-WORLD: Category-standard product UI — cool light surfaces, ink type, single blue accent; Linear-density rail + LangSmith-like stage states + Perplexity-like report.
-    STORY: Compose a query, watch the pipeline work, leave with a report and labeled DEMO metrics for resume/interview.
-    FIRST VIEWPORT: Session rail + compose panel + dormant stage rail + zeroed metrics; sample query ready.
-    FORM: Category standard (canon); craft peers Perplexity · Linear · LangSmith; seed direction discarded after canon choice.
-  -->
+  <meta name="theme-color" content="#0e1014" />
+  <meta name="color-scheme" content="dark" />
+  <title>Research · Multitrack</title>
   <style>
-    :root {
-      --bg: #f4f5f7;
-      --bg-elevated: #ffffff;
-      --bg-muted: #eef0f3;
-      --bg-sidebar: #f7f8fa;
-      --border: #e2e5ea;
-      --border-strong: #cfd4dc;
-      --text: #12141a;
-      --text-secondary: #4a5160;
-      --text-tertiary: #6b7380;
-      --accent: #2563eb;
-      --accent-hover: #1d4ed8;
-      --accent-soft: #eff4ff;
-      --accent-border: #c7d7fe;
-      --success: #0f7a4c;
-      --success-soft: #e8f7ef;
-      --warning: #9a6700;
-      --warning-soft: #fff6e0;
-      --danger: #b42318;
-      --danger-soft: #fef3f2;
-      --running: #2563eb;
-      --radius: 10px;
-      --radius-sm: 6px;
-      --radius-pill: 999px;
-      --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 12px rgba(16, 24, 40, 0.04);
-      --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      --mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Menlo, Consolas, monospace;
-      --ease: cubic-bezier(0.16, 1, 0.3, 1);
-      --focus: 0 0 0 2px var(--bg-elevated), 0 0 0 4px var(--accent);
-      --sidebar-w: 260px;
-    }
 
-    *, *::before, *::after { box-sizing: border-box; }
-    html, body { height: 100%; }
-    body {
-      margin: 0;
-      font-family: var(--font);
-      font-size: 14px;
-      line-height: 1.5;
-      color: var(--text);
-      background: var(--bg);
-      -webkit-font-smoothing: antialiased;
-    }
-    button, input, textarea { font: inherit; color: inherit; }
-    button { cursor: pointer; border: none; background: none; }
-    a { color: var(--accent); }
+/* THESIS: Multitrack research console — graph stages and parallel tracks are the product, not a chat costume.
+   OWN-WORLD: Graphite console panels, amber arm LEDs, mono transport meters, system UI type; flat tonal layering.
+   STORY: Builder demos plan→fan-out→verify→mixdown with DEMO-honest meters.
+   FIRST VIEWPORT: Take library left; arrangement (stage ruler + tracks) or mixdown; transport meters bottom.
+   FORM: Multitrack Research Session (shape 2026-07-25); seed 0322294d assigned index 7; Operate mode. */
 
-    .app {
-      display: grid;
-      grid-template-columns: var(--sidebar-w) 1fr;
-      grid-template-rows: auto 1fr;
-      height: 100%;
-      min-height: 100dvh;
-    }
+:root {
+  --bg: #0e1014;
+  --panel: #161a21;
+  --track: #1c2129;
+  --track-armed: #252b36;
+  --fg: #e8e6e1;
+  --fg-2: #9aa1ad;
+  --muted: #6d7482;
+  --meta: #525866;
+  --border: #2a303a;
+  --border-strong: #3a4250;
+  --led: #e6a23c;
+  --led-dim: #8a6224;
+  --led-glow: color-mix(in oklab, var(--led) 35%, transparent);
+  --play: #4d9f6a;
+  --danger: #d45454;
+  --warn: #c9a227;
+  --mixdown: #12151b;
+  --btn: #e8e6e1;
+  --btn-ink: #0e1014;
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 14px;
+  --text-md: 15px;
+  --text-lg: 18px;
+  --text-xl: clamp(1.75rem, 4vw, 2.25rem);
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --sidebar-w: 260px;
+  --transport-h: 52px;
+  --topbar-h: 48px;
+  --focus: 0 0 0 2px var(--bg), 0 0 0 4px var(--led-glow);
+  --motion: 180ms cubic-bezier(0.2, 0, 0, 1);
+  --z-scrim: 25;
+  --z-sidebar: 30;
+  --z-drawer: 50;
+  --z-modal: 55;
+  --z-toast: 80;
+}
 
-    /* Top bar */
-    .topbar {
-      grid-column: 1 / -1;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 10px 16px;
-      background: var(--bg-elevated);
-      border-bottom: 1px solid var(--border);
-      min-height: 52px;
-    }
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-shrink: 0;
-    }
-    .brand-mark {
-      width: 28px;
-      height: 28px;
-      border-radius: 7px;
-      background: var(--accent);
-      color: #fff;
-      display: grid;
-      place-items: center;
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-    }
-    .brand h1 {
-      margin: 0;
-      font-size: 14px;
-      font-weight: 600;
-      letter-spacing: -0.02em;
-      line-height: 1.2;
-    }
-    .brand p {
-      margin: 0;
-      font-size: 11px;
-      color: var(--text-tertiary);
-    }
-    .badge-demo {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 8px;
-      border-radius: var(--radius-pill);
-      background: var(--warning-soft);
-      color: var(--warning);
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-    }
-    .metrics {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px 4px;
-      margin-left: auto;
-      align-items: center;
-    }
-    .metric {
-      display: flex;
-      flex-direction: column;
-      min-width: 68px;
-      padding: 4px 10px;
-      border-radius: var(--radius-sm);
-      background: var(--bg-muted);
-    }
-    .metric-label {
-      font-size: 10px;
-      font-weight: 500;
-      color: var(--text-tertiary);
-      letter-spacing: 0.01em;
-    }
-    .metric-value {
-      font-family: var(--mono);
-      font-size: 12px;
-      font-weight: 600;
-      font-variant-numeric: tabular-nums;
-      color: var(--text);
-    }
-    .metric-value .demo-tag {
-      font-family: var(--font);
-      font-size: 9px;
-      font-weight: 600;
-      color: var(--warning);
-      margin-left: 4px;
-      vertical-align: middle;
-    }
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+html { color-scheme: dark; -webkit-text-size-adjust: 100%; }
+body {
+  font-family: var(--font);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  color: var(--fg);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; border: none; background: none; }
+a { color: var(--led); }
+:focus-visible { outline: none; box-shadow: var(--focus); }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}
 
-    /* Sidebar */
-    .sidebar {
-      background: var(--bg-sidebar);
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-    }
-    .sidebar-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 14px 14px 10px;
-      gap: 8px;
-    }
-    .sidebar-head h2 {
-      margin: 0;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-secondary);
-      letter-spacing: 0.01em;
-    }
-    .btn-new {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 5px 10px;
-      border-radius: var(--radius-sm);
-      background: var(--accent);
-      color: #fff;
-      font-size: 12px;
-      font-weight: 600;
-      transition: background 160ms var(--ease);
-    }
-    .btn-new:hover { background: var(--accent-hover); }
-    .btn-new:focus-visible { outline: none; box-shadow: var(--focus); }
+/* ── app shell ───────────────────────────────────────────── */
+.app {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-rows: 1fr;
+  height: 100%;
+  min-height: 100vh;
+}
+.sidebar-scrim {
+  display: none;
+  position: fixed; inset: 0;
+  background: color-mix(in oklab, #000 55%, transparent);
+  z-index: var(--z-scrim);
+}
 
-    .session-list {
-      list-style: none;
-      margin: 0;
-      padding: 4px 8px 16px;
-      overflow: auto;
-      flex: 1;
-    }
-    .session-item {
-      width: 100%;
-      text-align: left;
-      padding: 10px 10px;
-      border-radius: var(--radius-sm);
-      border: 1px solid transparent;
-      display: grid;
-      gap: 4px;
-      transition: background 120ms var(--ease), border-color 120ms var(--ease);
-    }
-    .session-item:hover { background: var(--bg-elevated); }
-    .session-item:focus-visible { outline: none; box-shadow: var(--focus); }
-    .session-item[aria-current="true"] {
-      background: var(--bg-elevated);
-      border-color: var(--border);
-      box-shadow: var(--shadow);
-    }
-    .session-title {
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--text);
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-    .session-meta {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 11px;
-      color: var(--text-tertiary);
-    }
-    .status-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--border-strong);
-      flex-shrink: 0;
-    }
-    .status-dot.pending { background: var(--text-tertiary); }
-    .status-dot.running {
-      background: var(--running);
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--running) 25%, transparent);
-    }
-    .status-dot.done { background: var(--success); }
-    .status-dot.error { background: var(--danger); }
+/* ── take library ────────────────────────────────────────── */
+.sidebar {
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  z-index: var(--z-sidebar);
+}
+.sidebar-head {
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.brand-row { display: flex; align-items: center; gap: var(--space-2); }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand-mark {
+  width: 28px; height: 28px; border-radius: var(--radius-sm);
+  background: var(--track);
+  border: 1px solid var(--border-strong);
+  display: grid; place-items: center;
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  color: var(--led);
+}
+.brand-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.brand-name { font-weight: 600; font-size: var(--text-md); letter-spacing: -0.02em; }
+.brand-sub {
+  font-family: var(--mono); font-size: 10px; color: var(--meta);
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 32px; padding: 0 12px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm); font-weight: 600;
+  transition: background var(--motion), color var(--motion), border-color var(--motion);
+}
+.btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+.btn-block { width: 100%; }
+.btn-primary { background: var(--btn); color: var(--btn-ink); }
+.btn-primary:hover { background: var(--btn); filter: brightness(1.08); }
+.btn-secondary {
+  background: var(--track); color: var(--fg);
+  border: 1px solid var(--border-strong);
+}
+.btn-secondary:hover { border-color: var(--muted); }
+.btn-ghost { color: var(--fg-2); }
+.btn-ghost:hover { background: var(--track); color: var(--fg); }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger-ghost { color: var(--danger); border: 1px solid color-mix(in oklab, var(--danger) 40%, transparent); }
+.btn-danger-ghost:hover { background: color-mix(in oklab, var(--danger) 12%, transparent); }
+.btn-sm { height: 28px; padding: 0 10px; font-size: var(--text-xs); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    .sidebar-empty {
-      padding: 24px 16px;
-      color: var(--text-tertiary);
-      font-size: 13px;
-      text-align: center;
-    }
+.field-search {
+  display: flex; align-items: center;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 0 10px; height: 32px;
+}
+.field-search input {
+  flex: 1; border: 0; background: transparent; outline: none;
+  font-size: var(--text-sm); color: var(--fg); min-width: 0;
+}
+.field-search input::placeholder { color: var(--meta); }
 
-    /* Main */
-    .main {
-      min-width: 0;
-      min-height: 0;
-      overflow: auto;
-      padding: 20px 24px 40px;
-    }
-    .main-inner {
-      max-width: 880px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
+.session-list {
+  flex: 1; overflow: auto; padding: var(--space-2);
+  min-height: 0;
+}
+.session-list-label {
+  font-family: var(--mono); font-size: 10px; color: var(--meta);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  padding: var(--space-2) var(--space-2) var(--space-1);
+}
+.session-item {
+  width: 100%; text-align: left;
+  display: grid; grid-template-columns: 10px 1fr; gap: 10px; align-items: start;
+  padding: 10px; border-radius: var(--radius-md);
+  color: var(--fg-2); transition: background var(--motion);
+}
+.session-item:hover { background: var(--track); color: var(--fg); }
+.session-item.active {
+  background: var(--track-armed); color: var(--fg);
+  box-shadow: inset 2px 0 0 var(--led);
+}
+.session-dot {
+  width: 8px; height: 8px; border-radius: 50%; margin-top: 5px;
+  background: var(--meta);
+}
+.session-dot.complete { background: var(--play); }
+.session-dot.warnings { background: var(--warn); }
+.session-dot.running {
+  background: var(--led);
+  box-shadow: 0 0 0 3px var(--led-glow);
+  animation: pulse-led 1.2s ease-in-out infinite;
+}
+.session-dot.cancelled, .session-dot.error { background: var(--danger); }
+@keyframes pulse-led {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+.session-title {
+  display: block; font-size: var(--text-sm); font-weight: 500;
+  color: inherit; line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.session-meta {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  margin-top: 6px; font-size: 11px; color: var(--meta);
+}
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 2px 6px; border-radius: 999px;
+  background: var(--track); color: var(--fg-2);
+  border: 1px solid var(--border);
+}
+.badge-running { color: var(--led); border-color: color-mix(in oklab, var(--led) 35%, transparent); }
+.badge-complete { color: var(--play); border-color: color-mix(in oklab, var(--play) 35%, transparent); }
+.badge-warnings { color: var(--warn); border-color: color-mix(in oklab, var(--warn) 35%, transparent); }
+.badge-cancelled, .badge-error { color: var(--danger); border-color: color-mix(in oklab, var(--danger) 35%, transparent); }
+.badge-dot::before {
+  content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor;
+}
+.sidebar-empty {
+  padding: var(--space-6) var(--space-3); text-align: center; color: var(--muted);
+  font-size: var(--text-sm);
+}
+.sidebar-empty strong { display: block; color: var(--fg-2); margin-bottom: 4px; }
+.sidebar-foot {
+  padding: 10px var(--space-4);
+  border-top: 1px solid var(--border);
+  display: flex; justify-content: space-between;
+  font-family: var(--mono); font-size: 10px; color: var(--meta);
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.foot-live { color: var(--led-dim); }
 
-    .panel {
-      background: var(--bg-elevated);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-    }
-    .panel-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 14px 16px 0;
-    }
-    .panel-head h3 {
-      margin: 0;
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: -0.01em;
-    }
-    .panel-body { padding: 12px 16px 16px; }
+/* ── main ────────────────────────────────────────────────── */
+.main {
+  display: grid;
+  grid-template-rows: var(--topbar-h) 1fr auto;
+  min-width: 0; min-height: 0;
+  background: var(--bg);
+}
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-3);
+  padding: 0 var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  min-width: 0;
+}
+.topbar-left {
+  display: flex; align-items: center; gap: var(--space-3); min-width: 0; flex: 1;
+}
+.menu-toggle { display: none; }
+.topbar-query {
+  font-size: var(--text-sm); font-weight: 500; color: var(--fg);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 42ch;
+}
+.tabs {
+  display: inline-flex; gap: 2px;
+  background: var(--bg); padding: 2px; border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+.tabs.hidden { display: none; }
+.tab {
+  height: 28px; padding: 0 10px; border-radius: var(--radius-sm);
+  font-size: var(--text-xs); font-weight: 600; color: var(--muted);
+}
+.tab:hover:not(:disabled) { color: var(--fg); }
+.tab.active { background: var(--track); color: var(--fg); }
+.tab:disabled { opacity: 0.35; cursor: not-allowed; }
+.topbar-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.topbar-hint { font-size: var(--text-xs); color: var(--meta); font-family: var(--mono); }
 
-    /* Compose */
-    .compose-label {
-      display: block;
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--text-secondary);
-      margin-bottom: 8px;
-    }
-    #query-input {
-      width: 100%;
-      min-height: 96px;
-      resize: vertical;
-      padding: 12px 14px;
-      border: 1px solid var(--border-strong);
-      border-radius: var(--radius-sm);
-      background: var(--bg-elevated);
-      color: var(--text);
-      line-height: 1.45;
-      transition: border-color 120ms var(--ease), box-shadow 120ms var(--ease);
-    }
-    #query-input::placeholder { color: var(--text-tertiary); }
-    #query-input:hover { border-color: color-mix(in srgb, var(--border-strong) 60%, var(--text-tertiary)); }
-    #query-input:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
-    }
-    #query-input:disabled {
-      background: var(--bg-muted);
-      color: var(--text-secondary);
-      cursor: not-allowed;
-    }
-    .compose-actions {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 10px;
-      margin-top: 12px;
-    }
-    .btn-primary {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      padding: 9px 16px;
-      border-radius: var(--radius-sm);
-      background: var(--accent);
-      color: #fff;
-      font-size: 13px;
-      font-weight: 600;
-      transition: background 160ms var(--ease), opacity 160ms var(--ease);
-    }
-    .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
-    .btn-primary:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    .btn-primary:focus-visible { outline: none; box-shadow: var(--focus); }
-    .btn-ghost {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 8px 10px;
-      border-radius: var(--radius-sm);
-      color: var(--text-secondary);
-      font-size: 12px;
-      font-weight: 500;
-    }
-    .btn-ghost:hover { background: var(--bg-muted); color: var(--text); }
-    .btn-ghost:focus-visible { outline: none; box-shadow: var(--focus); }
-    .compose-hint {
-      margin: 0;
-      font-size: 12px;
-      color: var(--text-tertiary);
-    }
-    .compose-error {
-      margin: 10px 0 0;
-      padding: 8px 10px;
-      border-radius: var(--radius-sm);
-      background: var(--danger-soft);
-      color: var(--danger);
-      font-size: 12px;
-      font-weight: 500;
-      display: none;
-    }
-    .compose-error.show { display: block; }
+.content {
+  min-height: 0; overflow: auto;
+  position: relative;
+}
 
-    .samples {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 12px;
-    }
-    .sample-chip {
-      padding: 5px 10px;
-      border-radius: var(--radius-pill);
-      border: 1px solid var(--border);
-      background: var(--bg-muted);
-      font-size: 12px;
-      color: var(--text-secondary);
-      max-width: 100%;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      transition: border-color 120ms var(--ease), background 120ms var(--ease);
-    }
-    .sample-chip:hover {
-      border-color: var(--accent-border);
-      background: var(--accent-soft);
-      color: var(--accent);
-    }
-    .sample-chip:focus-visible { outline: none; box-shadow: var(--focus); }
+/* ── transport ───────────────────────────────────────────── */
+.transport {
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+  min-height: var(--transport-h);
+  display: flex; align-items: stretch; gap: 0;
+  overflow-x: auto;
+}
+.transport-label {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 var(--space-4);
+  border-right: 1px solid var(--border);
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.08em; color: var(--led);
+  text-transform: uppercase; white-space: nowrap;
+}
+.transport-meters {
+  display: flex; flex: 1; align-items: stretch;
+}
+.meter {
+  flex: 1; min-width: 88px;
+  padding: 8px 12px;
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; justify-content: center; gap: 2px;
+}
+.meter:last-child { border-right: 0; }
+.meter-k {
+  font-family: var(--mono); font-size: 9px; color: var(--meta);
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.meter-v {
+  font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+.meter-v .demo-tag {
+  font-size: 9px; color: var(--led-dim); font-weight: 700; margin-left: 4px;
+}
 
-    /* Stage rail */
-    .stage-rail {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      align-items: stretch;
-    }
-    .stage {
-      flex: 1 1 88px;
-      min-width: 84px;
-      padding: 10px 10px 12px;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border);
-      background: var(--bg-muted);
-      position: relative;
-      transition: border-color 180ms var(--ease), background 180ms var(--ease), box-shadow 180ms var(--ease);
-    }
-    .stage-name {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text);
-      letter-spacing: -0.01em;
-    }
-    .stage-state {
-      margin-top: 4px;
-      font-size: 11px;
-      color: var(--text-tertiary);
-      text-transform: capitalize;
-    }
-    .stage[data-state="idle"] { opacity: 0.72; }
-    .stage[data-state="active"] {
-      border-color: var(--accent-border);
-      background: var(--accent-soft);
-      box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent);
-    }
-    .stage[data-state="active"] .stage-state { color: var(--accent); font-weight: 600; }
-    .stage[data-state="done"] {
-      border-color: color-mix(in srgb, var(--success) 30%, var(--border));
-      background: var(--success-soft);
-    }
-    .stage[data-state="done"] .stage-state { color: var(--success); }
-    .stage[data-state="error"] {
-      border-color: color-mix(in srgb, var(--danger) 35%, var(--border));
-      background: var(--danger-soft);
-    }
-    .stage[data-state="error"] .stage-state { color: var(--danger); }
-    .stage[data-state="revise"] {
-      border-color: color-mix(in srgb, var(--warning) 40%, var(--border));
-      background: var(--warning-soft);
-    }
-    .stage[data-state="revise"] .stage-state { color: var(--warning); font-weight: 600; }
+/* ── compose ─────────────────────────────────────────────── */
+.compose {
+  min-height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--space-8) var(--space-6);
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--panel) 65%, transparent), transparent 40%),
+    var(--bg);
+}
+.compose-card {
+  width: min(560px, 100%);
+  display: flex; flex-direction: column; gap: var(--space-4);
+}
+.compose-card .eyebrow {
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--led);
+}
+.compose-card h1 {
+  margin: 0; font-size: var(--text-xl); font-weight: 600;
+  letter-spacing: -0.02em; line-height: 1.15; max-width: 16ch;
+}
+.compose-card h1 em { font-style: normal; color: var(--fg-2); }
+.compose-card .lead {
+  margin: 0; color: var(--fg-2); font-size: var(--text-base); max-width: 48ch;
+}
+.compose-agent-rail {
+  display: flex; flex-wrap: wrap; gap: 8px 16px;
+  padding: 10px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+}
+.compose-agent-rail span {
+  display: flex; align-items: baseline; gap: 6px;
+  font-size: var(--text-sm); color: var(--fg-2);
+}
+.compose-agent-rail span i {
+  font-style: normal; font-family: var(--mono); font-size: 10px; color: var(--meta);
+}
+.compose-agent-rail span b { font-weight: 600; color: var(--fg); }
+.compose-input {
+  width: 100%; min-height: 120px; resize: vertical;
+  padding: 12px 14px;
+  background: var(--panel); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg); color: var(--fg);
+  line-height: 1.45;
+}
+.compose-input::placeholder { color: var(--meta); }
+.compose-input:hover { border-color: var(--muted); }
+.compose-input:focus-visible { border-color: var(--led); box-shadow: var(--focus); }
+.compose-input.invalid { border-color: var(--danger); }
+.compose-error {
+  display: none; color: var(--danger); font-size: var(--text-sm);
+}
+.compose-error.show { display: block; }
+.compose-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap;
+}
+.compose-hint { font-size: var(--text-xs); color: var(--meta); font-family: var(--mono); }
+.compose-examples { display: flex; flex-direction: column; gap: var(--space-2); }
+.compose-examples-label {
+  font-family: var(--mono); font-size: 10px; color: var(--meta);
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.compose-examples-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 10px; border-radius: var(--radius-md);
+  background: var(--panel); border: 1px solid var(--border);
+  font-size: var(--text-sm); color: var(--fg-2);
+}
+.chip:hover { border-color: var(--muted); color: var(--fg); }
+.chip-n { font-family: var(--mono); font-size: 10px; color: var(--meta); }
 
-    .pipeline-note {
-      margin: 12px 0 0;
-      font-size: 12px;
-      color: var(--text-secondary);
-      line-height: 1.45;
-    }
-    .pipeline-note code {
-      font-family: var(--mono);
-      font-size: 11px;
-      background: var(--bg-muted);
-      padding: 1px 5px;
-      border-radius: 4px;
-    }
+/* ── arrangement / trace ─────────────────────────────────── */
+.trace-wrap {
+  display: flex; flex-direction: column; gap: 0;
+  min-height: 100%;
+}
+.trace-wrap.is-running .lane-entries { /* stable during live ticks */ }
+.arrangement-head {
+  padding: var(--space-4) var(--space-5) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--space-3);
+}
+.arrangement-head h2 {
+  margin: 0; font-size: var(--text-md); font-weight: 600; letter-spacing: -0.01em;
+}
+.arrangement-head p {
+  margin: 4px 0 0; font-size: var(--text-sm); color: var(--muted); max-width: 56ch;
+}
+.trace-hint {
+  font-family: var(--mono); font-size: 11px; color: var(--fg-2);
+  padding: 6px 10px; border-radius: var(--radius-md);
+  background: var(--panel); border: 1px solid var(--border);
+}
 
-    /* Research lanes */
-    .lanes {
-      display: grid;
-      gap: 8px;
-    }
-    .lane {
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 10px 12px;
-      background: var(--bg);
-      transition: border-color 160ms var(--ease), background 160ms var(--ease);
-    }
-    .lane[data-state="active"] {
-      border-color: var(--accent-border);
-      background: var(--accent-soft);
-    }
-    .lane[data-state="done"] {
-      border-color: color-mix(in srgb, var(--success) 25%, var(--border));
-    }
-    .lane-top {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 8px;
-    }
-    .lane-q {
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--text);
-    }
-    .lane-badge {
-      flex-shrink: 0;
-      font-size: 10px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
-      color: var(--text-tertiary);
-      padding: 2px 6px;
-      border-radius: var(--radius-pill);
-      background: var(--bg-muted);
-    }
-    .lane[data-state="active"] .lane-badge {
-      color: var(--accent);
-      background: color-mix(in srgb, var(--accent) 12%, white);
-    }
-    .lane[data-state="done"] .lane-badge {
-      color: var(--success);
-      background: var(--success-soft);
-    }
-    .lane-findings {
-      margin: 8px 0 0;
-      padding: 0;
-      list-style: none;
-      display: grid;
-      gap: 4px;
-    }
-    .lane-findings li {
-      font-size: 12px;
-      color: var(--text-secondary);
-      padding-left: 12px;
-      position: relative;
-    }
-    .lane-findings li::before {
-      content: "";
-      position: absolute;
-      left: 0;
-      top: 0.55em;
-      width: 5px;
-      height: 5px;
-      border-radius: 50%;
-      background: var(--border-strong);
-    }
-    .lanes-empty {
-      font-size: 13px;
-      color: var(--text-tertiary);
-      margin: 0;
-    }
+.stage-ruler {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 2px;
+  padding: var(--space-3) var(--space-5);
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+.stage {
+  position: relative;
+  padding: 10px 12px;
+  background: var(--track);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  min-width: 0;
+}
+.stage.is-done {
+  border-color: color-mix(in oklab, var(--play) 40%, var(--border));
+}
+.stage.is-current {
+  border-color: color-mix(in oklab, var(--led) 55%, var(--border));
+  background: var(--track-armed);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--led) 25%, transparent);
+}
+.stage.is-pending { opacity: 0.55; }
+.stage-code {
+  font-family: var(--mono); font-size: 9px; color: var(--meta);
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+.stage-name {
+  display: block; margin-top: 4px;
+  font-size: var(--text-sm); font-weight: 600; color: var(--fg);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.stage-meta {
+  display: block; margin-top: 2px;
+  font-family: var(--mono); font-size: 10px; color: var(--muted);
+}
 
-    /* Verdict banner */
-    .verdict {
-      display: none;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 12px;
-      border-radius: var(--radius-sm);
-      font-size: 13px;
-      font-weight: 500;
-    }
-    .verdict.show { display: flex; }
-    .verdict.pass {
-      background: var(--success-soft);
-      color: var(--success);
-    }
-    .verdict.revise {
-      background: var(--warning-soft);
-      color: var(--warning);
-    }
+.track-stack {
+  display: flex; flex-direction: column; gap: 1px;
+  padding: var(--space-3) var(--space-5) var(--space-6);
+  background: var(--bg);
+}
+.lane {
+  display: grid;
+  grid-template-columns: 168px 1fr;
+  background: var(--track);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  min-height: 120px;
+}
+.lane.is-active {
+  border-color: color-mix(in oklab, var(--led) 45%, var(--border));
+  background: var(--track-armed);
+}
+.lane.is-error { border-color: color-mix(in oklab, var(--danger) 45%, var(--border)); }
+.lane-head {
+  padding: 12px;
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 8px;
+  background: color-mix(in oklab, var(--panel) 70%, var(--track));
+}
+.lane-top { display: flex; align-items: center; gap: 8px; }
+.lane-led {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--meta); flex-shrink: 0;
+}
+.lane.is-active .lane-led {
+  background: var(--led);
+  box-shadow: 0 0 0 3px var(--led-glow);
+  animation: pulse-led 1.2s ease-in-out infinite;
+}
+.lane.is-complete .lane-led { background: var(--play); animation: none; box-shadow: none; }
+.lane.is-error .lane-led { background: var(--danger); animation: none; box-shadow: none; }
+.lane-code {
+  font-family: var(--mono); font-size: 10px; color: var(--meta); letter-spacing: 0.04em;
+}
+.lane-name { font-weight: 600; font-size: var(--text-sm); color: var(--fg); }
+.lane-state {
+  font-family: var(--mono); font-size: 10px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.lane-entries {
+  padding: 8px 10px;
+  overflow: auto; max-height: 220px;
+  display: flex; flex-direction: column; gap: 4px;
+  font-size: var(--text-sm);
+}
+.lane-empty {
+  color: var(--meta); font-size: var(--text-sm); padding: 12px 4px;
+}
+.trace-entry {
+  display: grid; grid-template-columns: 56px 1fr; gap: 8px;
+  padding: 6px 8px; border-radius: var(--radius-sm);
+  text-align: left; color: var(--fg-2);
+  width: 100%;
+}
+.trace-entry:hover { background: color-mix(in oklab, var(--bg) 50%, transparent); color: var(--fg); }
+.trace-entry.is-error { color: var(--danger); }
+.trace-entry time {
+  font-family: var(--mono); font-size: 10px; color: var(--meta);
+  padding-top: 2px;
+}
+.trace-entry .entry-text { line-height: 1.4; }
 
-    /* Report */
-    .report-actions { display: flex; gap: 6px; flex-wrap: wrap; }
-    .btn-secondary {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 6px 10px;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border-strong);
-      background: var(--bg-elevated);
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--text-secondary);
-      transition: background 120ms var(--ease), border-color 120ms var(--ease);
-    }
-    .btn-secondary:hover:not(:disabled) {
-      background: var(--bg-muted);
-      color: var(--text);
-    }
-    .btn-secondary:disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
-    }
-    .btn-secondary:focus-visible { outline: none; box-shadow: var(--focus); }
-    .report-body {
-      font-size: 14px;
-      line-height: 1.6;
-      color: var(--text);
-      max-width: 72ch;
-    }
-    .report-body h1 {
-      font-size: 1.25rem;
-      font-weight: 650;
-      letter-spacing: -0.02em;
-      margin: 0 0 12px;
-      line-height: 1.25;
-    }
-    .report-body h2 {
-      font-size: 0.95rem;
-      font-weight: 650;
-      margin: 20px 0 8px;
-      letter-spacing: -0.01em;
-    }
-    .report-body p { margin: 0 0 10px; color: var(--text-secondary); }
-    .report-body ul {
-      margin: 0 0 12px;
-      padding-left: 1.2em;
-      color: var(--text-secondary);
-    }
-    .report-body li { margin-bottom: 4px; }
-    .report-body .meta-line {
-      font-size: 12px;
-      color: var(--text-tertiary);
-      margin-bottom: 16px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--border);
-    }
-    .report-empty {
-      margin: 0;
-      color: var(--text-tertiary);
-      font-size: 13px;
-    }
-    .toast {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      padding: 10px 14px;
-      background: var(--text);
-      color: #fff;
-      border-radius: var(--radius-sm);
-      font-size: 13px;
-      font-weight: 500;
-      box-shadow: var(--shadow);
-      opacity: 0;
-      transform: translateY(8px);
-      pointer-events: none;
-      transition: opacity 200ms var(--ease), transform 200ms var(--ease);
-      z-index: 50;
-    }
-    .toast.show {
-      opacity: 1;
-      transform: translateY(0);
-    }
+.verify-gate {
+  margin: 0 var(--space-5) var(--space-5);
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
+}
+.verify-gate strong {
+  font-size: var(--text-sm); font-weight: 600;
+}
+.verify-gate span {
+  font-family: var(--mono); font-size: 11px; color: var(--muted);
+}
+.verify-gate.pass { border-color: color-mix(in oklab, var(--play) 40%, var(--border)); }
+.verify-gate.revise { border-color: color-mix(in oklab, var(--warn) 40%, var(--border)); }
+.verify-gate.pending { opacity: 0.7; }
 
-    .menu-toggle {
-      display: none;
-      padding: 8px;
-      border-radius: var(--radius-sm);
-      color: var(--text-secondary);
-    }
-    .menu-toggle:hover { background: var(--bg-muted); }
-    .menu-toggle:focus-visible { outline: none; box-shadow: var(--focus); }
+.degraded-banner {
+  margin: var(--space-4) var(--space-5) 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in oklab, var(--warn) 40%, var(--border));
+  background: color-mix(in oklab, var(--warn) 8%, var(--panel));
+  display: flex; gap: 10px; align-items: flex-start;
+  font-size: var(--text-sm);
+}
+.degraded-banner strong { display: block; color: var(--warn); margin-bottom: 2px; }
+.degraded-banner p { margin: 0; color: var(--fg-2); }
+.degraded-banner svg { width: 18px; height: 18px; color: var(--warn); flex-shrink: 0; margin-top: 1px; }
 
-    @media (max-width: 820px) {
-      .app {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto auto 1fr;
-      }
-      .sidebar {
-        border-right: none;
-        border-bottom: 1px solid var(--border);
-        max-height: 0;
-        overflow: hidden;
-        transition: max-height 240ms var(--ease);
-      }
-      .sidebar.open {
-        max-height: 42vh;
-        overflow: auto;
-      }
-      .menu-toggle { display: inline-flex; }
-      .metrics { gap: 4px; }
-      .metric { min-width: 58px; padding: 3px 7px; }
-      .main { padding: 16px 14px 32px; }
-    }
+/* ── mixdown / report ────────────────────────────────────── */
+.report {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-5) var(--space-8);
+}
+.report-header {
+  margin-bottom: var(--space-5);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+.report-header .eyebrow {
+  font-family: var(--mono); font-size: 10px; color: var(--meta);
+  text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;
+}
+.report-header h1 {
+  margin: 0; font-size: clamp(1.35rem, 3vw, 1.75rem);
+  font-weight: 600; letter-spacing: -0.02em; line-height: 1.2;
+}
+.report-meta {
+  margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px 14px;
+  font-family: var(--mono); font-size: 11px; color: var(--muted);
+}
+.report-body {
+  font-size: var(--text-base); line-height: 1.6; color: var(--fg-2);
+  max-width: 68ch;
+}
+.report-body h2 {
+  margin: 1.6em 0 0.5em; font-size: var(--text-lg); font-weight: 600;
+  color: var(--fg); letter-spacing: -0.01em;
+}
+.report-body h3 {
+  margin: 1.2em 0 0.4em; font-size: var(--text-md); font-weight: 600; color: var(--fg);
+}
+.report-body p { margin: 0 0 0.85em; }
+.report-body ul { margin: 0 0 0.85em; padding-left: 1.2em; }
+.report-body li { margin: 0.3em 0; }
+.report-body table {
+  width: 100%; border-collapse: collapse; margin: 0.8em 0 1.2em;
+  font-size: var(--text-sm);
+}
+.report-body th, .report-body td {
+  text-align: left; padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.report-body th { color: var(--fg); font-weight: 600; background: var(--panel); }
+.report-body .callout {
+  margin: 1em 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--fg);
+}
+.report-body .callout strong { color: var(--led); }
+.sources {
+  margin-top: var(--space-8);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border);
+}
+.sources-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-bottom: var(--space-3);
+}
+.sources-head h2 {
+  margin: 0; font-size: var(--text-md); font-weight: 600;
+}
+.sources-list { display: flex; flex-direction: column; gap: 6px; }
+.sources-list[hidden] { display: none; }
+.source-item {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  width: 100%; text-align: left;
+  padding: 10px 12px; border-radius: var(--radius-md);
+  background: var(--panel); border: 1px solid var(--border);
+  color: var(--fg-2);
+}
+.source-item:hover { border-color: var(--muted); color: var(--fg); }
+.source-title { font-size: var(--text-sm); font-weight: 500; color: inherit; }
+.source-agents {
+  display: flex; flex-wrap: wrap; gap: 4px;
+}
+.source-agents span {
+  font-family: var(--mono); font-size: 10px; color: var(--meta);
+  padding: 1px 6px; border-radius: 999px; border: 1px solid var(--border);
+}
+.source-agents-modal { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
 
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-      }
-      .status-dot.running { box-shadow: none; }
-    }
+/* ── overlays ────────────────────────────────────────────── */
+.drawer-backdrop, .modal-backdrop {
+  position: fixed; inset: 0;
+  background: color-mix(in oklab, #000 55%, transparent);
+  opacity: 0; pointer-events: none;
+  transition: opacity var(--motion);
+  z-index: calc(var(--z-drawer) - 1);
+}
+.drawer-backdrop.open, .modal-backdrop.open {
+  opacity: 1; pointer-events: auto;
+}
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: min(400px, 100%);
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  transform: translateX(100%);
+  transition: transform 280ms cubic-bezier(0.32, 0.72, 0, 1);
+  z-index: var(--z-drawer);
+  display: flex; flex-direction: column;
+}
+.drawer.open { transform: translateX(0); }
+.drawer-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; padding: var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+.drawer-head h2 { margin: 0; font-size: var(--text-md); }
+.drawer-sub { margin-top: 4px; font-size: var(--text-sm); color: var(--muted); }
+.drawer-body {
+  padding: var(--space-4); overflow: auto; flex: 1;
+  font-size: var(--text-sm); color: var(--fg-2);
+}
+.drawer-body dl { margin: 0; display: grid; gap: 12px; }
+.drawer-body dt {
+  font-family: var(--mono); font-size: 10px; color: var(--meta);
+  text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;
+}
+.drawer-body dd { margin: 0; color: var(--fg); line-height: 1.45; }
+
+.modal-backdrop { z-index: var(--z-modal); display: grid; place-items: center; padding: var(--space-4); }
+.modal {
+  width: min(440px, 100%);
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+.modal h3 { margin: 0 0 8px; font-size: var(--text-lg); }
+.modal p { margin: 0 0 16px; color: var(--fg-2); font-size: var(--text-sm); }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+
+.toast {
+  position: fixed; bottom: calc(var(--transport-h) + 16px); left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  background: var(--track-armed); color: var(--fg);
+  border: 1px solid var(--border-strong);
+  padding: 10px 16px; border-radius: var(--radius-md);
+  font-size: var(--text-sm); font-weight: 500;
+  opacity: 0; pointer-events: none;
+  transition: opacity var(--motion), transform var(--motion);
+  z-index: var(--z-toast);
+  max-width: min(420px, 92vw); text-align: center;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast-destructive { border-color: color-mix(in oklab, var(--danger) 50%, var(--border)); color: #ffb4b4; }
+
+
+.badge-accent { color: var(--led); border-color: color-mix(in oklab, var(--led) 35%, transparent); }
+.badge-muted { color: var(--muted); }
+.badge-danger { color: var(--danger); border-color: color-mix(in oklab, var(--danger) 35%, transparent); }
+.lane.is-done { opacity: 0.92; }
+.lane.is-waiting { opacity: 0.75; }
+.lane-body, .lane-entries {
+  padding: 8px 10px;
+  overflow: auto; max-height: 220px;
+  display: flex; flex-direction: column; gap: 4px;
+  font-size: var(--text-sm);
+}
+.lane-live-bar { display: none; }
+.lane.is-active .lane-live-bar {
+  display: block; height: 2px; background: var(--led);
+  grid-column: 1 / -1;
+}
+.lane-waiting { color: var(--meta); font-size: var(--text-sm); padding: 12px 4px; }
+.lane-waiting strong { display: block; color: var(--fg-2); margin-bottom: 2px; }
+.trace-entry-time {
+  font-family: var(--mono); font-size: 10px; color: var(--meta); padding-top: 2px;
+}
+.trace-entry-text { line-height: 1.4; }
+.trace-entry.error, .trace-entry.is-error { color: var(--danger); }
+.trace-entry.is-new { background: color-mix(in oklab, var(--led) 8%, transparent); }
+.lanes, .track-stack {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: var(--space-3) var(--space-5) var(--space-4);
+}
+.trace-toolbar {
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+.trace-toolbar-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.trace-status {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 11px; color: var(--fg-2);
+}
+.trace-progress {
+  margin-top: 10px; height: 3px; background: var(--track); border-radius: 2px; overflow: hidden;
+}
+.trace-progress-fill {
+  height: 100%; width: 100%; background: var(--led);
+  transform-origin: left center;
+  transform: scaleX(var(--p-frac, 0));
+  transition: transform 160ms linear;
+}
+.trace-active-count { color: var(--led); }
+.drawer-section { margin-bottom: 14px; }
+.drawer-section label {
+  display: block; font-family: var(--mono); font-size: 10px; color: var(--meta);
+  text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px;
+}
+.drawer-pre {
+  margin: 0; padding: 10px; background: var(--bg); border-radius: var(--radius-sm);
+  border: 1px solid var(--border); white-space: pre-wrap; word-break: break-word;
+  font-family: var(--mono); font-size: 12px; color: var(--fg); line-height: 1.45;
+}
+
+
+.panel { min-height: 100%; }
+.panel-inner.report, .panel .panel-inner {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-5) var(--space-8);
+}
+.sources-toggle {
+  width: 100%;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 10px 0;
+  color: var(--fg); font-weight: 600; font-size: var(--text-md);
+}
+.sources-toggle-label { display: inline-flex; align-items: center; gap: 8px; }
+.sources-toggle-label svg { width: 14px; height: 14px; transition: transform var(--motion); }
+.sources.open .sources-toggle-label svg { transform: rotate(90deg); }
+.sources-count { font-family: var(--mono); font-size: 11px; color: var(--meta); font-weight: 500; }
+.sources .sources-list { display: none; flex-direction: column; gap: 6px; }
+.sources.open .sources-list { display: flex; }
+.source-url {
+  display: block; margin-top: 2px;
+  font-family: var(--mono); font-size: 11px; color: var(--meta);
+  word-break: break-all;
+}
+.table-scroll { overflow-x: auto; margin: 0.8em 0 1.2em; }
+.table-scroll table { margin: 0; }
+
+/* ── responsive ──────────────────────────────────────────── */
+@media (max-width: 860px) {
+  .app { grid-template-columns: 1fr; }
+  .sidebar {
+    position: fixed; inset: 0 auto 0 0; width: min(var(--sidebar-w), 88vw);
+    transform: translateX(-105%);
+    transition: transform 280ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  .sidebar.mobile-open { transform: translateX(0); }
+  .sidebar-scrim { display: block; }
+  .sidebar-scrim[hidden] { display: none; }
+  .menu-toggle { display: inline-flex; }
+  .topbar-query { max-width: 28ch; }
+  .lane { grid-template-columns: 1fr; }
+  .lane-head { border-right: 0; border-bottom: 1px solid var(--border); flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .stage-ruler { grid-template-columns: repeat(2, 1fr); }
+  .compose { padding: var(--space-4); }
+  .compose-card h1 { max-width: none; }
+  .meter { min-width: 72px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .session-dot.running, .lane.is-active .lane-led { animation: none; }
+}
+
   </style>
 </head>
 <body>
-  <div class="app" id="app">
-    <header class="topbar">
-      <button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-controls="sidebar" title="Sessions">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-      </button>
-      <div class="brand">
-        <div class="brand-mark" aria-hidden="true">MA</div>
-        <div>
-          <h1>MultiAgentResearch</h1>
-          <p>Staged multi-agent desk · <span class="badge-demo">DEMO</span></p>
-        </div>
-      </div>
-      <div class="metrics" id="metrics" aria-label="Run metrics (synthetic)">
-        <div class="metric"><span class="metric-label">Wall time</span><span class="metric-value" data-m="wall">—</span></div>
-        <div class="metric"><span class="metric-label">Stages</span><span class="metric-value" data-m="stages">—</span></div>
-        <div class="metric"><span class="metric-label">Fan-out</span><span class="metric-value" data-m="fanout">—</span></div>
-        <div class="metric"><span class="metric-label">Findings</span><span class="metric-value" data-m="findings">—</span></div>
-        <div class="metric"><span class="metric-label">Verdict</span><span class="metric-value" data-m="verdict">—</span></div>
-        <div class="metric"><span class="metric-label">Retry</span><span class="metric-value" data-m="retry">—</span></div>
-        <div class="metric"><span class="metric-label">Tokens</span><span class="metric-value" data-m="tokens">—</span></div>
-        <div class="metric"><span class="metric-label">Cost</span><span class="metric-value" data-m="cost">—</span></div>
-      </div>
-    </header>
 
-    <aside class="sidebar" id="sidebar">
+  <div class="app" id="app" data-od-id="app-shell">
+    <div class="sidebar-scrim" id="sidebar-scrim" hidden></div>
+
+    <aside class="sidebar" id="sidebar" aria-label="Research takes" data-od-id="sidebar">
       <div class="sidebar-head">
-        <h2 id="session-list-label">Sessions</h2>
-        <button type="button" class="btn-new" id="btn-new-session">+ New</button>
-      </div>
-      <ul class="session-list" id="session-list" role="listbox" aria-labelledby="session-list-label"></ul>
-    </aside>
-
-    <main class="main">
-      <div class="main-inner">
-        <section class="panel" id="panel-compose" aria-labelledby="compose-heading">
-          <div class="panel-head">
-            <h3 id="compose-heading">Compose query</h3>
-            <span class="badge-demo" title="Simulated pipeline — no API keys">Mock pipeline</span>
-          </div>
-          <div class="panel-body">
-            <label class="compose-label" for="query-input">Research question</label>
-            <textarea id="query-input" rows="4" placeholder="Ask a multi-part research question…" spellcheck="true"></textarea>
-            <p class="compose-error" id="compose-error" role="alert"></p>
-            <div class="compose-actions">
-              <button type="button" class="btn-primary" id="btn-run">Run research</button>
-              <p class="compose-hint">Simulates plan → fan-out research → normalize → verify → final. Job id returned immediately (async demo).</p>
-            </div>
-            <div class="samples" id="samples" aria-label="Sample queries"></div>
-          </div>
-        </section>
-
-        <section class="panel" id="panel-running" aria-labelledby="pipeline-heading">
-          <div class="panel-head">
-            <h3 id="pipeline-heading">Pipeline</h3>
-            <span class="session-meta" id="job-meta">
-              <span class="status-dot" id="job-dot"></span>
-              <span id="job-status-text">Idle</span>
-              <span id="job-id" hidden></span>
+        <div class="brand-row">
+          <div class="brand" data-od-id="brand">
+            <span class="brand-mark">MT</span>
+            <span class="brand-text">
+              <span class="brand-name">Research</span>
+              <span class="brand-sub">Multitrack</span>
             </span>
           </div>
-          <div class="panel-body">
-            <div class="stage-rail" id="stage-rail" role="list" aria-label="Pipeline stages">
-              <div class="stage" data-stage="plan" data-state="idle" role="listitem"><div class="stage-name">Plan</div><div class="stage-state">idle</div></div>
-              <div class="stage" data-stage="research" data-state="idle" role="listitem"><div class="stage-name">Research</div><div class="stage-state">idle</div></div>
-              <div class="stage" data-stage="normalize" data-state="idle" role="listitem"><div class="stage-name">Normalize</div><div class="stage-state">idle</div></div>
-              <div class="stage" data-stage="verify" data-state="idle" role="listitem"><div class="stage-name">Verify</div><div class="stage-state">idle</div></div>
-              <div class="stage" data-stage="final" data-state="idle" role="listitem"><div class="stage-name">Final</div><div class="stage-state">idle</div></div>
-            </div>
-            <p class="pipeline-note">
-              Fixed staged graph with shared state — not a single mega-prompt.
-              Research uses fan-out: one branch per sub-question (<code>Send</code>-style), then fan-in findings.
-            </p>
-            <div class="verdict" id="verdict-banner" role="status"></div>
-            <div style="margin-top:14px">
-              <h3 style="margin:0 0 8px;font-size:12px;font-weight:600;color:var(--text-secondary)">Research lanes</h3>
-              <div class="lanes" id="lanes"><p class="lanes-empty">Sub-questions appear here after plan.</p></div>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel" id="panel-report" aria-labelledby="report-heading">
-          <div class="panel-head">
-            <h3 id="report-heading">Final report</h3>
-            <div class="report-actions">
-              <button type="button" class="btn-secondary" id="btn-copy-report" disabled>Copy report</button>
-              <button type="button" class="btn-secondary" id="btn-download-md" disabled>Download .md</button>
-            </div>
-          </div>
-          <div class="panel-body">
-            <div class="report-body" id="report-body">
-              <p class="report-empty">Run research to generate a DEMO report.</p>
-            </div>
-          </div>
-        </section>
+        </div>
+        <button type="button" class="btn btn-primary btn-block" id="btn-new-research" data-od-id="btn-new-research" title="Arm a new research take">
+          <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          New Take
+        </button>
+        <div class="field-search">
+          <input type="search" id="session-filter" placeholder="Filter takes…" aria-label="Filter takes by query" data-od-id="session-filter" />
+        </div>
       </div>
+      <div class="session-list" id="session-list" role="listbox" aria-label="Past takes" data-od-id="session-list"></div>
+      <div class="sidebar-foot"><span class="foot-live">4 tracks</span><span>DEMO desk</span></div>
+    </aside>
+
+    <main class="main" id="main" data-od-id="main">
+      <header class="topbar" id="topbar" data-od-id="topbar">
+        <div class="topbar-left">
+          <button type="button" class="btn btn-ghost menu-toggle" id="menu-toggle" aria-label="Open takes sidebar" aria-controls="sidebar" aria-expanded="false" data-od-id="menu-toggle">
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" aria-hidden="true"><path d="M2.5 4h11M2.5 8h11M2.5 12h11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </button>
+          <div class="topbar-query" id="topbar-query" data-od-id="topbar-query">—</div>
+          <div class="tabs" id="view-tabs" role="tablist" aria-label="Session views" data-od-id="view-tabs">
+            <button type="button" class="tab" role="tab" data-view="report" id="tab-report" aria-controls="content">Mixdown</button>
+            <button type="button" class="tab" role="tab" data-view="trace" id="tab-trace" aria-controls="content">Arrangement</button>
+          </div>
+        </div>
+        <div class="topbar-actions" id="topbar-actions" data-od-id="topbar-actions"></div>
+      </header>
+
+      <div class="content" id="content" data-od-id="content" role="region" aria-label="Session workspace"></div>
+
+      <footer class="transport" id="transport" aria-label="DEMO transport meters" data-od-id="transport">
+        <div class="transport-label" title="Synthetic demo metrics">DEMO</div>
+        <div class="transport-meters" id="transport-meters"></div>
+      </footer>
     </main>
   </div>
 
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="drawer-backdrop" id="drawer-backdrop" aria-hidden="true"></div>
+  <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title" aria-hidden="true">
+    <div class="drawer-head">
+      <div>
+        <h2 id="drawer-title">Track action</h2>
+        <div class="drawer-sub" id="drawer-sub"></div>
+      </div>
+      <button type="button" class="btn btn-sm btn-ghost" id="drawer-close" aria-label="Close drawer">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="drawer-body" id="drawer-body"></div>
+  </aside>
+
+  <div class="modal-backdrop" id="source-modal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="source-modal-title">
+      <h3 id="source-modal-title">Source</h3>
+      <p id="source-modal-url" style="word-break:break-all;font-family:var(--mono);font-size:12px;color:var(--muted)"></p>
+      <div id="source-modal-agents" class="source-agents source-agents-modal"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="source-modal-close">Close</button>
+        <a class="btn btn-primary" id="source-modal-open" href="#" target="_blank" rel="noopener">Open source</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="cancel-modal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cancel-modal-title">
+      <h3 id="cancel-modal-title">Stop this take?</h3>
+      <p>Armed tracks will halt. No mixdown report will be generated for this run.</p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="cancel-modal-keep">Keep running</button>
+        <button type="button" class="btn btn-danger" id="cancel-modal-confirm">Stop research</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true" data-od-id="toast"></div>
 
   <script>
 (function () {
   "use strict";
 
-  const STORAGE_KEY = "mar-desk-sessions-v1";
-  const STAGES = ["plan", "research", "normalize", "verify", "final"];
-  const STAGE_LABELS = {
-    plan: "Plan",
-    research: "Research",
-    normalize: "Normalize",
-    verify: "Verify",
-    final: "Final",
-  };
+  const AGENTS = ["Analyst", "Researcher", "Fact-checker", "Synthesizer"];
+  const AGENT_CODES = { Analyst: "01", Researcher: "02", "Fact-checker": "03", Synthesizer: "04" };
 
-  const SAMPLES = [
-    "Compare LangGraph staged pipelines vs a single mega-prompt for multi-hop research.",
-    "What is an async research job API, and why poll instead of holding the HTTP connection?",
-    "How does a verify/revise gate improve faithfulness in multi-agent research reports?",
+  /* ─── seed data ───────────────────────────────────────────────── */
+  const sessions = [
+    {
+      id: "s1",
+      query: "Vendor risk assessment: Lacework vs Wiz for cloud security posture management in a SOC 2 Type II environment",
+      state: "complete",
+      createdAt: "2026-07-14T15:22:00Z",
+      duration: "4m 12s",
+      degraded: false,
+      report: {
+        title: "Vendor risk: Lacework vs Wiz for CSPM",
+        eyebrow: "DEMO · Vendor risk",
+        html: `
+          <p>This assessment compares <strong>Lacework</strong> and <strong>Wiz</strong> as primary cloud security posture management (CSPM) platforms for an organization operating under SOC 2 Type II controls, with multi-cloud workloads on AWS and Azure.</p>
+
+          <h2>Executive summary</h2>
+          <p>For a mid-market enterprise (~800 cloud accounts, ~4k workloads) prioritizing time-to-value and attack-path visibility, <strong>Wiz is the stronger default choice</strong>. Lacework remains competitive where polygraph-style behavioral anomaly detection and long-horizon runtime telemetry are weighted higher than agentless coverage breadth.</p>
+          <div class="callout"><strong>Recommendation:</strong> Pilot Wiz on production AWS accounts first; keep Lacework shortlisted only if the security team requires its specific polygraph behavioral model or already holds multi-year Lacework commercial terms.</div>
+
+          <h2>Decision criteria</h2>
+          <table>
+            <thead><tr><th>Criterion</th><th>Weight</th><th>Lacework</th><th>Wiz</th></tr></thead>
+            <tbody>
+              <tr><td>Agentless coverage</td><td>25%</td><td>Strong</td><td>Industry-leading</td></tr>
+              <tr><td>Attack path / toxic combo</td><td>20%</td><td>Good</td><td>Excellent</td></tr>
+              <tr><td>Runtime / behavioral detection</td><td>15%</td><td>Excellent</td><td>Good</td></tr>
+              <tr><td>SOC 2 evidence packaging</td><td>15%</td><td>Strong</td><td>Strong</td></tr>
+              <tr><td>Time-to-value (90 days)</td><td>15%</td><td>Moderate</td><td>Fast</td></tr>
+              <tr><td>Commercial flexibility</td><td>10%</td><td>Variable</td><td>Premium-priced</td></tr>
+            </tbody>
+          </table>
+
+          <h2>Risk findings</h2>
+          <h3>Shared risks</h3>
+          <ul>
+            <li><strong>Data residency &amp; SaaS tenancy:</strong> Both are multi-tenant SaaS. Confirm region pinning and subprocessors against your DPA and customer data-flow maps before production ingest of workload metadata.</li>
+            <li><strong>Alert volume:</strong> Without careful policy tuning, both platforms can overwhelm a 6–8 person SecOps team in the first 30–60 days.</li>
+            <li><strong>Identity integrations:</strong> Full value depends on correct IAM / Entra / Okta graph connectors; incomplete identity ingest was the top cause of false-negative risk in peer deployments reviewed.</li>
+          </ul>
+          <h3>Vendor-specific risks</h3>
+          <ul>
+            <li><strong>Lacework:</strong> Product roadmap consolidation after Fortinet acquisition warrants contractual exit clauses and roadmap SLAs in the MSA. Validate continued investment in polygraph analytics through 2027.</li>
+            <li><strong>Wiz:</strong> Premium list pricing and seat/account scaling can create budget shock at enterprise expansion. Negotiate multi-year commit with true-up caps before PO.</li>
+          </ul>
+
+          <h2>SOC 2 Type II alignment</h2>
+          <p>Both vendors publish SOC 2 Type II reports covering Security and Availability. Neither replaces your own control evidence: map CSPM findings into CC6 / CC7 change-management and vulnerability-management control narratives. Wiz’s export formats integrate slightly more cleanly with common GRC tools (Drata, Vanta, Secureframe) based on public integration catalogs as of Q2 2026.</p>
+
+          <h2>Suggested pilot plan (30 days)</h2>
+          <ul>
+            <li><strong>Week 1:</strong> Connect read-only roles for 2 AWS prod accounts + 1 Azure subscription; baseline inventory accuracy.</li>
+            <li><strong>Week 2:</strong> Enable attack-path policies; measure true-positive rate with SecOps review of top 25 findings.</li>
+            <li><strong>Week 3:</strong> Wire SIEM (Splunk / Sentinel) and on-call routing; test break-glass identity paths.</li>
+            <li><strong>Week 4:</strong> Score against decision matrix; legal review of DPA, subprocessors, and termination assistance.</li>
+          </ul>
+        `,
+        sources: [
+          { id: "src1", title: "Wiz Security Whitepaper — Agentless Graph Model", url: "https://www.wiz.io/blog/agentless-cloud-security", agents: ["Researcher", "Analyst"] },
+          { id: "src2", title: "Lacework Polygraph Data Platform Overview", url: "https://www.lacework.com/platform", agents: ["Researcher"] },
+          { id: "src3", title: "SOC 2 Type II Trust Center — Wiz", url: "https://security.wiz.io", agents: ["Fact-checker", "Analyst"] },
+          { id: "src4", title: "Fortinet Completes Acquisition of Lacework", url: "https://www.fortinet.com/corporate/about-us/newsroom", agents: ["Researcher", "Fact-checker"] },
+          { id: "src5", title: "Gartner Market Guide for CSPM (summary notes)", url: "https://www.gartner.com/en/documents", agents: ["Analyst", "Synthesizer"] },
+          { id: "src6", title: "CSA Cloud Controls Matrix mapping notes", url: "https://cloudsecurityalliance.org/research/cloud-controls-matrix", agents: ["Fact-checker", "Synthesizer"] }
+        ]
+      },
+      lanes: buildLanesComplete()
+    },
+    {
+      id: "s2",
+      query: "Competitor landscape: Segment vs RudderStack for enterprise CDP migration off a homegrown event pipeline",
+      state: "warnings",
+      createdAt: "2026-07-13T11:04:00Z",
+      duration: "5m 48s",
+      degraded: true,
+      degradedNote: "Fact-checker lane failed after retries (upstream rate limit on regulatory source fetch). Synthesis used Analyst + Researcher outputs only — regulatory claims should be re-verified before board circulation.",
+      report: {
+        title: "CDP migration: Segment vs RudderStack",
+        eyebrow: "DEMO · Competitive analysis",
+        html: `
+          <p>Comparative analysis of <strong>Twilio Segment</strong> and <strong>RudderStack</strong> as replacements for a homegrown event collection pipeline (~2.1B events/month, 40 destinations, multi-region EU/US).</p>
+
+          <h2>Executive summary</h2>
+          <p><strong>RudderStack is the better migration fit</strong> when warehouse-native control, open-source optionality, and lower destination lock-in matter more than Segment’s broader destination catalog and polished reverse-ETL ecosystem. Segment remains preferable if marketing ops ownership and out-of-the-box audience tooling dominate the scorecard.</p>
+          <div class="callout"><strong>Degraded coverage:</strong> Regulatory / GDPR subprocessors verification is incomplete because the Fact-checker lane failed. Do not treat EU data-residency claims below as fully validated.</div>
+
+          <h2>Capability comparison</h2>
+          <table>
+            <thead><tr><th>Area</th><th>Segment</th><th>RudderStack</th></tr></thead>
+            <tbody>
+              <tr><td>Collection SDKs</td><td>Mature, wide</td><td>Strong, warehouse-first</td></tr>
+              <tr><td>Warehouse-native</td><td>Available (Profiles, etc.)</td><td>Core product model</td></tr>
+              <tr><td>Destination catalog</td><td>Largest</td><td>Growing; self-host transforms</td></tr>
+              <tr><td>Self-host / VPC</td><td>Limited</td><td>First-class</td></tr>
+              <tr><td>Pricing model</td><td>MTU / volume heavy</td><td>Event + warehouse oriented</td></tr>
+              <tr><td>Migration tooling</td><td>Partner-led</td><td>Schema mapping + TF patterns</td></tr>
+            </tbody>
+          </table>
+
+          <h2>Migration risks from homegrown pipeline</h2>
+          <ul>
+            <li><strong>Schema drift:</strong> Homegrown pipelines often embed ad-hoc properties. Budget 3–4 weeks for tracking-plan normalization before cutover.</li>
+            <li><strong>Duplicate events:</strong> Dual-write windows create attribution noise; enforce messageId idempotency at destinations.</li>
+            <li><strong>PII leakage:</strong> Source middleware must re-apply hashing / drop rules currently living in custom Node workers.</li>
+            <li><strong>Latency SLOs:</strong> Real-time destinations (Intercom, Braze) need separate SLO validation from warehouse loads.</li>
+          </ul>
+
+          <h2>Commercial notes</h2>
+          <p>At ~2.1B events/month, Segment list pricing typically requires enterprise negotiation. RudderStack quotes more predictably when warehouse compute is already budgeted in Snowflake/BigQuery. Run a 90-day TCO with: platform fees, warehouse compute uplift, engineering migration hours, and destination connector maintenance.</p>
+
+          <h2>Recommended next steps</h2>
+          <ul>
+            <li>Re-run Fact-checker after rate-limit cooldown for DPA / subprocessor verification (EU regions).</li>
+            <li>Spike dual-write of 5 critical sources for 14 days with volume sampling.</li>
+            <li>Score RFP responses on warehouse-native transforms, VPC peering, and support SLAs.</li>
+          </ul>
+        `,
+        sources: [
+          { id: "src7", title: "Segment Protocols & Tracking Plans docs", url: "https://segment.com/docs/protocols", agents: ["Researcher", "Analyst"] },
+          { id: "src8", title: "RudderStack Architecture — Warehouse Native", url: "https://www.rudderstack.com/docs", agents: ["Researcher"] },
+          { id: "src9", title: "Twilio Segment pricing page (public)", url: "https://segment.com/pricing", agents: ["Analyst"] },
+          { id: "src10", title: "RudderStack vs Segment comparison (vendor)", url: "https://www.rudderstack.com/blog", agents: ["Researcher", "Synthesizer"] },
+          { id: "src11", title: "Regulatory sources (fetch failed)", url: "https://eur-lex.europa.eu", agents: ["Fact-checker"] }
+        ]
+      },
+      lanes: buildLanesDegraded()
+    },
+    {
+      id: "s3",
+      query: "Market scan: managed Kubernetes platforms for regulated fintech (EKS vs GKE vs AKS) with data-residency constraints",
+      state: "cancelled",
+      createdAt: "2026-07-12T16:40:00Z",
+      duration: "1m 8s",
+      degraded: false,
+      report: null,
+      lanes: buildLanesCancelled()
+    }
   ];
 
-  /** @typedef {"pending"|"running"|"done"|"error"} JobStatus */
-  /** @typedef {"idle"|"active"|"done"|"error"|"revise"} StageState */
+  function buildLanesComplete() {
+    return {
+      Analyst: [
+        { t: "15:22:08", text: "Parsed query into decision criteria weights", input: "User query + default enterprise vendor-risk rubric", output: "Criteria: agentless coverage 25%, attack path 20%, runtime 15%, SOC2 15%, TTV 15%, commercial 10%." },
+        { t: "15:23:41", text: "Built comparative scorecard skeleton", input: "Criteria weights + product category CSPM", output: "6-row matrix Lacework vs Wiz; placeholders for evidence links." },
+        { t: "15:25:02", text: "Scored both vendors against matrix", input: "Researcher briefs v2", output: "Wiz leads coverage/attack-path/TTV; Lacework leads runtime behavioral." }
+      ],
+      Researcher: [
+        { t: "15:22:09", text: "Retrieved product docs & trust centers", input: "Queries: Lacework CSPM, Wiz agentless graph", output: "12 candidate sources; 8 retained after relevance filter." },
+        { t: "15:23:18", text: "Extracted capability claims", input: "Source set src1–src4", output: "Agentless inventory, toxic combination graphs, polygraph behavioral model." },
+        { t: "15:24:55", text: "Collected acquisition & pricing signals", input: "Fortinet/Lacework newsroom; Wiz commercial notes", output: "Acquisition risk flag on Lacework; premium pricing flag on Wiz." }
+      ],
+      "Fact-checker": [
+        { t: "15:22:40", text: "Waiting for Researcher source pack", input: "—", output: "Lane idle until sources ready." },
+        { t: "15:24:10", text: "Verified SOC 2 availability claims", input: "Trust center pages for both vendors", output: "Both publish SOC 2 Type II (Security, Availability). Dates within 12 months." },
+        { t: "15:25:33", text: "Cross-checked acquisition announcement", input: "Fortinet press release", output: "Acquisition confirmed; no contradictory primary sources found." }
+      ],
+      Synthesizer: [
+        { t: "15:25:50", text: "Merged lane outputs into outline", input: "Analyst matrix + Researcher notes + Fact-checker verifications", output: "Report outline with exec summary, risks, pilot plan." },
+        { t: "15:26:40", text: "Wrote recommendation + pilot plan", input: "Outline + decision weights", output: "Prefer Wiz for default pilot; Lacework conditional shortlist." },
+        { t: "15:27:12", text: "Attached sources & finalized report", input: "Source list with agent provenance", output: "6 sources tagged; report state → complete." }
+      ]
+    };
+  }
 
-  /**
-   * @typedef {object} Session
-   * @property {string} id
-   * @property {string} query
-   * @property {JobStatus} status
-   * @property {number} createdAt
-   * @property {number} [startedAt]
-   * @property {number} [endedAt]
-   * @property {Record<string, StageState>} stages
-   * @property {Array<{q:string, state:string, findings:string[]}>} lanes
-   * @property {string} [verdict]
-   * @property {number} retries
-   * @property {string} [reportMd]
-   * @property {string} [reportHtml]
-   * @property {object} [metrics]
-   * @property {string} [error]
-   */
+  function buildLanesDegraded() {
+    return {
+      Analyst: [
+        { t: "11:04:12", text: "Scoped CDP migration decision frame", input: "Query: Segment vs RudderStack off homegrown", output: "Frame: warehouse-native vs catalog breadth; volume 2.1B/mo." },
+        { t: "11:06:01", text: "Drafted TCO comparison axes", input: "Volume + destination count + regions", output: "Platform fee, warehouse compute, eng hours, connector ops." },
+        { t: "11:08:20", text: "Ranked fit for homegrown replacement", input: "Researcher capability notes", output: "RudderStack preferred for warehouse-native + VPC; Segment for marketing ops." }
+      ],
+      Researcher: [
+        { t: "11:04:13", text: "Pulled Segment Protocols & pricing docs", input: "segment.com/docs, pricing", output: "Protocols maturity; MTU pricing pattern." },
+        { t: "11:05:44", text: "Pulled RudderStack architecture docs", input: "rudderstack.com/docs", output: "Warehouse-native transforms; self-host options." },
+        { t: "11:07:30", text: "Compiled destination & migration notes", input: "Vendor blogs + public catalogs", output: "Segment larger catalog; RudderStack stronger self-host path." }
+      ],
+      "Fact-checker": [
+        { t: "11:04:50", text: "Queued GDPR / subprocessor checks", input: "Regulatory verification pack", output: "Planned fetches: EUR-Lex guidance, vendor DPAs." },
+        { t: "11:07:55", text: "Source fetch failed — HTTP 429", input: "GET eur-lex.europa.eu (batch)", output: "Rate limited after 3 requests; retry scheduled." },
+        { t: "11:08:40", text: "Retry #1 failed — timeout", input: "Retry with backoff 20s", output: "Upstream timeout 30s; no body." },
+        { t: "11:09:22", text: "Retries exhausted — lane error", input: "Max retries = 2", output: "ERROR: Fact-checker contribution unavailable. Downstream should flag degraded report.", error: true }
+      ],
+      Synthesizer: [
+        { t: "11:09:30", text: "Detected missing Fact-checker pack", input: "Lane states", output: "Proceeding with Analyst + Researcher only; set degraded=true." },
+        { t: "11:10:18", text: "Drafted report with warning banner", input: "Partial evidence graph", output: "Exec summary + migration risks; regulatory section marked incomplete." },
+        { t: "11:11:02", text: "Published complete-with-warnings", input: "Report + source provenance", output: "Session state → warnings; 5 sources (1 failed)." }
+      ]
+    };
+  }
 
-  const el = {
-    sessionList: document.getElementById("session-list"),
-    query: document.getElementById("query-input"),
-    btnRun: document.getElementById("btn-run"),
-    btnNew: document.getElementById("btn-new-session"),
-    composeError: document.getElementById("compose-error"),
-    samples: document.getElementById("samples"),
-    stageRail: document.getElementById("stage-rail"),
-    lanes: document.getElementById("lanes"),
-    verdict: document.getElementById("verdict-banner"),
-    reportBody: document.getElementById("report-body"),
-    btnCopy: document.getElementById("btn-copy-report"),
-    btnDl: document.getElementById("btn-download-md"),
-    jobDot: document.getElementById("job-dot"),
-    jobStatus: document.getElementById("job-status-text"),
-    jobId: document.getElementById("job-id"),
-    metrics: document.getElementById("metrics"),
-    toast: document.getElementById("toast"),
-    sidebar: document.getElementById("sidebar"),
-    menuToggle: document.getElementById("menu-toggle"),
-  };
+  function buildLanesCancelled() {
+    return {
+      Analyst: [
+        { t: "16:40:08", text: "Parsed query into research objectives", input: "User query + fintech K8s constraints", output: "Objectives: residency, managed control plane, compliance mappings." },
+        { t: "16:40:44", text: "Drafted evaluation criteria", input: "Objectives", output: "Weights: residency 30%, ops model 25%, compliance 20%, cost 15%, ecosystem 10%." },
+        { t: "16:41:08", text: "Run cancelled by user", input: "Stop control", output: "Lane halted; no further actions." }
+      ],
+      Researcher: [
+        { t: "16:40:09", text: "Issued web & document retrieval", input: "EKS / GKE / AKS + residency", output: "Retrieval fan-out started across public docs and cloud trust centers." },
+        { t: "16:40:52", text: "Ranked sources by relevance", input: "Raw retrieval set", output: "Top 9 sources retained pending fact-check." },
+        { t: "16:41:08", text: "Run cancelled by user", input: "Stop control", output: "Lane halted; no further actions." }
+      ],
+      "Fact-checker": [
+        { t: "16:40:50", text: "Waiting for Researcher source pack", input: "—", output: "Lane idle until sources ready." },
+        { t: "16:41:08", text: "Run cancelled by user", input: "Stop control", output: "Lane halted before claim inventory." }
+      ],
+      Synthesizer: []
+    };
+  }
 
-  /** @type {Session[]} */
-  let sessions = loadSessions();
-  /** @type {string|null} */
-  let activeId = sessions[0]?.id ?? null;
-  /** @type {ReturnType<typeof setTimeout>|null} */
+  /* ─── state ───────────────────────────────────────────────────── */
+  let activeId = "s1";
+  let view = "report"; // report | trace | compose
+  let composeMode = false;
   let runTimer = null;
   let toastTimer = null;
+  let drawerEntry = null;
+  let lastFocusEl = null;
+  let sidebarOpen = false;
+  const autoScrollPaused = {}; // laneName -> bool
 
-  // —— Storage ——
-  function loadSessions() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
+  const $ = (sel, el = document) => el.querySelector(sel);
+  const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
+
+  function setSidebarOpen(open) {
+    sidebarOpen = !!open;
+    const sidebar = $("#sidebar");
+    const scrim = $("#sidebar-scrim");
+    const toggle = $("#menu-toggle");
+    if (!sidebar || !toggle) return;
+    sidebar.classList.toggle("mobile-open", sidebarOpen);
+    if (scrim) {
+      scrim.hidden = !sidebarOpen;
+      scrim.classList.toggle("open", sidebarOpen);
+    }
+    toggle.setAttribute("aria-expanded", sidebarOpen ? "true" : "false");
+    toggle.setAttribute("aria-label", sidebarOpen ? "Close sessions sidebar" : "Open sessions sidebar");
+  }
+
+  function fmtRelative(iso) {
+    const d = new Date(iso);
+    const days = Math.round((Date.now() - d.getTime()) / 86400000);
+    if (days <= 0) return "Today";
+    if (days === 1) return "Yesterday";
+    if (days < 7) return days + "d ago";
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+
+  function stateLabel(s) {
+    if (s === "complete") return { text: "Complete", cls: "badge-complete", dot: "complete" };
+    if (s === "warnings") return { text: "Warnings", cls: "badge-warnings", dot: "warnings" };
+    if (s === "running") return { text: "Running", cls: "badge-running", dot: "running" };
+    if (s === "cancelled") return { text: "Cancelled", cls: "badge-cancelled", dot: "cancelled" };
+    if (s === "error") return { text: "Error", cls: "badge-error", dot: "error" };
+    return { text: String(s || "Unknown"), cls: "badge-muted", dot: "" };
+  }
+
+  /** Pure helper: recompute concurrent lane states from timing windows. */
+  function recomputeLaneStates(session, elapsed, opts) {
+    const windowMs = (opts && opts.activeWindow) || 950;
+    const agents = (opts && opts.agents) || AGENTS;
+    const agentLastAt = session._agentLastAt || {};
+    const lanes = session.lanes || {};
+    const next = {};
+    agents.forEach((a) => {
+      const has = lanes[a] && lanes[a].length > 0;
+      const last = agentLastAt[a];
+      const recent = last != null && elapsed - last < windowMs;
+      if (recent) next[a] = "active";
+      else if (has) next[a] = "complete";
+      else next[a] = "waiting";
+    });
+    const anyActive = agents.some((a) => next[a] === "active");
+    const scriptRemaining = opts && typeof opts.scriptRemaining === "number" ? opts.scriptRemaining : 0;
+    if (!anyActive && session._lastAgent && scriptRemaining > 0 && agents.indexOf(session._lastAgent) >= 0) {
+      next[session._lastAgent] = "active";
+    }
+    return next;
+  }
+
+  function countActiveLanes(laneState, agents) {
+    const list = agents || AGENTS;
+    const map = laneState || {};
+    return list.filter((a) => map[a] === "active").length;
+  }
+
+  function traceHintText(session, activeCount) {
+    if (session._finishing) return "All lanes complete — opening report";
+    if (session.state === "running") {
+      if (activeCount > 1) return activeCount + " agents writing";
+      if (activeCount === 1) return "1 agent writing";
+      return "Graph spinning up…";
+    }
+    if (session.state === "cancelled") return "Run stopped — partial trace only";
+    return "Auto-scroll pauses when you scroll a lane up";
+  }
+
+  /* ─── overlay focus trap / body lock ──────────────────────────── */
+  let focusTrapCleanup = null;
+  let bodyLockCount = 0;
+
+  function lockBodyScroll() {
+    bodyLockCount += 1;
+    if (bodyLockCount === 1) {
+      document.documentElement.style.overflow = "hidden";
     }
   }
-  function saveSessions() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions.slice(0, 24)));
-    } catch { /* ignore quota */ }
+  function unlockBodyScroll() {
+    bodyLockCount = Math.max(0, bodyLockCount - 1);
+    if (bodyLockCount === 0) {
+      document.documentElement.style.overflow = "";
+    }
   }
 
-  function uid() {
-    return crypto.randomUUID ? crypto.randomUUID() : "job-" + Math.random().toString(36).slice(2, 10);
+  function getFocusable(root) {
+    if (!root) return [];
+    return $$(
+      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      root
+    ).filter((el) => !el.hasAttribute("disabled") && el.offsetParent !== null);
   }
 
-  function emptyStages() {
-    return Object.fromEntries(STAGES.map((s) => [s, "idle"]));
-  }
-
-  function createSession(query = "") {
-    /** @type {Session} */
-    const s = {
-      id: uid(),
-      query,
-      status: "pending",
-      createdAt: Date.now(),
-      stages: emptyStages(),
-      lanes: [],
-      retries: 0,
-      metrics: null,
+  function trapFocus(root) {
+    releaseFocusTrap();
+    const onKey = (e) => {
+      if (e.key !== "Tab") return;
+      const nodes = getFocusable(root);
+      if (!nodes.length) return;
+      const first = nodes[0];
+      const last = nodes[nodes.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
-    sessions.unshift(s);
-    activeId = s.id;
-    saveSessions();
-    return s;
+    document.addEventListener("keydown", onKey);
+    focusTrapCleanup = () => {
+      document.removeEventListener("keydown", onKey);
+      focusTrapCleanup = null;
+    };
+  }
+
+  function releaseFocusTrap() {
+    if (focusTrapCleanup) focusTrapCleanup();
   }
 
   function activeSession() {
     return sessions.find((s) => s.id === activeId) || null;
   }
 
-  // —— Mock content ——
-  function planSubQuestions(query) {
-    const q = query.trim();
-    const base = [
-      `What are the core mechanisms involved in: ${shorten(q, 72)}?`,
-      `What trade-offs, risks, or failure modes apply?`,
-      `What does a practical implementation look like (APIs, stages, constraints)?`,
-    ];
-    if (q.length > 80 || /compare|vs\.?|versus/i.test(q)) {
-      base.push("How do the alternatives compare on latency, faithfulness, and operational complexity?");
+  function showToast(msg, opts) {
+    const t = $("#toast");
+    const variant = (opts && opts.variant) || "default";
+    const duration = (opts && opts.duration) || (variant === "destructive" ? 3600 : 2200);
+    t.textContent = msg;
+    t.classList.toggle("toast-destructive", variant === "destructive");
+    t.setAttribute("aria-live", variant === "destructive" ? "assertive" : "polite");
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      t.classList.remove("show");
+      t.classList.remove("toast-destructive");
+      t.setAttribute("aria-live", "polite");
+    }, duration);
+  }
+
+
+  const STAGES = [
+    { id: "plan", name: "Plan", code: "01" },
+    { id: "research", name: "Research", code: "02" },
+    { id: "normalize", name: "Normalize", code: "03" },
+    { id: "verify", name: "Verify", code: "04" },
+    { id: "final", name: "Final", code: "05" }
+  ];
+
+  function stageProgress(s) {
+    if (!s) return { index: -1, label: "—", fanOut: 0, findings: 0, verdict: "—", retries: 0, tokens: "—", cost: "—", wall: "—" };
+    const state = s.state;
+    let index = -1;
+    if (state === "running") {
+      const elapsed = Date.now() - (s._start || Date.now());
+      // map elapsed to stage roughly matching simulateRun pacing (~7s)
+      const t = elapsed / 1000;
+      if (t < 1.2) index = 0;
+      else if (t < 4.2) index = 1;
+      else if (t < 5.2) index = 2;
+      else if (t < 6.2) index = 3;
+      else index = 4;
+    } else if (state === "complete" || state === "warnings") {
+      index = 4;
+    } else if (state === "cancelled") {
+      index = Math.min(1, 4);
     }
-    if (/verify|faithful|hallucin/i.test(q)) {
-      base.splice(1, 0, "How does a verify/revise gate change unsupported claims in the draft?");
+    const findings = AGENTS.reduce((n, a) => n + ((s.lanes && s.lanes[a]) ? s.lanes[a].length : 0), 0);
+    const activeCount = s._laneState ? countActiveLanes(s._laneState, AGENTS) : 0;
+    const fanOut = state === "running" && index === 1 ? Math.max(activeCount, 2) : (state === "complete" || state === "warnings" ? 4 : activeCount || 0);
+    let verdict = "—";
+    let retries = 0;
+    if (state === "complete") { verdict = "pass"; retries = 0; }
+    if (state === "warnings") { verdict = "pass"; retries = 0; }
+    if (s._didRevise) { retries = 1; }
+    // DEMO synthetic meters
+    const wall = s.duration || (state === "running" ? Math.round((Date.now() - (s._start || Date.now())) / 1000) + "s" : "—");
+    const tokens = (state === "complete" || state === "warnings") ? "12.4k" : (state === "running" ? "~" + Math.min(12, Math.round(findings * 0.9) + 1) + "k" : "—");
+    const cost = (state === "complete" || state === "warnings") ? "$0.18" : (state === "running" ? "…" : "—");
+    return { index, label: index >= 0 ? STAGES[index].name : "—", fanOut, findings, verdict, retries, tokens, cost, wall };
+  }
+
+  function renderTransport() {
+    const el = document.getElementById("transport-meters");
+    if (!el) return;
+    const s = composeMode ? null : activeSession();
+    const m = stageProgress(s);
+    const stagesDone = m.index < 0 ? 0 : m.index + 1;
+    el.innerHTML = `
+      <div class="meter"><span class="meter-k">Wall</span><span class="meter-v">${escapeHtml(String(m.wall))}<span class="demo-tag">DEMO</span></span></div>
+      <div class="meter"><span class="meter-k">Stages</span><span class="meter-v">${stagesDone}/5<span class="demo-tag">DEMO</span></span></div>
+      <div class="meter"><span class="meter-k">Fan-out</span><span class="meter-v">N=${m.fanOut}<span class="demo-tag">DEMO</span></span></div>
+      <div class="meter"><span class="meter-k">Findings</span><span class="meter-v">${m.findings}<span class="demo-tag">DEMO</span></span></div>
+      <div class="meter"><span class="meter-k">Verdict</span><span class="meter-v">${escapeHtml(m.verdict)} · r${m.retries}<span class="demo-tag">DEMO</span></span></div>
+      <div class="meter"><span class="meter-k">Tokens</span><span class="meter-v">${escapeHtml(String(m.tokens))}<span class="demo-tag">DEMO</span></span></div>
+      <div class="meter"><span class="meter-k">Cost</span><span class="meter-v">${escapeHtml(String(m.cost))}<span class="demo-tag">DEMO</span></span></div>
+    `;
+  }
+
+  function renderStageRuler(s) {
+    const m = stageProgress(s);
+    return `<div class="stage-ruler" role="list" aria-label="Pipeline stages">` + STAGES.map((st, i) => {
+      let cls = "is-pending";
+      if (m.index > i) cls = "is-done";
+      else if (m.index === i) cls = "is-current";
+      const meta = st.id === "research" ? (m.fanOut ? `fan-out ×${m.fanOut}` : "parallel tracks") :
+        st.id === "verify" ? (m.verdict !== "—" ? m.verdict : "pass / revise") :
+        st.id === "final" ? "mixdown" : "shared state";
+      return `<div class="stage ${cls}" role="listitem">
+        <span class="stage-code">${st.code}</span>
+        <span class="stage-name">${st.name}</span>
+        <span class="stage-meta">${meta}</span>
+      </div>`;
+    }).join("") + `</div>`;
+  }
+
+  /* ─── render sidebar ──────────────────────────────────────────── */
+  function renderSidebar() {
+    const list = $("#session-list");
+    const filter = ($("#session-filter").value || "").trim().toLowerCase();
+    const filtered = sessions.filter((s) => !filter || s.query.toLowerCase().includes(filter));
+
+    if (!filtered.length) {
+      list.innerHTML = `<div class="sidebar-empty"><strong>No sessions</strong>${filter ? "Try a different filter." : "Arm a new take."}</div>`;
+      return;
     }
-    return base.slice(0, q.length > 120 ? 5 : 4);
+
+    list.innerHTML =
+      `<div class="session-list-label">Takes</div>` +
+      filtered
+        .map((s) => {
+          const st = stateLabel(s.state);
+          const active = s.id === activeId && !composeMode ? " active" : "";
+          return `
+          <button type="button" class="session-item${active}" role="option" aria-selected="${s.id === activeId && !composeMode}" data-id="${s.id}" title="${escapeAttr(s.query)}">
+            <span class="session-dot ${st.dot}" aria-hidden="true"></span>
+            <span>
+              <span class="session-title">${escapeHtml(truncate(s.query, 88))}</span>
+              <span class="session-meta">
+                <span class="badge ${st.cls} badge-dot">${st.text}</span>
+                <span>${fmtRelative(s.createdAt)}</span>
+              </span>
+            </span>
+          </button>`;
+        })
+        .join("");
   }
 
-  function shorten(s, n) {
-    return s.length <= n ? s : s.slice(0, n - 1) + "…";
+  /* ─── topbar ──────────────────────────────────────────────────── */
+  function renderTopbar() {
+    const s = activeSession();
+    const tabs = $("#view-tabs");
+    const actions = $("#topbar-actions");
+    const q = $("#topbar-query");
+
+    if (composeMode || !s) {
+      q.textContent = "New take";
+      tabs.classList.add("hidden");
+      actions.innerHTML = "";
+      return;
+    }
+
+    tabs.classList.remove("hidden");
+    q.textContent = s.query;
+    q.title = s.query;
+
+    $$(".tab", tabs).forEach((tab) => {
+      tab.classList.toggle("active", tab.dataset.view === view);
+      tab.setAttribute("aria-selected", tab.dataset.view === view ? "true" : "false");
+      // Disable report tab if no report yet
+      if (tab.dataset.view === "report") {
+        const hasReport = s.state === "complete" || s.state === "warnings";
+        tab.disabled = !hasReport;
+        tab.setAttribute("aria-disabled", hasReport ? "false" : "true");
+        tab.removeAttribute("style");
+      } else {
+        tab.disabled = false;
+        tab.setAttribute("aria-disabled", "false");
+      }
+    });
+
+    if (s.state === "running") {
+      actions.innerHTML = `
+        <button type="button" class="btn btn-md btn-secondary btn-danger-ghost" id="btn-stop" data-od-id="btn-stop">
+          <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="4" y="4" width="8" height="8" rx="1" fill="currentColor"/></svg>
+          Stop
+        </button>`;
+      $("#btn-stop").onclick = openCancelModal;
+    } else if (view === "report" && (s.state === "complete" || s.state === "warnings")) {
+      actions.innerHTML = `
+        <button type="button" class="btn btn-md btn-ghost" id="btn-back-trace" data-od-id="btn-back-trace" title="Back to Arrangement">Arrangement</button>
+        <button type="button" class="btn btn-md btn-secondary" id="btn-copy" data-od-id="btn-copy">Copy</button>
+        <button type="button" class="btn btn-md btn-primary" id="btn-md" data-od-id="btn-md">.md</button>`;
+      $("#btn-back-trace").onclick = () => { view = "trace"; render(); };
+      $("#btn-copy").onclick = copyReport;
+      $("#btn-md").onclick = downloadMarkdown;
+    } else if (view === "trace" && (s.state === "complete" || s.state === "warnings")) {
+      actions.innerHTML = `
+        <button type="button" class="btn btn-md btn-primary" id="btn-to-report" data-od-id="btn-to-report">Open mixdown</button>`;
+      $("#btn-to-report").onclick = () => { view = "report"; render(); };
+    } else if (s.state === "cancelled") {
+      actions.innerHTML = `<span class="topbar-hint">No mixdown — take stopped</span>`;
+    } else {
+      actions.innerHTML = "";
+    }
   }
 
-  function findingsFor(subQ, i) {
-    return [
-      `Finding ${i + 1}a: Structured evidence supports a staged hand-off rather than one opaque completion for “${shorten(subQ, 48)}”.`,
-      `Finding ${i + 1}b: Parallel branches cut wall-clock time when sub-questions are independent (DEMO corpus + web-style hits).`,
-      `Finding ${i + 1}c: Explicit verdicts (pass/revise) make faithfulness reviewable in an interview walkthrough.`,
-    ];
+  /* ─── content ─────────────────────────────────────────────────── */
+  function renderContent() {
+    const root = $("#content");
+    if (composeMode) {
+      root.innerHTML = renderCompose();
+      wireCompose();
+      return;
+    }
+    const s = activeSession();
+    if (!s) {
+      composeMode = true;
+      return renderContent();
+    }
+    if (view === "report" && (s.state === "complete" || s.state === "warnings")) {
+      root.innerHTML = renderReport(s);
+      wireReport(s);
+    } else {
+      view = "trace";
+      root.innerHTML = renderTrace(s);
+      wireTrace(s);
+    }
   }
 
-  function buildReport(session, subQs, findingsFlat, didRevise) {
-    const title = shorten(session.query, 100);
-    const md = [
-      `# ${title}`,
-      ``,
-      `*DEMO report — simulated multi-agent pipeline. Not live model or search output.*`,
-      ``,
-      `## Summary`,
-      ``,
-      `This run decomposed the query into **${subQs.length} sub-questions**, researched them in **parallel fan-out**, merged findings into a draft, ran a **verify** gate${didRevise ? " (one revise pass)" : " (pass on first check)"}, and synthesized this final report.`,
-      ``,
-      `## Architecture exercised`,
-      ``,
-      `- **Plan** — orchestrator splits the query into focused sub-questions.`,
-      `- **Research (fan-out)** — one research branch per sub-question; findings fan-in.`,
-      `- **Normalize** — analysis merges findings into a coherent draft.`,
-      `- **Verify** — critique returns \`pass\` or \`revise\` (max 1 retry).`,
-      `- **Final** — client-facing report from the accepted draft.`,
-      ``,
-      `## Sub-questions`,
-      ``,
-      ...subQs.map((q, i) => `${i + 1}. ${q}`),
-      ``,
-      `## Key findings`,
-      ``,
-      ...findingsFlat.slice(0, 8).map((f) => `- ${f}`),
-      ``,
-      `## Verification`,
-      ``,
-      didRevise
-        ? `Initial verdict was **revise** (draft overreached relative to findings). After one capped research refresh, verdict was **pass**.`
-        : `Verifier returned **pass**: draft claims stayed within the simulated findings set.`,
-      ``,
-      `## Metrics note`,
-      ``,
-      `Wall time, token, and cost figures in the header are **synthetic DEMO numbers** for resume/interview storytelling. They do not measure a production cluster.`,
-      ``,
-    ].join("\n");
-
-    const html = mdToSimpleHtml(md);
-    return { md, html };
+  function renderCompose() {
+    return `
+      <div class="compose" data-od-id="compose">
+        <div class="compose-card" data-od-id="compose-card">
+          <div class="eyebrow">Arm new take</div>
+          <h1 data-od-id="compose-title">What should we <em>research?</em></h1>
+          <p class="lead">A staged graph arms four tracks in parallel—plan, fan-out research, normalize, verify (one revise), then mixdown. Mock pipeline · DEMO meters.</p>
+          <div class="compose-agent-rail" aria-hidden="true">
+            <span><i>T1</i><b>Analyst</b></span>
+            <span><i>T2</i><b>Researcher</b></span>
+            <span><i>T3</i><b>Fact-checker</b></span>
+            <span><i>T4</i><b>Synthesizer</b></span>
+          </div>
+          <label class="sr-only" for="compose-input">Research query</label>
+          <textarea class="compose-input" id="compose-input" data-od-id="compose-input" placeholder="e.g. Assess vendor risk of adopting CrowdStrike Falcon vs SentinelOne for a 3,000-endpoint fleet under ISO 27001…" rows="5" aria-describedby="compose-hint compose-error" aria-invalid="false"></textarea>
+          <div class="compose-error" id="compose-error" role="alert"></div>
+          <div class="compose-foot">
+            <span class="compose-hint" id="compose-hint">Enter to run · Shift+Enter newline</span>
+            <button type="button" class="btn btn-primary" id="btn-submit" data-od-id="btn-submit">
+              Run research
+              <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+          <div class="compose-examples" data-od-id="compose-examples">
+            <span class="compose-examples-label">Sample cues</span>
+            <div class="compose-examples-list">
+              <button type="button" class="chip" data-q="Vendor risk: Okta vs Microsoft Entra ID for workforce SSO consolidation across 12 acquired entities"><span class="chip-n">01</span><span>Okta vs Entra ID</span></button>
+              <button type="button" class="chip" data-q="Competitive analysis: Databricks vs Snowflake for a fintech data platform modernizing off Teradata"><span class="chip-n">02</span><span>Databricks vs Snowflake</span></button>
+              <button type="button" class="chip" data-q="Assess switching cost and vendor lock-in for replacing Splunk with Elastic + Grafana stack"><span class="chip-n">03</span><span>Splunk exit risk</span></button>
+            </div>
+          </div>
+        </div>
+      </div>`;
   }
 
-  function mdToSimpleHtml(md) {
-    const lines = md.split("\n");
-    let html = "";
-    let inList = false;
-    const flushList = () => {
-      if (inList) {
-        html += "</ul>";
-        inList = false;
+  function wireCompose() {
+    const input = $("#compose-input");
+    const submit = $("#btn-submit");
+    const err = $("#compose-error");
+    input.focus();
+    const clearError = () => {
+      input.classList.remove("invalid");
+      input.setAttribute("aria-invalid", "false");
+      if (err) {
+        err.textContent = "";
+        err.classList.remove("show");
       }
     };
-    for (const line of lines) {
-      if (line.startsWith("# ")) {
-        flushList();
-        html += `<h1>${esc(line.slice(2))}</h1>`;
-      } else if (line.startsWith("## ")) {
-        flushList();
-        html += `<h2>${esc(line.slice(3))}</h2>`;
-      } else if (line.startsWith("- ")) {
-        if (!inList) {
-          html += "<ul>";
-          inList = true;
-        }
-        html += `<li>${inline(line.slice(2))}</li>`;
-      } else if (/^\d+\.\s/.test(line)) {
-        if (!inList) {
-          html += "<ul>";
-          inList = true;
-        }
-        html += `<li>${inline(line.replace(/^\d+\.\s/, ""))}</li>`;
-      } else if (line.startsWith("*") && line.endsWith("*")) {
-        flushList();
-        html += `<p class="meta-line">${esc(line.replace(/^\*|\*$/g, ""))}</p>`;
-      } else if (line.trim() === "") {
-        flushList();
-      } else {
-        flushList();
-        html += `<p>${inline(line)}</p>`;
+    submit.onclick = () => submitQuery(input.value);
+    input.addEventListener("input", clearError);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        submitQuery(input.value);
       }
-    }
-    flushList();
-    return html;
+    });
+    $$(".chip").forEach((c) => {
+      c.onclick = () => {
+        input.value = c.dataset.q;
+        clearError();
+        input.focus();
+      };
+    });
   }
 
-  function esc(s) {
-    return s
+  function renderReport(s) {
+    const r = s.report;
+    const degraded = s.degraded
+      ? `<div class="degraded-banner" role="status">
+          <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 7v4M10 14h.01M9.1 3.5l-7.2 12.4a1 1 0 00.87 1.5h14.46a1 1 0 00.87-1.5L10.9 3.5a1 1 0 00-1.8 0z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div>
+            <strong>Report completed with warnings</strong>
+            <p>${escapeHtml(s.degradedNote || "One or more agent lanes failed; treat incomplete sections with caution.")}</p>
+          </div>
+        </div>`
+      : "";
+
+    const sources = (r.sources || [])
+      .map(
+        (src) => `
+      <button type="button" class="source-item" data-src="${src.id}">
+        <span>
+          <span class="source-title">${escapeHtml(src.title)}</span>
+          <span class="source-url">${escapeHtml(src.url)}</span>
+        </span>
+        <span class="source-agents">
+          ${src.agents.map((a) => `<span class="badge badge-muted">${escapeHtml(a)}</span>`).join("")}
+        </span>
+      </button>`
+      )
+      .join("");
+
+    return `
+      <div class="panel report" id="report-panel" data-od-id="report-view">
+        <div class="panel-inner">
+          ${degraded}
+          <header class="report-header" data-od-id="report-header">
+            <div class="eyebrow">${escapeHtml(r.eyebrow)}</div>
+            <h1 data-od-id="report-title">${escapeHtml(r.title)}</h1>
+            <div class="report-meta">
+              <span>${fmtRelative(s.createdAt)}</span>
+              <span>${escapeHtml(s.duration)}</span>
+              <span>4 agents</span>
+              <span>${(r.sources || []).length} sources</span>
+            </div>
+          </header>
+          <article class="report-body" id="report-body">
+            ${r.html}
+          </article>
+          <section class="sources" id="sources" data-od-id="sources">
+            <button type="button" class="sources-toggle" id="sources-toggle" aria-expanded="false" aria-controls="sources-list">
+              <span class="sources-toggle-label">
+                <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Sources
+              </span>
+              <span class="sources-count">${(r.sources || []).length} documents</span>
+            </button>
+            <div class="sources-list" id="sources-list" role="region" aria-label="Source documents">
+              ${sources}
+            </div>
+          </section>
+        </div>
+      </div>`;
+  }
+
+  function wireReport(s) {
+    const toggle = $("#sources-toggle");
+    const box = $("#sources");
+    toggle.onclick = () => {
+      const open = box.classList.toggle("open");
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    };
+    // Horizontal scroll wrappers for tables (mobile)
+    $$("#report-body table").forEach((table) => {
+      if (table.parentElement && table.parentElement.classList.contains("table-scroll")) return;
+      const wrap = document.createElement("div");
+      wrap.className = "table-scroll";
+      table.parentNode.insertBefore(wrap, table);
+      wrap.appendChild(table);
+    });
+    $$(".source-item").forEach((el) => {
+      el.onclick = () => {
+        const src = s.report.sources.find((x) => x.id === el.dataset.src);
+        if (src) openSourceModal(src);
+      };
+    });
+  }
+
+  function emptyLaneMessage(s, name, laneState) {
+    if (s.state === "cancelled") {
+      return `<div class="lane-waiting"><strong>No activity</strong>Stopped before this lane started</div>`;
+    }
+    if (s.state === "running" && laneState === "waiting") {
+      return `<div class="lane-waiting"><strong>Queued</strong>Waiting for upstream work…</div>`;
+    }
+    if (laneState === "waiting" || !laneState) {
+      return `<div class="lane-waiting"><strong>Idle</strong>No entries in this lane</div>`;
+    }
+    return `<div class="lane-waiting">Waiting…</div>`;
+  }
+
+  function lanePresentation(s, name) {
+    const running = s.state === "running";
+    const finishing = !!s._finishing;
+    const entries = (s.lanes && s.lanes[name]) || [];
+    const last = entries[entries.length - 1];
+    let laneState = "waiting";
+    if (running || finishing) {
+      if (s._laneState && s._laneState[name]) laneState = s._laneState[name];
+      else if (entries.length) laneState = "active";
+    } else if (last && last.error) laneState = "error";
+    else if (entries.length) laneState = "complete";
+    else if (s.state === "cancelled") laneState = "waiting";
+
+    let badgeCls = "badge-muted";
+    let badgeText = "Waiting";
+    if (laneState === "active") { badgeCls = "badge-accent"; badgeText = "Active"; }
+    if (laneState === "complete") {
+      badgeCls = "badge-muted";
+      badgeText = running || finishing ? "Done" : "Complete";
+    }
+    if (laneState === "error") { badgeCls = "badge-danger"; badgeText = "Error"; }
+    if (s.state === "cancelled") {
+      badgeCls = "badge-muted";
+      badgeText = entries.length ? "Stopped" : "Idle";
+    }
+
+    let laneMod = "";
+    if ((running || finishing) && laneState === "active") laneMod = "is-active";
+    else if ((running || finishing) && laneState === "complete") laneMod = "is-done";
+    else if ((running || finishing) && laneState === "waiting") laneMod = "is-waiting";
+    else if (s.state === "cancelled" && !entries.length) laneMod = "is-waiting";
+    else if (!running && !finishing && entries.length) laneMod = "is-done";
+
+    return { laneState, badgeCls, badgeText, laneMod, entries };
+  }
+
+  function renderEntryHtml(name, e, i, now) {
+    const isNew = e._at && now - e._at < 750;
+    return `
+            <button type="button" class="trace-entry${e.error ? " error" : ""}${isNew ? " is-new" : ""}" data-agent="${escapeAttr(name)}" data-idx="${i}">
+              <div class="trace-entry-time">${escapeHtml(e.t)}</div>
+              <div class="trace-entry-text">${escapeHtml(e.text)}</div>
+            </button>`;
+  }
+
+
+  function renderTrace(s) {
+    const st = stateLabel(s.state);
+    const running = s.state === "running";
+    const finishing = !!s._finishing;
+    const progress = Math.max(0, Math.min(100, s._progress || 0));
+    const activeCount = countActiveLanes(s._laneState);
+    const now = Date.now();
+    const hint = traceHintText(s, activeCount);
+    const m = stageProgress(s);
+
+    let verifyCls = "pending";
+    let verifyText = "Verify gate · waiting for normalize";
+    if (m.index > 3 || s.state === "complete" || s.state === "warnings") {
+      verifyCls = "pass";
+      verifyText = s.state === "warnings"
+        ? "Verify · pass (degraded track evidence)"
+        : "Verify · pass (revise 0/1)";
+    } else if (m.index === 3 || finishing) {
+      verifyCls = "revise";
+      verifyText = "Verify · in progress (pass or single revise)";
+    }
+
+    const degraded = s.degraded
+      ? `<div class="degraded-banner" role="status">
+          <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 7v4M10 14h.01M9.1 3.5l-7.2 12.4a1 1 0 00.87 1.5h14.46a1 1 0 00.87-1.5L10.9 3.5a1 1 0 00-1.8 0z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div><strong>Degraded take</strong><p>${escapeHtml(s.degradedNote || "One or more tracks failed.")}</p></div>
+        </div>`
+      : "";
+
+    const lanes = AGENTS.map((name) => {
+      const { laneState, badgeCls, badgeText, laneMod, entries } = lanePresentation(s, name);
+      const body =
+        entries.length === 0
+          ? emptyLaneMessage(s, name, laneState)
+          : entries.map((e, i) => renderEntryHtml(name, e, i, now)).join("");
+      const ledCls = laneState === "active" ? "is-active" : laneState === "error" ? "is-error" : laneState === "complete" ? "is-complete" : "";
+      return `
+        <section class="lane${laneMod ? " " + laneMod : ""}${ledCls ? " " + ledCls : ""}" data-od-id="lane-${name.toLowerCase()}" data-agent="${escapeAttr(name)}" data-lane-state="${escapeAttr(laneState)}">
+          <div class="lane-head">
+            <div class="lane-top">
+              <span class="lane-led" aria-hidden="true"></span>
+              <span class="lane-code">T${AGENT_CODES[name] || ""}</span>
+            </div>
+            <div class="lane-name">${escapeHtml(name)}</div>
+            <span class="badge ${badgeCls}${laneState === "active" ? " badge-dot" : ""}" data-lane-badge>${badgeText}</span>
+          </div>
+          <div class="lane-live-bar" aria-hidden="true"></div>
+          <div class="lane-body lane-entries" data-lane-scroll="${escapeAttr(name)}">${body}</div>
+        </section>`;
+    }).join("");
+
+    const wrapClass = [
+      "trace-wrap",
+      running ? "is-running" : "",
+      finishing ? "is-finishing is-running" : ""
+    ].filter(Boolean).join(" ");
+
+    return `
+      <div class="${wrapClass}" data-od-id="trace-view">
+        <div class="arrangement-head">
+          <div>
+            <h2>Arrangement</h2>
+            <p>Shared-state graph as a multitrack session — stages on the ruler, parallel research as armed tracks.</p>
+          </div>
+          <div class="trace-status" role="status" aria-live="polite" aria-atomic="true">
+            <span class="badge ${finishing ? "badge-accent" : st.cls} badge-dot" data-trace-badge>${finishing ? "Finalizing" : st.text}</span>
+            <span data-trace-duration>${escapeHtml(s.duration || "—")}</span>
+            <span data-trace-hint class="${running && activeCount ? "trace-active-count" : ""}">${escapeHtml(hint)}</span>
+          </div>
+        </div>
+        ${degraded}
+        ${renderStageRuler(s)}
+        <div class="trace-progress" style="--p-frac:${(progress/100).toFixed(3)}" aria-hidden="true" data-trace-progress>
+          <div class="trace-progress-fill"></div>
+        </div>
+        <div class="track-stack lanes" id="lanes" data-od-id="track-stack">${lanes}</div>
+        <div class="verify-gate ${verifyCls}" data-od-id="verify-gate" data-verify-gate>
+          <strong data-verify-text>${escapeHtml(verifyText)}</strong>
+          <span>Max revise 1 · DEMO simulation</span>
+        </div>
+      </div>`;
+  }
+
+  function bindTraceEntry(el, s) {
+    el.onclick = () => {
+      const agent = el.dataset.agent;
+      const idx = +el.dataset.idx;
+      const entry = s.lanes[agent] && s.lanes[agent][idx];
+      if (entry) openDrawer(agent, idx, entry, s);
+    };
+  }
+
+  function wireTrace(s) {
+    $$(".trace-entry").forEach((el) => bindTraceEntry(el, s));
+    $$("[data-lane-scroll]").forEach((body) => {
+      if (body.dataset.scrollWired === "1") return;
+      body.dataset.scrollWired = "1";
+      const name = body.dataset.laneScroll;
+      body.addEventListener("scroll", () => {
+        const nearBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 40;
+        autoScrollPaused[name] = !nearBottom;
+      });
+    });
+    $$("[data-lane-scroll]").forEach((body) => {
+      const name = body.dataset.laneScroll;
+      if (!autoScrollPaused[name]) body.scrollTop = body.scrollHeight;
+    });
+  }
+
+  /** Patch Arrangement in place — avoids full-panel re-render / animation restarts. */
+  function patchTrace(s) {
+    const wrap = document.querySelector('[data-od-id="trace-view"]');
+    if (!wrap) return false;
+
+    const running = s.state === "running";
+    const finishing = !!s._finishing;
+    const progress = Math.max(0, Math.min(100, s._progress || 0));
+    const activeCount = countActiveLanes(s._laneState);
+    const st = stateLabel(s.state);
+    const now = Date.now();
+    const m = stageProgress(s);
+
+    wrap.classList.toggle("is-running", running || finishing);
+    wrap.classList.toggle("is-finishing", finishing);
+
+    const badge = wrap.querySelector("[data-trace-badge]");
+    if (badge) {
+      badge.className = "badge " + (finishing ? "badge-accent" : st.cls) + " badge-dot";
+      badge.textContent = finishing ? "Finalizing" : st.text;
+    }
+    const dur = wrap.querySelector("[data-trace-duration]");
+    if (dur) dur.textContent = s.duration || "—";
+    const hintEl = wrap.querySelector("[data-trace-hint]");
+    if (hintEl) {
+      const hint = traceHintText(s, activeCount);
+      hintEl.textContent = hint;
+      hintEl.classList.toggle("trace-active-count", !!(running && activeCount));
+    }
+    const prog = wrap.querySelector("[data-trace-progress]");
+    if (prog) prog.style.setProperty("--p-frac", String(Math.max(0, Math.min(1, progress / 100))));
+
+    // Refresh stage ruler
+    const ruler = wrap.querySelector(".stage-ruler");
+    if (ruler) {
+      const tmp = document.createElement("div");
+      tmp.innerHTML = renderStageRuler(s);
+      ruler.replaceWith(tmp.firstElementChild);
+    }
+
+    // Verify gate
+    const gate = wrap.querySelector("[data-verify-gate]");
+    if (gate) {
+      let verifyCls = "pending";
+      let verifyText = "Verify gate · waiting for normalize";
+      if (m.index > 3 || s.state === "complete" || s.state === "warnings") {
+        verifyCls = "pass";
+        verifyText = s.state === "warnings"
+          ? "Verify · pass (degraded track evidence)"
+          : "Verify · pass (revise 0/1)";
+      } else if (m.index === 3 || finishing) {
+        verifyCls = "revise";
+        verifyText = "Verify · in progress (pass or single revise)";
+      }
+      gate.className = "verify-gate " + verifyCls;
+      const vt = gate.querySelector("[data-verify-text]");
+      if (vt) vt.textContent = verifyText;
+    }
+
+    AGENTS.forEach((name) => {
+      const { laneState, badgeCls, badgeText, laneMod, entries } = lanePresentation(s, name);
+      const lane = wrap.querySelector('.lane[data-agent="' + CSS.escape(name) + '"]');
+      if (!lane) return;
+
+      lane.classList.remove("is-active", "is-done", "is-waiting", "is-complete", "is-error");
+      if (laneMod) lane.classList.add(laneMod);
+      if (laneState === "active") lane.classList.add("is-active");
+      if (laneState === "complete") lane.classList.add("is-complete");
+      if (laneState === "error") lane.classList.add("is-error");
+      lane.dataset.laneState = laneState;
+
+      const laneBadge = lane.querySelector("[data-lane-badge]");
+      if (laneBadge) {
+        laneBadge.className = "badge " + badgeCls + (laneState === "active" ? " badge-dot" : "");
+        laneBadge.textContent = badgeText;
+      }
+
+      const body = lane.querySelector("[data-lane-scroll]");
+      if (!body) return;
+
+      if (entries.length === 0) {
+        if (!body.querySelector(".lane-waiting") || body.querySelectorAll(".trace-entry").length) {
+          body.innerHTML = emptyLaneMessage(s, name, laneState);
+        }
+        return;
+      }
+
+      if (body.querySelector(".lane-waiting")) body.innerHTML = "";
+
+      const existing = body.querySelectorAll(".trace-entry").length;
+      for (let i = existing; i < entries.length; i++) {
+        const tmp = document.createElement("div");
+        tmp.innerHTML = renderEntryHtml(name, entries[i], i, now).trim();
+        const btn = tmp.firstElementChild;
+        if (btn) {
+          bindTraceEntry(btn, s);
+          body.appendChild(btn);
+        }
+      }
+
+      body.querySelectorAll(".trace-entry").forEach((el, i) => {
+        const e = entries[i];
+        if (!e) return;
+        const isNew = e._at && now - e._at < 750;
+        el.classList.toggle("is-new", !!isNew);
+        el.classList.toggle("error", !!e.error);
+      });
+
+      if (!autoScrollPaused[name]) body.scrollTop = body.scrollHeight;
+    });
+
+    renderTransport();
+    return true;
+  }
+
+  /* ─── drawer ──────────────────────────────────────────────────── */
+  function openDrawer(agent, idx, entry, session) {
+    lastFocusEl = document.activeElement;
+    drawerEntry = { agent, idx, entry };
+    $("#drawer-title").textContent = entry.text;
+    $("#drawer-sub").textContent = `${agent} · step ${idx + 1} of ${session.lanes[agent].length} · ${entry.t}`;
+    $("#drawer-body").innerHTML = `
+      <div class="drawer-section">
+        <label>Agent</label>
+        <div><span class="badge badge-muted">${escapeHtml(agent)}</span>${entry.error ? ' <span class="badge badge-danger">Error</span>' : ""}</div>
+      </div>
+      <div class="drawer-section">
+        <label>Input</label>
+        <pre class="drawer-pre">${escapeHtml(entry.input || "—")}</pre>
+      </div>
+      <div class="drawer-section">
+        <label>Output</label>
+        <pre class="drawer-pre">${escapeHtml(entry.output || "—")}</pre>
+      </div>`;
+    $("#drawer").classList.add("open");
+    $("#drawer-backdrop").classList.add("open");
+    $("#drawer").setAttribute("aria-hidden", "false");
+    $("#drawer-backdrop").setAttribute("aria-hidden", "false");
+    lockBodyScroll();
+    trapFocus($("#drawer"));
+    $("#drawer-close").focus();
+  }
+
+  function closeDrawer() {
+    if (!$("#drawer").classList.contains("open")) return;
+    $("#drawer").classList.remove("open");
+    $("#drawer-backdrop").classList.remove("open");
+    $("#drawer").setAttribute("aria-hidden", "true");
+    $("#drawer-backdrop").setAttribute("aria-hidden", "true");
+    drawerEntry = null;
+    releaseFocusTrap();
+    unlockBodyScroll();
+    if (lastFocusEl && typeof lastFocusEl.focus === "function") {
+      try { lastFocusEl.focus(); } catch (_) { /* ignore */ }
+    }
+    lastFocusEl = null;
+  }
+
+  /* ─── source modal ────────────────────────────────────────────── */
+  function openSourceModal(src) {
+    lastFocusEl = document.activeElement;
+    $("#source-modal-title").textContent = src.title;
+    const urlEl = $("#source-modal-url");
+    if (urlEl) urlEl.textContent = src.url;
+    $("#source-modal-agents").innerHTML = (src.agents || [])
+      .map((a) => `<span class="badge badge-muted">${escapeHtml(a)}</span>`)
+      .join("");
+    const link = $("#source-modal-open");
+    link.href = src.url;
+    $("#source-modal").classList.add("open");
+    $("#source-modal").setAttribute("aria-hidden", "false");
+    lockBodyScroll();
+    trapFocus($("#source-modal .modal") || $("#source-modal"));
+    $("#source-modal-close").focus();
+  }
+
+  function closeSourceModal() {
+    if (!$("#source-modal").classList.contains("open")) return;
+    $("#source-modal").classList.remove("open");
+    $("#source-modal").setAttribute("aria-hidden", "true");
+    releaseFocusTrap();
+    unlockBodyScroll();
+    if (lastFocusEl && typeof lastFocusEl.focus === "function") {
+      try { lastFocusEl.focus(); } catch (_) { /* ignore */ }
+    }
+    lastFocusEl = null;
+  }
+
+  /* ─── actions ─────────────────────────────────────────────────── */
+  function copyReport() {
+    const s = activeSession();
+    if (!s || !s.report) return;
+    const text = reportToMarkdown(s);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(
+        () => showToast("Report copied"),
+        () => fallbackCopy(text)
+      );
+    } else {
+      fallbackCopy(text);
+    }
+  }
+
+  function fallbackCopy(text) {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand("copy");
+      showToast("Report copied");
+    } catch {
+      showToast("Copy failed");
+    }
+    ta.remove();
+  }
+
+  function downloadMarkdown() {
+    const s = activeSession();
+    if (!s || !s.report) return;
+    const md = reportToMarkdown(s);
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = slugify(s.report.title) + ".md";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      URL.revokeObjectURL(a.href);
+      a.remove();
+    }, 500);
+    showToast("Markdown downloaded");
+  }
+
+  function reportToMarkdown(s) {
+    const r = s.report;
+    const tmp = document.createElement("div");
+    tmp.innerHTML = r.html;
+    let body = "";
+    tmp.childNodes.forEach((node) => {
+      if (node.nodeType !== 1) return;
+      const tag = node.tagName.toLowerCase();
+      if (tag === "h2") body += `\n## ${node.textContent.trim()}\n\n`;
+      else if (tag === "h3") body += `\n### ${node.textContent.trim()}\n\n`;
+      else if (tag === "p") body += `${node.textContent.trim()}\n\n`;
+      else if (tag === "div") body += `> ${node.textContent.trim()}\n\n`;
+      else if (tag === "ul") {
+        node.querySelectorAll("li").forEach((li) => {
+          body += `- ${li.textContent.trim()}\n`;
+        });
+        body += "\n";
+      } else if (tag === "table") {
+        const rows = [...node.querySelectorAll("tr")];
+        rows.forEach((tr, i) => {
+          const cells = [...tr.children].map((c) => c.textContent.trim());
+          body += `| ${cells.join(" | ")} |\n`;
+          if (i === 0) body += `| ${cells.map(() => "---").join(" | ")} |\n`;
+        });
+        body += "\n";
+      }
+    });
+    let sources = "\n## Sources\n\n";
+    (r.sources || []).forEach((src) => {
+      sources += `- [${src.title}](${src.url}) — ${src.agents.join(", ")}\n`;
+    });
+    const warn = s.degraded ? `\n> **Warning:** ${s.degradedNote}\n` : "";
+    return `# ${r.title}\n\n*Query:* ${s.query}\n${warn}\n${body}${sources}`;
+  }
+
+  function submitQuery(raw) {
+    const q = (raw || "").trim();
+    const input = $("#compose-input");
+    const err = $("#compose-error");
+    if (!q) {
+      if (input) {
+        input.classList.add("invalid");
+        input.setAttribute("aria-invalid", "true");
+        input.focus();
+        if (err) {
+          err.textContent = "Enter a research query to run the agent graph.";
+          err.classList.add("show");
+        }
+        showToast("Enter a research query");
+      }
+      return;
+    }
+    const id = "s" + Date.now();
+    const now = new Date();
+    const session = {
+      id,
+      query: q,
+      state: "running",
+      createdAt: now.toISOString(),
+      duration: "0s",
+      degraded: false,
+      report: null,
+      lanes: { Analyst: [], Researcher: [], "Fact-checker": [], Synthesizer: [] },
+      _laneState: { Analyst: "waiting", Researcher: "waiting", "Fact-checker": "waiting", Synthesizer: "waiting" },
+      _start: Date.now()
+    };
+    sessions.unshift(session);
+    activeId = id;
+    composeMode = false;
+    view = "trace";
+    render();
+    simulateRun(session);
+  }
+
+  function simulateRun(session) {
+    clearInterval(runTimer);
+    if (session._finishTimer) {
+      clearTimeout(session._finishTimer);
+      session._finishTimer = null;
+    }
+
+    const script = [
+      { at: 350, agent: "Analyst", text: "Parsed query into research objectives", input: session.query, output: "Objectives extracted; domain classified as enterprise research." },
+      { at: 480, agent: "Researcher", text: "Issued web & document retrieval", input: "Primary entities from query", output: "Retrieval fan-out started across public docs and filings." },
+      { at: 1100, agent: "Analyst", text: "Drafted evaluation criteria", input: "Objectives", output: "Weighted criteria drafted for scoring." },
+      { at: 1450, agent: "Researcher", text: "Ranked sources by relevance", input: "Raw retrieval set", output: "Top sources retained for fact-checking." },
+      { at: 1900, agent: "Fact-checker", text: "Validating primary claims", input: "Researcher source pack", output: "Claim inventory created; checking dates and attributions." },
+      { at: 2400, agent: "Researcher", text: "Extracted competitive differentiators", input: "Filtered sources", output: "Differentiator table for synthesis." },
+      { at: 2700, agent: "Analyst", text: "Scored options against criteria", input: "Evidence + criteria", output: "Preliminary ranking complete." },
+      { at: 3100, agent: "Fact-checker", text: "Confirmed no contradictory filings", input: "Claim inventory", output: "No hard contradictions in public sources reviewed." },
+      { at: 3600, agent: "Synthesizer", text: "Composing executive summary", input: "All lane outputs", output: "Outline locked; writing recommendation." },
+      { at: 4300, agent: "Synthesizer", text: "Finalized report & source map", input: "Draft + provenance", output: "Report ready." }
+    ];
+    const totalMs = 4800;
+    const ACTIVE_WINDOW = 950;
+
+    session._agentLastAt = {};
+    session._lastAgent = null;
+    session._progress = 0;
+    session._finishing = false;
+    AGENTS.forEach((a) => { session._laneState[a] = "waiting"; });
+
+    let i = 0;
+    const start = Date.now();
+
+    function recomputeStates(elapsed) {
+      session._laneState = recomputeLaneStates(session, elapsed, {
+        activeWindow: ACTIVE_WINDOW,
+        agents: AGENTS,
+        scriptRemaining: script.length - i
+      });
+    }
+
+    function paint(forceFull) {
+      if (activeId === session.id && view === "trace" && !composeMode) {
+        renderTopbar();
+        renderSidebar();
+        renderTransport();
+        const root = $("#content");
+        const canPatch = !forceFull && root.querySelector('[data-od-id="trace-view"]');
+        if (canPatch && patchTrace(session)) {
+          return;
+        }
+        root.innerHTML = renderTrace(session);
+        wireTrace(session);
+      } else {
+        renderSidebar();
+        renderTopbar();
+      }
+    }
+
+    function finishRun() {
+      clearInterval(runTimer);
+      runTimer = null;
+      AGENTS.forEach((a) => { session._laneState[a] = "complete"; });
+      session._progress = 100;
+      session._finishing = true;
+      session.state = "complete";
+      session.duration = Math.round((Date.now() - start) / 1000) + "s";
+      session.report = buildLiveReport(session);
+      paint();
+
+      session._finishTimer = setTimeout(() => {
+        session._finishing = false;
+        session._finishTimer = null;
+        if (activeId === session.id && !composeMode) {
+          view = "report";
+          render();
+          showToast("Report ready");
+        }
+      }, 780);
+    }
+
+    function tick() {
+      const elapsed = Date.now() - start;
+      session.duration = Math.round(elapsed / 1000) + "s";
+      session._progress = Math.min(99, Math.round((elapsed / totalMs) * 100));
+
+      while (i < script.length && script[i].at <= elapsed) {
+        const step = script[i++];
+        const t = new Date();
+        const ts = t.toTimeString().slice(0, 8);
+        session.lanes[step.agent].push({
+          t: ts,
+          text: step.text,
+          input: step.input,
+          output: step.output,
+          _at: Date.now()
+        });
+        session._agentLastAt[step.agent] = elapsed;
+        session._lastAgent = step.agent;
+      }
+
+      recomputeStates(elapsed);
+
+      if (i >= script.length && elapsed > totalMs) {
+        finishRun();
+        return;
+      }
+
+      paint();
+    }
+
+    runTimer = setInterval(tick, 160);
+    tick();
+  }
+
+  function buildLiveReport(session) {
+    const q = escapeHtml(session.query);
+    const shortTitle = truncate(session.query, 64);
+    return {
+      title: shortTitle,
+      eyebrow: "DEMO · Multitrack live run",
+      html: `
+        <p>Multi-agent research run completed for the query below. Analyst, Researcher, Fact-checker, and Synthesizer produced a structured diligence starter — not a substitute for vendor NDA materials or a formal RFP scorecard.</p>
+        <div class="callout"><strong>Query:</strong> ${q}</div>
+
+        <h2>Executive summary</h2>
+        <p>The graph framed decision criteria, assembled a ranked public-source pack, validated primary claims for hard contradictions, and synthesized a recommendation narrative. <strong>Use this as the first-pass brief</strong> before commercial negotiation or technical pilot design.</p>
+        <div class="callout"><strong>Working recommendation:</strong> Prioritize options that clear identity, data-residency, and evidence-export bars in the first 30 days; defer pure feature breadth until those gates pass.</div>
+
+        <h2>Decision frame (Analyst)</h2>
+        <table>
+          <thead><tr><th>Criterion</th><th>Weight</th><th>What was scored</th></tr></thead>
+          <tbody>
+            <tr><td>Fit to stated constraints</td><td>30%</td><td>Direct match to query objectives and hard requirements</td></tr>
+            <tr><td>Evidence quality</td><td>25%</td><td>Primary docs, trust centers, public filings</td></tr>
+            <tr><td>Risk / lock-in</td><td>20%</td><td>Commercial, operational, and exit exposure</td></tr>
+            <tr><td>Time-to-value</td><td>15%</td><td>Pilotability within ~90 days</td></tr>
+            <tr><td>Ops burden</td><td>10%</td><td>Ongoing integration and staffing load</td></tr>
+          </tbody>
+        </table>
+
+        <h2>Lane contributions</h2>
+        <ul>
+          <li><strong>Analyst:</strong> Parsed objectives, weighted criteria, and preliminary option scoring.</li>
+          <li><strong>Researcher:</strong> Retrieval fan-out, relevance ranking, and differentiator extraction.</li>
+          <li><strong>Fact-checker:</strong> Claim inventory against public materials; no hard contradictions in the sampled set.</li>
+          <li><strong>Synthesizer:</strong> Executive narrative, residual risks, and follow-up actions with source map.</li>
+        </ul>
+
+        <h2>Residual risks</h2>
+        <ul>
+          <li><strong>Public-source bias:</strong> Marketing pages and blogs over-index on strengths; treat capability claims as provisional until demo or sandbox proof.</li>
+          <li><strong>Commercial opacity:</strong> List pricing rarely matches enterprise quotes — model TCO with procurement, not the public calculator alone.</li>
+          <li><strong>Integration debt:</strong> Identity, SIEM, and data-plane connectors often dominate schedule risk over core product fit.</li>
+        </ul>
+
+        <h2>Recommended next steps</h2>
+        <ul>
+          <li>Request vendor DPAs, subprocessors, and latest SOC 2 / ISO packs under NDA.</li>
+          <li>Run a 2-week technical pilot against production-like accounts with success metrics written before kickoff.</li>
+          <li>Model 3-year TCO including implementation, platform fees, and ops headcount.</li>
+          <li>Re-run Fact-checker after any regulatory or acquisition news material to the shortlist.</li>
+        </ul>
+      `,
+      sources: [
+        { id: "live1", title: "Primary retrieval pack (session)", url: "https://example.com/research/" + session.id, agents: ["Researcher", "Fact-checker"] },
+        { id: "live2", title: "Analyst criteria worksheet", url: "https://example.com/criteria/" + session.id, agents: ["Analyst"] },
+        { id: "live3", title: "Claim inventory (Fact-checker)", url: "https://example.com/claims/" + session.id, agents: ["Fact-checker"] },
+        { id: "live4", title: "Synthesizer outline & recommendation", url: "https://example.com/outline/" + session.id, agents: ["Synthesizer", "Analyst"] },
+        { id: "live5", title: "Risk & lock-in notes", url: "https://example.com/risks/" + session.id, agents: ["Analyst", "Synthesizer"] }
+      ]
+    };
+  }
+
+  function openCancelModal() {
+    const s = activeSession();
+    if (!s || s.state !== "running") return;
+    lastFocusEl = document.activeElement;
+    const modal = $("#cancel-modal");
+    modal.classList.add("open");
+    modal.setAttribute("aria-hidden", "false");
+    lockBodyScroll();
+    trapFocus($("#cancel-modal .modal") || modal);
+    $("#cancel-modal-confirm").focus();
+  }
+
+  function closeCancelModal() {
+    const modal = $("#cancel-modal");
+    if (!modal.classList.contains("open")) return;
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden", "true");
+    releaseFocusTrap();
+    unlockBodyScroll();
+    if (lastFocusEl && typeof lastFocusEl.focus === "function") {
+      try { lastFocusEl.focus(); } catch (_) { /* ignore */ }
+    }
+    lastFocusEl = null;
+  }
+
+  function cancelRun() {
+    const s = activeSession();
+    if (!s || (s.state !== "running" && !s._finishing)) return;
+    closeCancelModal();
+    clearInterval(runTimer);
+    runTimer = null;
+    if (s._finishTimer) {
+      clearTimeout(s._finishTimer);
+      s._finishTimer = null;
+    }
+    s._finishing = false;
+    s.state = "cancelled";
+    s.duration = Math.round((Date.now() - (s._start || Date.now())) / 1000) + "s";
+    AGENTS.forEach((a) => {
+      if (s._laneState[a] === "active" || s._laneState[a] === "waiting") {
+        if (s.lanes[a].length) s._laneState[a] = "complete";
+        else s._laneState[a] = "waiting";
+      }
+    });
+    AGENTS.forEach((a) => {
+      if (s.lanes[a].length) {
+        s.lanes[a].push({
+          t: new Date().toTimeString().slice(0, 8),
+          text: "Run cancelled by user",
+          input: "Stop control",
+          output: "Lane halted; no further actions.",
+          error: false
+        });
+      }
+    });
+    s.report = null;
+    view = "trace";
+    render();
+    showToast("Take stopped — no mixdown generated", { variant: "destructive", duration: 3800 });
+  }
+
+  /* ─── master render ───────────────────────────────────────────── */
+  function render() {
+    renderSidebar();
+    renderTopbar();
+    renderContent();
+    renderTransport();
+  }
+
+  /* ─── events ──────────────────────────────────────────────────── */
+  $("#btn-new-research").addEventListener("click", () => {
+    composeMode = true;
+    view = "compose";
+    setSidebarOpen(false);
+    render();
+  });
+
+  $("#session-list").addEventListener("click", (e) => {
+    const item = e.target.closest(".session-item");
+    if (!item) return;
+    activeId = item.dataset.id;
+    composeMode = false;
+    const s = activeSession();
+    view = s && (s.state === "complete" || s.state === "warnings") ? "report" : "trace";
+    setSidebarOpen(false);
+    render();
+  });
+
+  $("#session-filter").addEventListener("input", renderSidebar);
+
+  $("#view-tabs").addEventListener("click", (e) => {
+    const tab = e.target.closest(".tab");
+    if (!tab || tab.disabled) return;
+    view = tab.dataset.view;
+    render();
+  });
+
+  $("#menu-toggle").addEventListener("click", () => setSidebarOpen(!sidebarOpen));
+  $("#sidebar-scrim").addEventListener("click", () => setSidebarOpen(false));
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 860 && sidebarOpen) setSidebarOpen(false);
+  });
+
+  $("#drawer-close").addEventListener("click", closeDrawer);
+  $("#drawer-backdrop").addEventListener("click", closeDrawer);
+  $("#source-modal-close").addEventListener("click", closeSourceModal);
+  $("#source-modal").addEventListener("click", (e) => {
+    if (e.target === $("#source-modal")) closeSourceModal();
+  });
+  $("#cancel-modal-keep").addEventListener("click", closeCancelModal);
+  $("#cancel-modal-confirm").addEventListener("click", cancelRun);
+  $("#cancel-modal").addEventListener("click", (e) => {
+    if (e.target === $("#cancel-modal")) closeCancelModal();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      if ($("#drawer").classList.contains("open")) closeDrawer();
+      else if ($("#cancel-modal").classList.contains("open")) closeCancelModal();
+      else if ($("#source-modal").classList.contains("open")) closeSourceModal();
+      else if (sidebarOpen) setSidebarOpen(false);
+    }
+  });
+
+  /* ─── utils ───────────────────────────────────────────────────── */
+  function escapeHtml(str) {
+    return String(str)
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
   }
-
-  function inline(s) {
-    return esc(s)
-      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-      .replace(/`([^`]+)`/g, "<code>$1</code>");
+  function escapeAttr(str) {
+    return escapeHtml(str).replace(/'/g, "&#39;");
+  }
+  function truncate(str, n) {
+    if (!str) return "";
+    return str.length > n ? str.slice(0, n - 1) + "…" : str;
+  }
+  function slugify(str) {
+    return String(str)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 60) || "report";
   }
 
-  // —— Simulation ——
-  function sleep(ms) {
-    return new Promise((r) => {
-      runTimer = setTimeout(r, ms);
-    });
-  }
-
-  function reduceMotion() {
-    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  }
-
-  function pace(base) {
-    return reduceMotion() ? Math.min(base, 80) : base;
-  }
-
-  async function runSimulation(session) {
-    const query = session.query.trim();
-    if (!query) {
-      session.status = "error";
-      session.error = "Query is empty.";
-      render();
-      return;
-    }
-
-    session.status = "running";
-    session.startedAt = Date.now();
-    session.error = undefined;
-    session.retries = 0;
-    session.verdict = undefined;
-    session.reportMd = undefined;
-    session.reportHtml = undefined;
-    session.metrics = null;
-    session.stages = emptyStages();
-    session.lanes = [];
-    saveSessions();
-    render();
-    setRunningUi(true);
-
-    const setStage = (name, state) => {
-      session.stages[name] = state;
-      saveSessions();
-      renderStages(session);
-    };
-
-    try {
-      // Plan
-      setStage("plan", "active");
-      await sleep(pace(450));
-      const subQs = planSubQuestions(query);
-      session.lanes = subQs.map((q) => ({ q, state: "pending", findings: [] }));
-      setStage("plan", "done");
-      renderLanes(session);
-
-      // Research fan-out (parallel)
-      setStage("research", "active");
-      session.lanes.forEach((l) => {
-        l.state = "active";
-      });
-      renderLanes(session);
-      await sleep(pace(700));
-      await Promise.all(
-        session.lanes.map(async (lane, i) => {
-          await sleep(pace(200 + i * 120));
-          lane.findings = findingsFor(lane.q, i);
-          lane.state = "done";
-          renderLanes(session);
-        })
-      );
-      setStage("research", "done");
-
-      // Normalize
-      setStage("normalize", "active");
-      await sleep(pace(500));
-      setStage("normalize", "done");
-
-      // Verify — ~25% chance of revise once
-      setStage("verify", "active");
-      await sleep(pace(450));
-      const forceRevise = /revise|faithful|unsupported/i.test(query) || Math.random() < 0.28;
-      let didRevise = false;
-      if (forceRevise) {
-        didRevise = true;
-        session.verdict = "revise";
-        session.stages.verify = "revise";
-        renderVerdict(session);
-        renderStages(session);
-        await sleep(pace(400));
-        // retry research once
-        session.retries = 1;
-        setStage("research", "active");
-        session.lanes.forEach((l) => {
-          l.state = "active";
-        });
-        renderLanes(session);
-        await sleep(pace(550));
-        session.lanes.forEach((l, i) => {
-          l.findings = findingsFor(l.q, i).concat(
-            `Retry note: tightened claim language against findings for branch ${i + 1}.`
-          );
-          l.state = "done";
-        });
-        renderLanes(session);
-        setStage("research", "done");
-        setStage("normalize", "active");
-        await sleep(pace(350));
-        setStage("normalize", "done");
-        setStage("verify", "active");
-        await sleep(pace(350));
-      }
-      session.verdict = "pass";
-      setStage("verify", "done");
-      renderVerdict(session);
-
-      // Final
-      setStage("final", "active");
-      await sleep(pace(400));
-      const findingsFlat = session.lanes.flatMap((l) => l.findings);
-      const report = buildReport(session, subQs, findingsFlat, didRevise);
-      session.reportMd = report.md;
-      session.reportHtml = report.html;
-      setStage("final", "done");
-
-      session.status = "done";
-      session.endedAt = Date.now();
-      const wallMs = session.endedAt - (session.startedAt || session.endedAt);
-      const tokens = 1800 + subQs.length * 420 + findingsFlat.length * 90 + (didRevise ? 650 : 0);
-      session.metrics = {
-        wallMs,
-        stages: STAGES.length + (didRevise ? 2 : 0),
-        fanout: subQs.length,
-        findings: findingsFlat.length,
-        verdict: "pass",
-        retry: session.retries,
-        tokens,
-        costUsd: (tokens / 1000) * 0.0024,
-      };
-      saveSessions();
-      render();
-      showToast("Research complete (DEMO)");
-    } catch (err) {
-      session.status = "error";
-      session.error = err instanceof Error ? err.message : String(err);
-      session.endedAt = Date.now();
-      saveSessions();
-      render();
-      showToast("Run failed");
-    } finally {
-      setRunningUi(false);
-    }
-  }
-
-  function setRunningUi(running) {
-    el.btnRun.disabled = running;
-    el.query.disabled = running;
-    el.btnRun.textContent = running ? "Running…" : "Run research";
-  }
-
-  // —— Render ——
-  function render() {
-    renderSessions();
-    const s = activeSession();
-    if (!s) {
-      el.query.value = "";
-      renderStages(null);
-      renderLanes(null);
-      renderVerdict(null);
-      renderReport(null);
-      renderMetrics(null);
-      renderJobMeta(null);
-      return;
-    }
-    if (document.activeElement !== el.query) {
-      el.query.value = s.query;
-    }
-    el.query.disabled = s.status === "running";
-    el.btnRun.disabled = s.status === "running";
-    el.btnRun.textContent = s.status === "running" ? "Running…" : "Run research";
-    renderStages(s);
-    renderLanes(s);
-    renderVerdict(s);
-    renderReport(s);
-    renderMetrics(s);
-    renderJobMeta(s);
-    if (s.error && s.status === "error") {
-      el.composeError.textContent = s.error;
-      el.composeError.classList.add("show");
-    } else {
-      el.composeError.classList.remove("show");
-    }
-  }
-
-  function renderSessions() {
-    el.sessionList.innerHTML = "";
-    if (sessions.length === 0) {
-      const empty = document.createElement("li");
-      empty.className = "sidebar-empty";
-      empty.textContent = "No sessions yet. Compose a query and run research.";
-      el.sessionList.appendChild(empty);
-      return;
-    }
-    for (const s of sessions) {
-      const li = document.createElement("li");
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "session-item";
-      btn.setAttribute("role", "option");
-      if (s.id === activeId) btn.setAttribute("aria-current", "true");
-      btn.innerHTML = `
-        <span class="session-title">${esc(s.query || "Untitled query")}</span>
-        <span class="session-meta">
-          <span class="status-dot ${esc(s.status)}"></span>
-          <span>${esc(s.status)}</span>
-          <span>${formatTime(s.createdAt)}</span>
-        </span>`;
-      btn.addEventListener("click", () => {
-        activeId = s.id;
-        render();
-        el.sidebar.classList.remove("open");
-        el.menuToggle.setAttribute("aria-expanded", "false");
-      });
-      li.appendChild(btn);
-      el.sessionList.appendChild(li);
-    }
-  }
-
-  function formatTime(ts) {
-    try {
-      return new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(ts);
-    } catch {
-      return "";
-    }
-  }
-
-  function renderStages(session) {
-    const nodes = el.stageRail.querySelectorAll(".stage");
-    nodes.forEach((node) => {
-      const name = node.getAttribute("data-stage");
-      const state = session?.stages?.[name] || "idle";
-      node.setAttribute("data-state", state);
-      const stateEl = node.querySelector(".stage-state");
-      if (stateEl) stateEl.textContent = state;
-    });
-  }
-
-  function renderLanes(session) {
-    if (!session || !session.lanes?.length) {
-      el.lanes.innerHTML = `<p class="lanes-empty">Sub-questions appear here after plan.</p>`;
-      return;
-    }
-    el.lanes.innerHTML = session.lanes
-      .map(
-        (lane) => `
-      <div class="lane" data-state="${esc(lane.state)}">
-        <div class="lane-top">
-          <div class="lane-q">${esc(lane.q)}</div>
-          <span class="lane-badge">${esc(lane.state)}</span>
-        </div>
-        ${
-          lane.findings?.length
-            ? `<ul class="lane-findings">${lane.findings.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>`
-            : ""
-        }
-      </div>`
-      )
-      .join("");
-  }
-
-  function renderVerdict(session) {
-    if (!session?.verdict) {
-      el.verdict.className = "verdict";
-      el.verdict.textContent = "";
-      return;
-    }
-    const v = session.verdict;
-    el.verdict.className = `verdict show ${v === "revise" ? "revise" : "pass"}`;
-    el.verdict.textContent =
-      v === "revise"
-        ? "Verdict: revise — refreshing research once (cap 1), then re-check."
-        : "Verdict: pass — draft accepted; synthesizing final report.";
-  }
-
-  function renderReport(session) {
-    if (session?.reportHtml) {
-      el.reportBody.innerHTML = session.reportHtml;
-      el.btnCopy.disabled = false;
-      el.btnDl.disabled = false;
-    } else {
-      el.reportBody.innerHTML = `<p class="report-empty">Run research to generate a DEMO report.</p>`;
-      el.btnCopy.disabled = true;
-      el.btnDl.disabled = true;
-    }
-  }
-
-  function renderMetrics(session) {
-    const m = session?.metrics;
-    const set = (key, val, demo) => {
-      const node = el.metrics.querySelector(`[data-m="${key}"]`);
-      if (!node) return;
-      if (val == null || val === "") {
-        node.textContent = "—";
-        return;
-      }
-      node.innerHTML = esc(String(val)) + (demo ? `<span class="demo-tag">DEMO</span>` : "");
-    };
-    if (!m) {
-      ["wall", "stages", "fanout", "findings", "verdict", "retry", "tokens", "cost"].forEach((k) =>
-        set(k, null)
-      );
-      return;
-    }
-    set("wall", formatWall(m.wallMs), true);
-    set("stages", String(m.stages));
-    set("fanout", "×" + m.fanout);
-    set("findings", String(m.findings));
-    set("verdict", m.verdict);
-    set("retry", String(m.retry));
-    set("tokens", formatNum(m.tokens), true);
-    set("cost", "$" + m.costUsd.toFixed(3), true);
-  }
-
-  function formatWall(ms) {
-    if (ms < 1000) return ms + "ms";
-    return (ms / 1000).toFixed(1) + "s";
-  }
-  function formatNum(n) {
-    return new Intl.NumberFormat().format(n);
-  }
-
-  function renderJobMeta(session) {
-    if (!session) {
-      el.jobDot.className = "status-dot";
-      el.jobStatus.textContent = "Idle";
-      el.jobId.hidden = true;
-      return;
-    }
-    el.jobDot.className = "status-dot " + session.status;
-    el.jobStatus.textContent = session.status;
-    el.jobId.hidden = false;
-    el.jobId.textContent = " · " + session.id.slice(0, 8);
-  }
-
-  function showToast(msg) {
-    el.toast.textContent = msg;
-    el.toast.classList.add("show");
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => el.toast.classList.remove("show"), 2200);
-  }
-
-  function renderSamples() {
-    el.samples.innerHTML = SAMPLES.map(
-      (q) => `<button type="button" class="sample-chip" data-sample="${esc(q)}">${esc(q)}</button>`
-    ).join("");
-    el.samples.querySelectorAll(".sample-chip").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const s = activeSession() || createSession();
-        if (s.status === "running") return;
-        s.query = btn.getAttribute("data-sample") || "";
-        el.query.value = s.query;
-        saveSessions();
-        render();
-        el.query.focus();
-      });
-    });
-  }
-
-  // —— Events ——
-  el.btnNew.addEventListener("click", () => {
-    createSession("");
-    render();
-    el.query.focus();
-  });
-
-  el.btnRun.addEventListener("click", () => {
-    let s = activeSession();
-    const q = el.query.value.trim();
-    if (!q) {
-      el.composeError.textContent = "Enter a research question, or pick a sample below.";
-      el.composeError.classList.add("show");
-      el.query.focus();
-      return;
-    }
-    el.composeError.classList.remove("show");
-    if (!s || (s.status === "done" || s.status === "error") && s.query !== q) {
-      s = createSession(q);
-    } else {
-      s.query = q;
-      // re-run same session
-      s.status = "pending";
-    }
-    saveSessions();
-    render();
-    runSimulation(s);
-  });
-
-  el.query.addEventListener("input", () => {
-    const s = activeSession();
-    if (s && s.status !== "running") {
-      s.query = el.query.value;
-      saveSessions();
-      renderSessions();
-    }
-  });
-
-  el.btnCopy.addEventListener("click", async () => {
-    const s = activeSession();
-    if (!s?.reportMd) return;
-    try {
-      await navigator.clipboard.writeText(s.reportMd);
-      showToast("Report copied");
-    } catch {
-      showToast("Copy failed — select report text manually");
-    }
-  });
-
-  el.btnDl.addEventListener("click", () => {
-    const s = activeSession();
-    if (!s?.reportMd) return;
-    const blob = new Blob([s.reportMd], { type: "text/markdown;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "research-report-demo.md";
-    a.click();
-    URL.revokeObjectURL(a.href);
-    showToast("Download started");
-  });
-
-  el.menuToggle.addEventListener("click", () => {
-    const open = el.sidebar.classList.toggle("open");
-    el.menuToggle.setAttribute("aria-expanded", open ? "true" : "false");
-  });
-
-  // —— Boot ——
-  renderSamples();
-  if (sessions.length === 0) {
-    createSession("");
-  }
-  render();
-
-  // Test helpers
-  window.__RQ = {
-    getSessions: () => sessions,
-    getActive: () => activeSession(),
-    run: () => el.btnRun.click(),
-    newSession: () => el.btnNew.click(),
+  /* Expose pure helpers for tests (no Node require of the page). */
+  window.__ResearchUI = {
+    AGENTS,
+    AGENT_CODES,
+    stateLabel,
+    recomputeLaneStates,
+    countActiveLanes,
+    traceHintText,
+    escapeHtml,
+    escapeAttr,
+    truncate,
+    slugify,
+    reportToMarkdown
   };
+
+  /* ─── init: open completed report for evaluators ──────────────── */
+  activeId = "s1";
+  composeMode = false;
+  view = "report";
+  render();
 })();
   </script>
 </body>
