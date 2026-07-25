@@ -56,6 +56,13 @@ function staticContract() {
   assert(html.includes("DEMO"), "DEMO honesty labels");
   assert(html.includes("mobile-open"), "mobile sidebar open path");
   assert(html.includes("renderTransport"), "transport meters");
+  assert(html.includes("transport-primary"), "collapsed primary transport strip");
+  assert(html.includes("transport-toggle"), "transport expand control");
+  assert(html.includes("arrangement-bridge"), "stage=tracks bridge copy");
+  assert(html.includes("coach-strip"), "first-run coach strip");
+  assert(!html.includes("btn-back-trace"), "no duplicate Arrangement ghost button");
+  assert(html.includes('view = "trace"'), "graph-first default view");
+  assert(html.includes("--meta: #8a919d"), "readable meta contrast token");
 }
 
 /* ─── pure helper eval via Chrome --dump-dom is heavy; use CDP-less page evaluate via chrome headless ── */
@@ -113,7 +120,19 @@ f.onload = async () => {
     check('app shell', !!d.getElementById('app'));
     check('sidebar', !!d.getElementById('sidebar'));
     check('content non-empty', (d.getElementById('content')?.textContent || '').trim().length > 20);
-    check('report title', !!d.querySelector('[data-od-id="report-title"]'));
+    check('graph-first arrangement on load', !!d.querySelector('[data-od-id="trace-view"]'));
+    check('primary transport strip', !!d.querySelector('[data-od-id="transport-primary"]'));
+    check('arrangement bridge copy', (d.querySelector('.arrangement-bridge')?.textContent || '').includes('parallel tracks'));
+    // Mixdown is one tab away after load
+    const mixTab = d.getElementById('tab-report');
+    if (mixTab && !mixTab.disabled) {
+      mixTab.click();
+      await new Promise(r => setTimeout(r, 40));
+    }
+    check('report title after mixdown tab', !!d.querySelector('[data-od-id="report-title"]'));
+    // Return to arrangement for compose flow tests
+    d.getElementById('tab-trace')?.click();
+    await new Promise(r => setTimeout(r, 40));
 
     // pure helpers
     check('escapeHtml', api.escapeHtml('<x>') === '&lt;x&gt;');
