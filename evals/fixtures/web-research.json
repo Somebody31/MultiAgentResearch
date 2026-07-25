@@ -1,6 +1,531 @@
 {
   "fixtures": [
     {
+      "whenQueryMatches": "429|5xx|search api returns",
+      "hits": [
+        {
+          "title": "Handling search API failures mid-pipeline",
+          "url": "https://example.com/search/failures",
+          "content": "When a web search API returns 429 or 5xx, pipelines may fail the whole run or continue with whatever evidence remains. Good reports either use remaining evidence and note the gap, or fail cleanly\u2014they should not invent URLs or claim a search succeeded when it did not. Clients should surface job errors and may start a new POST after backoff."
+        },
+        {
+          "title": "Rate limits and retries",
+          "url": "https://example.com/search/rate-limits",
+          "content": "429 means slow down: retry with exponential backoff and jitter, honor Retry-After when present. Do not treat 429 as success. Cap retries. Log provider name and status for debugging."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "conditional edges|langgraph-style|limited revise loops",
+      "hits": [
+        {
+          "title": "Conditional edges and limited revise loops",
+          "url": "https://example.com/langgraph/conditional-edges-best-practices",
+          "content": "Best practices for LangGraph-style systems: use conditional edges to route on state (pass vs revise), cap revise loops (for example MAX_RETRIES=1), clear stale findings before re-research, and keep worker prompts narrow under Send fan-out. Do not set infinite retries. Prefer explicit failure after the cap over endless repair."
+        },
+        {
+          "title": "Bounded repair loops",
+          "url": "https://example.com/langgraph/bounded-repair",
+          "content": "Unbounded repair loops burn tokens and can oscillate. Emit a final unfaithful or error state when retries are exhausted. Log verdict and retry count for evals."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "vector database|vector db|keyword search over documents|keyword ranking|embedding-based|embeddings vs|embedding-based retrieval",
+      "hits": [
+        {
+          "title": "Vector search vs keyword ranking for research agents",
+          "url": "https://example.com/retrieval/vector-vs-keyword",
+          "content": "Keyword ranking scores documents by term overlap: fast, explainable, and enough for small curated corpora. Vector databases store embedding vectors and rank by similarity, which helps paraphrase and synonym queries but needs embedding models, chunking, and index ops. Hybrid setups often run keyword first for exact IDs and names, then vectors for semantic recall. Prefer keywords alone when the corpus is tiny and domain terms are stable; add vectors when users rephrase the same need many ways."
+        },
+        {
+          "title": "When not to introduce a vector store",
+          "url": "https://example.com/retrieval/skip-vector-db",
+          "content": "A vector database is not required for every research agent. If documents fit in a few files and queries share vocabulary with those files, keyword or full-doc pass-through is simpler and avoids embedding drift. Introduce a vector index when latency of scanning all docs grows, multi-language queries appear, or synonym gaps show up in evals. Measure retrieval hit rate before and after; do not assume vectors always win."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "middleware|intercept|logging intercept|retries and logging",
+      "hits": [
+        {
+          "title": "Agent middleware for retries and observability",
+          "url": "https://example.com/agents/middleware-retries-logging",
+          "content": "In LLM agent frameworks, middleware sits around model and tool calls. Common jobs: log prompts and tool arguments (with redaction), count tokens, enforce timeouts, retry transient HTTP failures with backoff, and attach trace ids. Middleware should not invent business answers; it only wraps execution. Retries belong on idempotent tools and network errors, not on every model timeout without a budget."
+        },
+        {
+          "title": "What to log around agent steps",
+          "url": "https://example.com/agents/middleware-logging-fields",
+          "content": "Useful logs include step name, model id, latency, token usage, tool name, tool error class, and a correlation id per user job. Avoid logging secrets and full PII. Structured logs beat free-text. Pair middleware logs with a trace timeline so a failed multi-step run can be replayed from plan through final."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "linear pipeline|linear research|graph-based|graph orchestrator|orchestrator|conditional revise",
+      "hits": [
+        {
+          "title": "Linear scripts vs graph orchestrators",
+          "url": "https://example.com/agents/linear-vs-graph",
+          "content": "A linear research script runs fixed steps in order: plan, search, write. It is easy to read and debug. A graph-based orchestrator models steps as nodes with edges, including conditional paths such as pass versus revise. Graphs shine when you need fan-out, retries, or human gates. Prefer linear when the path never branches; prefer a graph when control flow depends on state."
+        },
+        {
+          "title": "Conditional edges in multi-step research",
+          "url": "https://example.com/agents/conditional-revise-edges",
+          "content": "Conditional revise edges let a verifier send work back to research or drafting with a retry cap. That costs extra model and search calls but can fix unsupported claims. Bound retries so the graph cannot loop forever. Linear scripts usually need manual if-statements to get the same behavior."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "cached|cache search|search results be cached|caching",
+      "hits": [
+        {
+          "title": "Caching web search in multi-stage research",
+          "url": "https://example.com/search/caching-results",
+          "content": "Cache search results by normalized query string plus provider name, with a TTL (for example minutes to hours). Serve cache hits in the research stage to cut cost and latency. Do not cache forever: news and release notes go stale. Key by query text, not by internal job id, so parallel sub-questions can share hits. Invalidate or bypass cache when the user asks for live data."
+        },
+        {
+          "title": "What not to cache",
+          "url": "https://example.com/search/cache-pitfalls",
+          "content": "Avoid caching personalized or authenticated search responses in a shared map. Do not treat a cache hit as proof the upstream API is healthy. Log cache hit/miss rates. For faithfulness evals and frozen fixtures, deterministic cached or fixture results are preferred over live search."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "in-memory map|job queue|real job queue|bull|redis queue|move from an in-memory",
+      "hits": [
+        {
+          "title": "When to leave in-memory job maps",
+          "url": "https://example.com/jobs/memory-vs-queue",
+          "content": "An in-memory Map of jobs is fine for single-process demos: restart clears state, one machine holds all jobs. Move to a real queue (Redis/BullMQ, SQS, etc.) when you need multiple workers, survive restarts, rate-limit heavy research, or share jobs across instances. Queues add ops cost; adopt them after the graph logic works, not before."
+        },
+        {
+          "title": "Queue features research jobs use",
+          "url": "https://example.com/jobs/queue-features",
+          "content": "Useful queue features: durable job payloads, retries with backoff, dead-letter queues for permanent failures, and visibility timeouts so a crashed worker does not leave a job stuck as running forever. Clients still poll a status API; the queue is an implementation detail behind job ids."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "checkpointer|checkpoint|thread id|thread ids|long-running graph",
+      "hits": [
+        {
+          "title": "Checkpointers and thread ids in graph agents",
+          "url": "https://example.com/langgraph/checkpointers-threads",
+          "content": "A checkpointer saves graph state between steps or turns so a long-running agent can resume after failure or wait for a human. A thread id (or conversation id) selects which saved state to load. Without a checkpointer, each invoke starts fresh. Use thread ids when users continue multi-turn work; use ephemeral runs when each request is independent."
+        },
+        {
+          "title": "What checkpointers store",
+          "url": "https://example.com/langgraph/checkpoint-contents",
+          "content": "Typical checkpoint data includes channel values (messages, findings, drafts), the next node to run, and metadata such as step count. Store secrets outside checkpoints. For research pipelines that finish in one job, an in-request state object may be enough; add checkpointers when you need pause/resume or multi-turn memory."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "token budget|budget llm tokens|control llm cost|token usage|cost across plan",
+      "hits": [
+        {
+          "title": "Token budgets across research stages",
+          "url": "https://example.com/cost/stage-token-budgets",
+          "content": "Multi-stage pipelines spend tokens in plan, research extract, normalize, verify, and final. Cap max tokens per stage, shorten prompts, and limit search snippet length. Prefer smaller models for classify/verify and stronger models for final writing if quality needs it. Log tokens per stage to find hotspots. A hard global budget can abort remaining stages with a partial report."
+        },
+        {
+          "title": "Practical cost controls",
+          "url": "https://example.com/cost/practical-controls",
+          "content": "Other levers: cache search, fewer sub-questions, max_results on search, skip verify on low-risk queries, and avoid unnecessary revise loops. Measure dollars per successful report, not only tokens. Eval suites should freeze search so cost is mostly model calls."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "max_results|more search results|fetching more|web hits|recall",
+      "hits": [
+        {
+          "title": "Tradeoffs of max_results on web search",
+          "url": "https://example.com/search/max-results-tradeoffs",
+          "content": "Fetching only three web hits (max_results=3) keeps prompts small and cheap but can miss relevant pages. Higher max_results improves recall for rare facts and long-tail queries, yet increases token use, latency, and noise. Diminishing returns often appear after a handful of hits. Tune with retrieval evals: track whether gold facts appear in the top-k snippets."
+        },
+        {
+          "title": "Noise versus coverage",
+          "url": "https://example.com/search/noise-vs-coverage",
+          "content": "Extra results can distract the extract step into unsupported claims if the model merges conflicting pages. Mitigations: rank and truncate snippets, require source urls on findings, and run a faithfulness check on the draft. For frozen evals, fixed small k makes runs reproducible."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "cost drivers|cost per query|dollars|production cost|llm research pipelines in production",
+      "hits": [
+        {
+          "title": "Cost drivers in multi-step LLM research",
+          "url": "https://example.com/cost/multi-step-drivers",
+          "content": "Main cost drivers are model calls (count and size of prompts), web search API fees, and revise/retry loops that re-run research. Fan-out multiplies research extracts. Long final reports add output tokens. Engineering time and infra (queues, logging) matter in production but are separate from per-query API spend. Track cost by stage to cut the expensive step first."
+        },
+        {
+          "title": "Reducing cost without killing quality",
+          "url": "https://example.com/cost/reduce-without-quality-loss",
+          "content": "Use cheaper models for structured extract and verify, reserve stronger models for hard synthesis, freeze or cache search in tests, and cap retries at one. Drop redundant sub-questions. Do not remove faithfulness checks only to save money if unsupported claims are a product risk."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "privacy|gdpr|stores user queries|personal data|pii",
+      "hits": [
+        {
+          "title": "Privacy when storing research queries and jobs",
+          "url": "https://example.com/privacy/research-jobs-data",
+          "content": "User queries and job results can contain personal or confidential data. Minimize retention: delete or anonymize finished jobs after a TTL. Encrypt data at rest if stored in a database. Do not log raw prompts to public systems. For GDPR-like regimes, support access and deletion requests, document purposes, and avoid shipping EU personal data to unneeded regions. In-memory demo maps still process personal data while the process lives."
+        },
+        {
+          "title": "Practical privacy controls for agents",
+          "url": "https://example.com/privacy/agent-controls",
+          "content": "Redact secrets before logging, separate customer tenants, and gate admin access to job stores. Prefer provider data-processing agreements for LLM and search APIs. Evals should use synthetic queries when possible. Never write production personal data into public fixture files."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "search providers|abstract web search|choose and abstract|tavily|search provider",
+      "hits": [
+        {
+          "title": "Abstracting web search providers",
+          "url": "https://example.com/search/provider-abstraction",
+          "content": "Wrap each search vendor behind one function that returns a common hit shape (title, url, content, source). Call that function from research code so swapping Tavily or another API is one change. Keep API keys in env vars. For tests and evals, inject fixtures instead of live calls. Choosing a provider depends on latency, cost, regional coverage, and terms of use\u2014not on hard-coding one vendor in every node."
+        },
+        {
+          "title": "Multi-provider and fallback",
+          "url": "https://example.com/search/provider-fallback",
+          "content": "Some systems try a secondary provider if the primary returns errors. Fallbacks must still record which provider produced each hit. Do not silently invent results when all providers fail; surface the error to the job status."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "human review|human-in-the-loop|human in the loop|before publishing|before accepting",
+      "hits": [
+        {
+          "title": "When human review fits multi-agent research",
+          "url": "https://example.com/hitl/research-reports",
+          "content": "Human-in-the-loop review is useful before high-stakes decisions, regulated domains, or when the faithfulness gate returns revise after retries. Reviewers check unsupported claims, missing citations, and tone. Low-stakes internal drafts may skip HITL. Design the API so a job can sit in a needs_review state with the draft visible to a reviewer."
+        },
+        {
+          "title": "HITL without blocking every request",
+          "url": "https://example.com/hitl/sampling",
+          "content": "Teams often sample a percentage of reports for review or auto-approve when verify passes and sources are strong. Interrupt-style graphs can pause for approval then resume. HITL increases latency; use it where error cost is high."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "findings with source|stored between research|between research and normalize|store findings",
+      "hits": [
+        {
+          "title": "Carrying findings between research and normalize",
+          "url": "https://example.com/pipeline/findings-state",
+          "content": "Findings are usually short claims plus source urls held in graph state or a job record between research and normalize. Keep them structured (claim, sourceUrl, subQuestion) so verify can compare draft text to evidence. Persistence needs are modest for one-shot jobs; durable stores matter when jobs outlive a process. Encrypt disks or DB fields if findings may include sensitive content; application-level passphrases on every claim are uncommon."
+        },
+        {
+          "title": "Do not lose provenance",
+          "url": "https://example.com/pipeline/provenance",
+          "content": "Dropping source urls when merging findings makes faithfulness checks harder. Normalize should merge duplicates but retain at least one supporting url per kept claim. RESET before revise clears stale findings so the next research pass does not concatenate old and new without intent."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "json arrays|return json|structured output|parse json",
+      "hits": [
+        {
+          "title": "Why pipelines ask for JSON plans and findings",
+          "url": "https://example.com/prompts/json-structured-outputs",
+          "content": "Models often wrap answers in prose. Asking for a JSON array of sub-questions or finding objects makes downstream code parseable: planners return string lists; extractors return claim and sourceUrl fields. Parsers may still slice the first [ ... ] from messy text. JSON is a convention for tools, not a legal requirement. Alternatives include CSV or tool-calling schemas; pick one shape and validate it."
+        },
+        {
+          "title": "Handling invalid model JSON",
+          "url": "https://example.com/prompts/invalid-json",
+          "content": "If JSON parse fails, pipelines may retry the model call, fall back to empty findings, or mark the job error. Typed languages do not fix invalid model text by themselves; runtime validation still matters. Prefer small schemas over nested blobs."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "same llm|different models|same model|model per stage|extract, verify",
+      "hits": [
+        {
+          "title": "One model vs many across pipeline stages",
+          "url": "https://example.com/models/stage-routing",
+          "content": "Using one LLM for plan, extract, verify, and final simplifies ops and prompting. Split models when stages differ: a small cheap model for classification/verify, a stronger model for long synthesis. Different models can disagree on style; keep shared definitions of findings and verdicts. Measure quality and cost before splitting. There is no universal rule that verify must use a special forbidden model id."
+        },
+        {
+          "title": "Consistency when mixing models",
+          "url": "https://example.com/models/consistency",
+          "content": "If verify uses a weaker model than the writer, it may miss subtle unsupported claims or over-flag. Calibrate prompts per model. Log model ids in traces so evals can compare configurations."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "http api shape|status codes|json fields|rest|start job|poll status|202",
+      "hits": [
+        {
+          "title": "HTTP shape for async research jobs",
+          "url": "https://example.com/api/research-job-http",
+          "content": "A common shape: POST /research with {query} returns 202 and {id, status: pending|running}. GET /jobs/:id returns {id, status, result?, error?}. Use 400 for bad bodies, 404 for unknown ids, 200 for successful polls. Avoid blocking the POST until the full report finishes. Document status enums so clients can poll safely."
+        },
+        {
+          "title": "JSON fields clients need",
+          "url": "https://example.com/api/job-json-fields",
+          "content": "Useful fields: id, query, status, createdAt, result (final report or full state), error message. Optional: progress, stage name, token usage. Keep the public JSON stable even if internals use a graph state object."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "bun|rather than node|node for local",
+      "hits": [
+        {
+          "title": "Bun vs Node for TypeScript demos",
+          "url": "https://example.com/runtime/bun-vs-node",
+          "content": "Bun is a JavaScript runtime with fast startup, built-in TypeScript execution, and a bundler/test runner\u2014handy for local API demos. Node remains the default for many production deploys and has a larger ecosystem. Teams pick Bun for developer speed on small services; they still must manage env keys, network calls, and compatibility. Bun does not disable network calls by default; APIs behave like other fetch-capable runtimes."
+        },
+        {
+          "title": "Practical migration notes",
+          "url": "https://example.com/runtime/bun-migration",
+          "content": "Watch for native addon differences and package edge cases. For a Hono research API, both Bun and Node can work; choose based on team familiarity and deploy targets. Evals should not depend on runtime-specific magic flags."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "typescript|type script|bad model json|runtime failures from bad",
+      "hits": [
+        {
+          "title": "TypeScript and model JSON failures",
+          "url": "https://example.com/typescript/model-json",
+          "content": "TypeScript catches many coding mistakes at compile time but does not validate free-form model output at runtime. Pipelines still need parse helpers and checks that claims are strings and verdicts are pass|revise. Types document intent; runtime guards stop bad JSON from crashing the process. Pair TS with schema validation (manual checks or a validator library) at the model boundary."
+        },
+        {
+          "title": "What TypeScript does help",
+          "url": "https://example.com/typescript/helps-agents",
+          "content": "TS helps keep Finding and Job types consistent across plan, research, and HTTP layers, and flags wrong field names in code. It does not stop the model from inventing fields. Treat model text as untrusted input."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "pass/revise verify|verify step actually|faithfulness gate check",
+      "hits": [
+        {
+          "title": "What pass/revise verify improves",
+          "url": "https://example.com/pipeline/verify-improves",
+          "content": "A pass/revise verify step checks whether the draft mostly matches allowed findings. It targets unsupported additions, big gaps, and contradictions relative to findings\u2014not world truth and not production infra. On revise, the graph may re-research. On pass, final writing may proceed. Verify does not rewrite cluster configs; it only routes pipeline control flow."
+        },
+        {
+          "title": "Limits of verify",
+          "url": "https://example.com/pipeline/verify-limits",
+          "content": "If findings themselves are wrong, a faithful draft can still be incorrect. Verify is a faithfulness gate. Pair it with better retrieval and optional human review for high stakes."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "faithfulness|claim-level|fact-checking|fact checking|whole-draft|pass/revise",
+      "hits": [
+        {
+          "title": "Whole-draft faithfulness vs claim-level fact-checking",
+          "url": "https://example.com/evals/faithfulness-vs-claim-check",
+          "content": "A whole-draft faithfulness gate compares the entire draft to a list of findings and returns pass or revise. It does not mark each sentence true or false, and it does not check world knowledge outside the findings. Claim-level fact-checking scores individual claims against sources or external ground truth. Faithfulness asks: is the draft supported by these findings? Fact-checking asks: is this claim true?"
+        },
+        {
+          "title": "When each is appropriate",
+          "url": "https://example.com/evals/when-faithfulness",
+          "content": "Use whole-draft faithfulness inside a pipeline to catch unsupported additions before publish. Use claim-level checks when you need per-sentence evidence or training labels. A draft can be faithful to bad findings and still be world-false if search was wrong\u2014fix retrieval separately."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "single-shot rag|classic rag|multi-agent research pipelines with classic|rag for answering",
+      "hits": [
+        {
+          "title": "Multi-agent research pipelines vs single-shot RAG",
+          "url": "https://example.com/agents/multiagent-vs-rag",
+          "content": "Classic single-shot RAG retrieves chunks once and asks one model call to answer. Multi-agent or multi-stage research plans sub-questions, retrieves per branch, merges findings, may verify, then writes a report. RAG is simpler and cheaper for narrow FAQs. Multi-stage systems help multi-hop questions and allow intermediate checks, at higher latency and cost. Neither is universally better; match architecture to question difficulty."
+        },
+        {
+          "title": "Shared needs",
+          "url": "https://example.com/agents/rag-and-pipelines-shared",
+          "content": "Both need good retrieval, citation discipline, and evals. Multi-stage adds orchestration failure modes (bad plans, empty branches). RAG adds chunk-boundary failures. Evaluate with faithfulness to retrieved evidence either way."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "observability|trace to debug|debug a failed|logging or trace|what should you log",
+      "hits": [
+        {
+          "title": "Observability for multi-step research graphs",
+          "url": "https://example.com/ops/graph-observability",
+          "content": "To debug a failed research graph, log or trace: job id, query, node name, start/end time, model errors, search status codes, findings counts, verify verdict, retry count, and final error string. Distributed traces (spans per node) beat scattered print statements. Sample successful runs; always keep failures. Redact secrets. Metrics: success rate, latency per stage, revise rate."
+        },
+        {
+          "title": "Minimal debug checklist",
+          "url": "https://example.com/ops/debug-checklist",
+          "content": "Check whether plan returned valid sub-questions, whether search returned hits, whether extract produced findings, whether verify chose pass or revise, and whether final ran. Empty findings often mean search or parse failure, not a model writing problem."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "single llm call|answers directly|multi-stage plan-research-verify|single-shot",
+      "hits": [
+        {
+          "title": "Single LLM call vs plan-research-verify pipeline",
+          "url": "https://example.com/agents/single-vs-multistage",
+          "content": "A single LLM call answers from parametric knowledge or one pasted context\u2014fast and cheap, weak on fresh web facts and multi-hop structure. A plan-research-verify pipeline spends more calls to gather sources, structure findings, and gate faithfulness. Use single-call for casual Q&A; use multi-stage when you need citations, parallel sub-questions, or auditability."
+        },
+        {
+          "title": "Failure modes compared",
+          "url": "https://example.com/agents/failure-modes-single-multi",
+          "content": "Single-call failures: hallucination, stale knowledge. Multi-stage failures: bad plans, empty search, verify false positives/negatives, cost overruns. Evaluate each with tasks that match the risk you care about."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "overlapping findings|merged into one|merge findings|normalize step|dedupe",
+      "hits": [
+        {
+          "title": "Merging findings from parallel workers",
+          "url": "https://example.com/pipeline/merge-findings",
+          "content": "Parallel research workers often return duplicate or overlapping claims. A normalize step should merge paraphrases, keep distinct facts, preserve source urls, and note gaps. Prefer neutral wording. Do not invent glue facts to connect unrelated findings. Deduplicate by semantic similarity or exact claim text, and cap length so the draft stays readable."
+        },
+        {
+          "title": "Conflicts between sources",
+          "url": "https://example.com/pipeline/conflicting-findings",
+          "content": "When two findings disagree, the draft should surface the conflict or pick the better-sourced claim\u2014not average them into a false middle. Verify later checks that the draft still matches the findings list."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "2\u20134 short sub-questions|2-4 short|break a hard|planner decide|versus 4 sub-questions|sub-questions for a research",
+      "hits": [
+        {
+          "title": "Planning 2\u20134 sub-questions",
+          "url": "https://example.com/pipeline/plan-subquestions",
+          "content": "Planners split a hard question into 2\u20134 short sub-questions that can be researched in parallel. Too few leaves gaps; too many wastes tokens and multiplies noise. Each sub-question should be independently searchable. Avoid overlapping restatements. Good plans cover definitions, mechanisms, comparisons, and constraints named in the user query."
+        },
+        {
+          "title": "2 vs 4 sub-questions",
+          "url": "https://example.com/pipeline/how-many-subquestions",
+          "content": "Use two sub-questions for narrow queries; use three or four when the user asks several distinct facets (how it works, tradeoffs, production tips). More sub-questions do not automatically raise accuracy; they raise coverage and cost. Tune with evals on real queries."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "polling intervals|client timeouts|p99|long-running research jobs",
+      "hits": [
+        {
+          "title": "Client timeouts and poll intervals",
+          "url": "https://example.com/api/poll-intervals-timeouts",
+          "content": "Long research jobs may take tens of seconds. Clients should poll with backoff (for example start at 1s, cap at 5\u201310s) and set an overall job timeout (for example 2\u20135 minutes) separate from per-request HTTP timeouts. Too-tight p99 assumptions (milliseconds) are unrealistic for multi-step LLM work. On timeout, stop polling and show a failure or continue later with the same job id if the server still runs the job."
+        },
+        {
+          "title": "Status meanings while waiting",
+          "url": "https://example.com/api/status-while-polling",
+          "content": "Treat pending and running as in progress. done means read result. error means read error and optionally retry with a new POST. Polling faster does not improve report quality; it only increases load."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "revise-and-retry|revise loop|improve research quality|justify the cost",
+      "hits": [
+        {
+          "title": "Value of a single revise loop",
+          "url": "https://example.com/pipeline/revise-loop-value",
+          "content": "One pass/revise loop can catch unsupported drafts and re-run research, improving faithfulness at roughly 2x research cost for that job. Gains are largest when first-pass search was thin or the draft invented glue. Gains are small if findings were already solid. Cap retries (for example one) to bound spend. Measure revise rate and leak rate of unsupported claims rather than assuming a fixed accuracy percentage."
+        },
+        {
+          "title": "When to skip revise",
+          "url": "https://example.com/pipeline/skip-revise",
+          "content": "Skip or soften verify on low-stakes drafts to save cost. Keep revise when reports are user-facing or compliance-sensitive. After max retries, prefer a clear unfaithful fallback over publishing a known-bad draft."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "clear findings|reset before|RESET before a revise",
+      "hits": [
+        {
+          "title": "Why RESET findings before revise research",
+          "url": "https://example.com/pipeline/reset-findings",
+          "content": "If findings use an append reducer, a second research pass would concatenate old and new claims without clearing. A RESET (or explicit clear) wipes prior findings so the retry starts clean. That avoids duplicated or contradictory stacks from two passes. RESET is a state operation on the findings list, not a host filesystem wipe."
+        },
+        {
+          "title": "Retry kickoff pattern",
+          "url": "https://example.com/pipeline/retry-kickoff",
+          "content": "Typical flow: verify returns revise, a kickoff node clears findings and increments retry count, then fan-out research runs again, then normalize and verify. Bound retries so revise cannot loop forever."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "frequent client polling|polling of job status improve|more frequent client",
+      "hits": [
+        {
+          "title": "Polling frequency vs report quality",
+          "url": "https://example.com/api/poll-frequency-quality",
+          "content": "How often a client polls job status does not change model weights or research quality. Polling only observes status. Faster polling increases server load. Report quality depends on search, prompts, and verify\u2014not on poll interval. Clients should use backoff and overall timeouts instead of hammering the status endpoint."
+        },
+        {
+          "title": "What polling is for",
+          "url": "https://example.com/api/polling-purpose",
+          "content": "Polling exists because research is async: POST returns quickly, work continues server-side, GET reports pending/running/done/error. It is a delivery mechanism, not a training signal."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "parallel send-based|faster than sequential|why might parallel",
+      "hits": [
+        {
+          "title": "Why parallel Send research can be faster",
+          "url": "https://example.com/langgraph/parallel-speed",
+          "content": "Parallel Send-based research runs independent sub-questions concurrently, so wall-clock time is closer to the slowest branch than to the sum of all branches. Sequential research waits for each sub-question in turn. Parallelism helps when branches do not share locks and the bottleneck is waiting on model/search I/O. It does not overclock CPUs; speedup comes from overlapping waits. Coordination and merging still add overhead."
+        },
+        {
+          "title": "Limits of parallel speedup",
+          "url": "https://example.com/langgraph/parallel-limits",
+          "content": "If sub-questions are few or one branch dominates latency, gains shrink. Rate limits on search or model APIs can serialize work. Bound concurrency to avoid 429 storms."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "how many parallel research branches|planner typically create",
+      "hits": [
+        {
+          "title": "How many parallel research branches",
+          "url": "https://example.com/pipeline/branch-count",
+          "content": "Planners often create 2\u20134 parallel research branches for complex queries\u2014not fixed huge fan-outs. Each branch is one sub-question. Very large fan-out (dozens or hundreds) is rare for research demos: cost and merge noise explode. Choose branch count from question complexity, not a constant like 128."
+        },
+        {
+          "title": "Signals to add a branch",
+          "url": "https://example.com/pipeline/when-extra-branch",
+          "content": "Add a branch when the user asks a distinct facet (definition, comparison, operations). Merge highly similar facets. Eval with real queries to see if more branches improve coverage."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "job status|pending, running, done|communicate job status|status: pending",
+      "hits": [
+        {
+          "title": "Communicating research job status",
+          "url": "https://example.com/api/job-status-model",
+          "content": "Expose a small status enum: pending (accepted, not started), running (graph in progress), done (result available), error (failed with message). Clients poll until done or error. Do not claim 100% uptime; design for retries and clear errors. Optional progress fields help UX but are not required for correctness."
+        },
+        {
+          "title": "Status and HTTP",
+          "url": "https://example.com/api/status-and-http",
+          "content": "POST that starts a job often returns 202 with id and pending. GET returns 200 with current status even while running. 404 means unknown id. Separate transport success from job success: HTTP 200 with status error is valid."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "final report stage|rewrites the draft|risks remain if verify passes",
+      "hits": [
+        {
+          "title": "Risks after verify passes",
+          "url": "https://example.com/pipeline/final-rewrite-risks",
+          "content": "If final synthesis rewrites freely, it can reintroduce unsupported claims even after verify passed on an earlier draft. Mitigations: prompt final to use only draft facts, re-check faithfulness on the final text, or skip creative rewrite. Final should not open hidden side channels; it only formats allowed content."
+        },
+        {
+          "title": "Keeping final faithful",
+          "url": "https://example.com/pipeline/faithful-final",
+          "content": "Pass the same findings list into final prompts, forbid new numbers and names, and prefer extractive structure. Eval leak rate of planted unsupported text through final."
+        }
+      ]
+    },
+    {
       "whenQueryMatches": "map-reduce|map reduce|fan-out|fan out|parallel|production|ecosystem|send|langgraph",
       "hits": [
         {
@@ -26,7 +551,7 @@
         {
           "title": "Handling search API failures mid-pipeline",
           "url": "https://example.com/search/failures",
-          "content": "When a web search API returns 429 or 5xx, pipelines may fail the whole run or continue with whatever evidence remains. Good reports either use remaining evidence and note the gap, or fail cleanly—they should not invent URLs or claim a search succeeded when it did not."
+          "content": "When a web search API returns 429 or 5xx, pipelines may fail the whole run or continue with whatever evidence remains. Good reports either use remaining evidence and note the gap, or fail cleanly\u2014they should not invent URLs or claim a search succeeded when it did not."
         }
       ]
     },
@@ -36,7 +561,7 @@
         {
           "title": "Multi-stage research pipelines",
           "url": "https://example.com/agents/research-pipeline",
-          "content": "A multi-stage research system often: (1) Plan — split the query into 2–4 sub-questions; (2) Research — search the web and extract short findings; (3) Normalize — merge findings into one draft; (4) Verify — check the draft against findings (pass or revise); (5) Final — write the user-facing report. Recent product or library release questions need live web search for changelogs, not only general architecture notes."
+          "content": "A multi-stage research system often: (1) Plan \u2014 split the query into 2\u20134 sub-questions; (2) Research \u2014 search the web and extract short findings; (3) Normalize \u2014 merge findings into one draft; (4) Verify \u2014 check the draft against findings (pass or revise); (5) Final \u2014 write the user-facing report. Recent product or library release questions need live web search for changelogs, not only general architecture notes."
         },
         {
           "title": "LangGraph release notes (synthetic fixture)",
