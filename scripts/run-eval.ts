@@ -17,11 +17,14 @@
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { textContainsPlant } from "../src/fingerprints.ts";
 import {
   runResearch,
   type PlantMode,
 } from "../src/pipeline.ts";
 import type { Verdict } from "../src/verify.ts";
+
+export { textContainsPlant };
 
 const ROOT = join(import.meta.dir, "..");
 const QUESTIONS_PATH = join(ROOT, "data", "eval-questions.json");
@@ -99,26 +102,6 @@ function parseArgs(argv: string[]) {
     }
   }
   return out;
-}
-
-/** Loose match so light rephrasing still counts as a leak. */
-export function textContainsPlant(
-  haystack: string,
-  plant: string | null,
-): boolean {
-  if (plant == null || plant.trim() === "") return false;
-  const h = haystack.toLowerCase();
-  const p = plant.trim().toLowerCase();
-  if (h.includes(p)) return true;
-
-  // Fallback: distinctive multi-word chunks (skip tiny words).
-  const chunks = p
-    .split(/[^a-z0-9]+/)
-    .filter((w) => w.length >= 6)
-    .slice(0, 6);
-  if (chunks.length === 0) return false;
-  const hits = chunks.filter((w) => h.includes(w)).length;
-  return hits >= Math.min(3, chunks.length);
 }
 
 /** Expand questions into gate + self_correct jobs (or baseline). */
