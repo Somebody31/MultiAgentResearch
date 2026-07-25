@@ -40,6 +40,8 @@ const GraphState = Annotation.Root({
   verdict: Annotation<Verdict>({ default: () => "pass" }),
   retries: Annotation<number>({ default: () => 0 }),
   finalReport: Annotation<string>({ default: () => "" }),
+  // Set when verify returns revise; next verify must re-check these issues.
+  priorReviseReason: Annotation<string | null>({ default: () => null }),
   // Eval-only: optional text appended after normalize (every pass, including
   // after revise). Production leaves this null. Not claim-level fact-check —
   // used to score the whole-draft faithfulness gate (draft vs findings).
@@ -77,7 +79,17 @@ async function normalizeNode(state: typeof GraphState.State) {
 }
 
 async function verifyNode(state: typeof GraphState.State) {
-  return { verdict: await verifyClaims(state.draft, state.findings) };
+  const result = await verifyClaims(state.draft, state.findings, {
+    priorReviseReason: state.priorReviseReason,
+  });
+
+  // Keep the latest revise reason so a second check cannot ignore what failed.
+  // Clear on pass so a clean draft does not carry stale blame.
+  return {
+    verdict: result.verdict,
+    priorReviseReason:
+      result.verdict === "revise" ? result.reason : null,
+  };
 }
 
 async function retryKickoffNode(state: typeof GraphState.State) {
@@ -145,6 +157,7 @@ export function fanOutResearch(state: typeof GraphState.State) {
         verdict: state.verdict,
         retries,
         finalReport: state.finalReport,
+        priorReviseReason: state.priorReviseReason ?? null,
         plantUnsupportedClaim: state.plantUnsupportedClaim ?? null,
       }),
   );
@@ -206,6 +219,7 @@ export async function runResearch(
     query,
     retries: 0,
     verdict: "pass" as Verdict,
+    priorReviseReason: null,
     plantUnsupportedClaim: options?.plantUnsupportedClaim ?? null,
   });
 }

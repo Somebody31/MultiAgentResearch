@@ -157,6 +157,7 @@ describe("pipeline graph", () => {
       verdict: "pass",
       retries: 0,
       finalReport: "",
+      priorReviseReason: null,
       plantUnsupportedClaim: null,
     });
     expect(Array.isArray(sends)).toBe(true);
