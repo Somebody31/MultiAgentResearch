@@ -13,6 +13,17 @@ export type Finding = {
   sourceUrl: string;
 };
 
+/** Stable system prefix for DeepSeek input cache. */
+export const RESEARCH_EXTRACT_SYSTEM = `Extract research findings from search results.
+
+Return ONLY a JSON array like:
+[{"claim":"short fact","sourceUrl":"https://..."}]
+
+Rules:
+- Use only facts from the search results
+- 1-3 findings
+- No commentary outside the JSON array`;
+
 // One sub-question → its findings (used by the graph's researchOne node).
 export async function researchOne(subQuestion: string): Promise<Finding[]> {
   const hits = await searchAll(subQuestion);
@@ -33,19 +44,12 @@ async function extractFindings(
     )
     .join("\n\n");
 
-  const prompt = `Extract research findings from search results.
-
-Sub-question: ${subQuestion}
-
-Search results:
-${sources}
-
-Return ONLY a JSON array like:
-[{"claim":"short fact","sourceUrl":"https://..."}]
-
-Use only facts from the results. 1-3 findings.`;
-
-  const text = await askLlm(prompt);
+  // Dynamic tail only: sub-question then hits (hits are largest / most unique).
+  const text = await askLlm({
+    stage: "research",
+    system: RESEARCH_EXTRACT_SYSTEM,
+    user: `Sub-question:\n${subQuestion}\n\nSearch results:\n${sources}`,
+  });
   const rows = parseJsonArray(text);
   if (!rows) return [];
 

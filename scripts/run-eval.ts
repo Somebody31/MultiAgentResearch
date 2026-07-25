@@ -18,6 +18,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { textContainsPlant } from "../src/fingerprints.ts";
+import { llmCacheStats, resetLlmCacheStats } from "../src/llm.ts";
 import {
   runResearch,
   type PlantMode,

@@ -11,6 +11,17 @@ export type NormalizeOptions = {
   priorReviseReason?: string | null;
 };
 
+/** Stable system prefix for DeepSeek input cache. */
+export const NORMALIZE_SYSTEM = `Merge research findings into one coherent draft.
+
+Rules:
+- Use only the findings provided in the user message
+- Merge overlapping claims
+- Note gaps if something important is missing
+- Neutral tone
+- If the user message includes a prior revise reason (rewrite pass), do not restate or rephrase those unsupported claims, names, numbers, or quotes; stay strictly inside findings and prefer a slightly shorter draft over inventing
+- Return ONLY the draft text`;
+
 export async function normalizeClaims(
   query: string,
   findings: Finding[],
@@ -26,36 +37,17 @@ export async function normalizeClaims(
     .join("\n\n");
 
   const prior = options?.priorReviseReason?.trim() ?? "";
-  const priorBlock =
-    prior.length > 0
-      ? `
-This is a REWRITE after a faithfulness failure.
-Issues the verifier flagged (must not appear in the new draft):
-${prior}
 
-Rewrite rules for these issues:
-- Do not restate or rephrase the flagged unsupported claims, names, numbers, or quotes.
-- Stay strictly inside the findings list; if something is missing from findings, note the gap instead of inventing.
-- Prefer a slightly shorter draft over including anything that triggered the prior revise.
-`
-      : "";
+  // Fixed section order; volatile prior reason last so the prefix of user can
+  // still match when prior is empty across first-pass calls.
+  let user = `Original query:\n${query}\n\nFindings (may include duplicates):\n${listed}`;
+  if (prior.length > 0) {
+    user += `\n\nPrior revise reason (REWRITE — must not appear in the new draft):\n${prior}`;
+  }
 
-  const prompt = `Merge research findings into one coherent draft.
-
-Original query:
-${query}
-
-Findings (may include duplicates):
-${listed}
-${priorBlock}
-Rules:
-- Use only these findings
-- Merge overlapping claims
-- Note gaps if something important is missing
-- Neutral tone
-${prior ? "- Explicitly avoid the problems named in the prior revise reason above" : ""}
-
-Return ONLY the draft text.`;
-
-  return await askLlm(prompt);
+  return await askLlm({
+    stage: "normalize",
+    system: NORMALIZE_SYSTEM,
+    user,
+  });
 }

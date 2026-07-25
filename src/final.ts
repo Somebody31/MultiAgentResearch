@@ -2,24 +2,22 @@
 
 import { askLlm } from "./llm.ts";
 
+/** Stable system prefix for DeepSeek input cache. */
+export const FINAL_SYSTEM = `Write the final research report.
+
+Rules:
+- Answer the query directly
+- Do not invent new facts — use only the draft in the user message
+- Clear structure, easy to read
+- Return ONLY the report text`;
+
 export async function synthesizeFinal(
   query: string,
   draft: string,
 ): Promise<string> {
-  const prompt = `Write the final research report.
-
-Original query:
-${query}
-
-Draft (use only these facts):
-${draft}
-
-Rules:
-- Answer the query directly
-- Do not invent new facts
-- Clear structure, easy to read
-
-Return ONLY the report text.`;
-
-  return await askLlm(prompt);
+  return await askLlm({
+    stage: "final",
+    system: FINAL_SYSTEM,
+    user: `Original query:\n${query}\n\nDraft (use only these facts):\n${draft}`,
+  });
 }
