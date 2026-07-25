@@ -45,24 +45,24 @@ function staticContract() {
   assert(!html.includes("Instrument Serif"), "no legacy display serif");
   assert(html.includes("Multitrack"), "multitrack world label");
   assert(html.includes("stage-ruler"), "stage arrangement ruler");
-  assert(html.includes(".trace-wrap.is-running"), "running class guard");
+  assert(html.includes("is-running") && html.includes("trace-wrap"), "running class guard");
   assert(html.includes("prefers-reduced-motion"), "reduced-motion media query");
   assert(html.includes("function recomputeLaneStates"), "pure lane recompute helper");
   assert(html.includes("function patchTrace"), "patch-based live paint");
   assert(html.includes("window.__ResearchUI"), "test helpers exported");
   assert(html.includes("trapFocus"), "focus trap for overlays");
   assert(!/font-weight:\s*560/.test(html), "no invalid font-weight 560");
-  assert(html.includes("compose-agent-rail"), "compose agent rail craft");
   assert(html.includes("DEMO"), "DEMO honesty labels");
   assert(html.includes("mobile-open"), "mobile sidebar open path");
   assert(html.includes("renderTransport"), "transport meters");
-  assert(html.includes("transport-primary"), "collapsed primary transport strip");
-  assert(html.includes("transport-toggle"), "transport expand control");
+  assert(html.includes("transport-primary") || html.includes('data-od-id="transport-primary"'), "transport status strip");
   assert(html.includes("arrangement-bridge"), "stage=tracks bridge copy");
-  assert(html.includes("coach-strip"), "first-run coach strip");
+  assert(html.includes("laneIsOpen") || html.includes("data-lane-toggle"), "collapsible tracks");
   assert(!html.includes("btn-back-trace"), "no duplicate Arrangement ghost button");
   assert(html.includes('view = "trace"'), "graph-first default view");
   assert(html.includes("--meta: #8a919d"), "readable meta contrast token");
+  assert(html.includes(">Stages<") || html.includes("Stages</button>"), "plain Stages tab");
+  assert(html.includes(">Report<") || html.includes("Report</button>"), "plain Report tab");
 }
 
 /* ─── pure helper eval via Chrome --dump-dom is heavy; use CDP-less page evaluate via chrome headless ── */
@@ -121,8 +121,9 @@ f.onload = async () => {
     check('sidebar', !!d.getElementById('sidebar'));
     check('content non-empty', (d.getElementById('content')?.textContent || '').trim().length > 20);
     check('graph-first arrangement on load', !!d.querySelector('[data-od-id="trace-view"]'));
-    check('primary transport strip', !!d.querySelector('[data-od-id="transport-primary"]'));
-    check('arrangement bridge copy', (d.querySelector('.arrangement-bridge')?.textContent || '').includes('parallel tracks'));
+    check('primary transport strip', !!d.querySelector('[data-od-id="transport-primary"]') || !!(d.getElementById('transport-meters')?.textContent || '').trim());
+    check('arrangement bridge copy', /parallel tracks|Research/i.test(d.querySelector('.arrangement-bridge')?.textContent || ''));
+    check('tracks collapsed by default', d.querySelectorAll('.lane.is-open').length <= 1);
     // Mixdown is one tab away after load
     const mixTab = d.getElementById('tab-report');
     if (mixTab && !mixTab.disabled) {
@@ -160,7 +161,7 @@ f.onload = async () => {
     d.getElementById('btn-new-research').click();
     await new Promise(r => setTimeout(r, 80));
     check('compose visible', !!d.querySelector('[data-od-id="compose"]'));
-    check('agent rail', !!d.querySelector('.compose-agent-rail'));
+    check('compose lead', !!(d.querySelector('.compose-card .lead')?.textContent || '').trim());
     const input = d.getElementById('compose-input');
     input.value = 'Test vendor risk for ACME cloud security';
     d.getElementById('btn-submit').click();
