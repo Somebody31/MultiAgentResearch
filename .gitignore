@@ -14,3 +14,6 @@ dist/
 
 # Frontend anti-patterns checklist (keep trackable despite *.md)
 !docs/FRONTEND_DONTS.md
+
+# Local Impeccable / design-tool state
+.impeccable/
