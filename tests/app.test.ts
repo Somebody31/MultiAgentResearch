@@ -117,19 +117,19 @@ describe("pipeline graph", () => {
     expect(afterVerify({ verdict: "pass", retries: 0 })).toBe("final");
   });
 
-  test("afterVerify: revise once → retryKickoff, then final", async () => {
+  test("afterVerify: revise once → reviseBump (rewrite, no re-research), then final", async () => {
     const { afterVerify } = await import("../src/pipeline.ts");
-    expect(afterVerify({ verdict: "revise", retries: 0 })).toBe("retryKickoff");
+    expect(afterVerify({ verdict: "revise", retries: 0 })).toBe("reviseBump");
     expect(afterVerify({ verdict: "revise", retries: 1 })).toBe("final");
   });
 
-  test("afterVerify: missing retries still allows one revise", async () => {
+  test("afterVerify: missing retries still allows one revise rewrite", async () => {
     const { afterVerify } = await import("../src/pipeline.ts");
     // undefined < 1 is false in JS — must coerce so the revise path runs
     expect(afterVerify({ verdict: "revise", retries: undefined })).toBe(
-      "retryKickoff",
+      "reviseBump",
     );
-    expect(afterVerify({ verdict: "revise" })).toBe("retryKickoff");
+    expect(afterVerify({ verdict: "revise" })).toBe("reviseBump");
   });
 
   test("unfaithfulFallbackReport lists findings only (no draft plant)", async () => {

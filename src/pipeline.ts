@@ -2,15 +2,16 @@
 //
 //   START → plan ─┬─ Send(researchOne) × N ─┬→ normalize → verify → final → END
 //                 │                         │                 │
-//                 │                         │    revise once  │
+//                 │                         │  revise once    │
+//                 │                         │  (same findings)│
 //                 │                         │        ▼        │
-//                 │                    retryKickoff ─┘        │
-//                 │                    (RESET findings,       │
-//                 │                     Send again; normalize │
-//                 │                     sees priorReviseReason)│
+//                 │                    reviseBump ───┘        │
+//                 │                    → normalize again      │
+//                 │                    (sees priorReviseReason│
+//                 │                     — no re-research)     │
 //
 // Fan-out uses LangGraph Send() (not Promise.all).
-// findings use a concat reducer; retry sends "RESET" first.
+// findings use a concat reducer.
 
 import { Annotation, END, Send, START, StateGraph } from "@langchain/langgraph";
 import { plan } from "./plan.ts";
@@ -21,27 +22,21 @@ import { synthesizeFinal } from "./final.ts";
 
 const MAX_RETRIES = 1;
 
-// Special update: clear findings before a research retry.
-type FindingsUpdate = Finding[] | "RESET";
-
 const GraphState = Annotation.Root({
   query: Annotation<string>(),
   subQuestions: Annotation<string[]>({ default: () => [] }),
-  // Concat when branches return lists; "RESET" wipes for a retry pass.
   findings: Annotation<Finding[]>({
     default: () => [],
-    reducer: (left: Finding[], right: FindingsUpdate) => {
-      if (right === "RESET") return [];
-      return left.concat(right);
-    },
+    reducer: (left: Finding[], right: Finding[]) => left.concat(right),
   }),
   // Which sub-question this researchOne branch is working on (Send payload).
   activeSubQuestion: Annotation<string>({ default: () => "" }),
   draft: Annotation<string>({ default: () => "" }),
   verdict: Annotation<Verdict>({ default: () => "pass" }),
+  /** How many draft rewrites after a failed verify (not research retries). */
   retries: Annotation<number>({ default: () => 0 }),
   finalReport: Annotation<string>({ default: () => "" }),
-  // Set when verify returns revise; next verify must re-check these issues.
+  // Set when verify returns revise; rewrite normalize + re-check use this.
   priorReviseReason: Annotation<string | null>({ default: () => null }),
   // Eval-only: optional text appended after normalize (every pass, including
   // after revise). Production leaves this null. Not claim-level fact-check —
@@ -67,13 +62,13 @@ async function researchOneNode(state: typeof GraphState.State) {
 }
 
 async function normalizeNode(state: typeof GraphState.State) {
-  // On a revise retry, priorReviseReason is set so the rewrite targets what failed.
+  // On a rewrite, priorReviseReason is set so normalize targets what failed.
   let draft = await normalizeClaims(state.query, state.findings, {
     priorReviseReason: state.priorReviseReason,
   });
 
   // Eval seam only: plant text that is not in findings, right before verify.
-  // Re-applied on every normalize (including after a revise retry).
+  // Re-applied on every normalize (including after a revise rewrite).
   const plant = state.plantUnsupportedClaim;
   if (typeof plant === "string" && plant.trim() !== "") {
     draft = `${draft}\n\n${plant.trim()}`;
@@ -87,7 +82,7 @@ async function verifyNode(state: typeof GraphState.State) {
     priorReviseReason: state.priorReviseReason,
   });
 
-  // Keep the latest revise reason so a second check cannot ignore what failed.
+  // Keep the latest revise reason so rewrite + second check cannot ignore it.
   // Clear on pass so a clean draft does not carry stale blame.
   return {
     verdict: result.verdict,
@@ -96,16 +91,15 @@ async function verifyNode(state: typeof GraphState.State) {
   };
 }
 
-async function retryKickoffNode(state: typeof GraphState.State) {
-  // Clear old findings, count the retry, then fan-out runs again via edges.
+/** Count one rewrite; keep findings — do not re-research. */
+async function reviseBumpNode(state: typeof GraphState.State) {
   return {
-    findings: "RESET" as const,
     retries: retryCount(state) + 1,
   };
 }
 
 async function finalNode(state: typeof GraphState.State) {
-  // Faithfulness gate still says revise after any allowed retries:
+  // Faithfulness gate still says revise after any allowed rewrites:
   // do not polish the unfaithful draft into a normal user report.
   // List only findings so unsupported draft text (including eval plants) cannot leak.
   if (state.verdict === "revise") {
@@ -170,11 +164,11 @@ export function fanOutResearch(state: typeof GraphState.State) {
 export function afterVerify(state: {
   verdict: Verdict;
   retries?: number | null;
-}): "retryKickoff" | "final" {
+}): "reviseBump" | "final" {
   // Coerce retries: `undefined < 1` is false in JS and skipped the revise path.
   const retries = retryCount(state);
   if (state.verdict === "revise" && retries < MAX_RETRIES) {
-    return "retryKickoff";
+    return "reviseBump";
   }
   return "final";
 }
@@ -186,7 +180,7 @@ const graph = new StateGraph(GraphState)
   .addNode("researchOne", researchOneNode)
   .addNode("normalize", normalizeNode)
   .addNode("verify", verifyNode)
-  .addNode("retryKickoff", retryKickoffNode)
+  .addNode("reviseBump", reviseBumpNode)
   .addNode("final", finalNode)
   .addEdge(START, "plan")
   .addConditionalEdges("plan", fanOutResearch, {
@@ -196,13 +190,11 @@ const graph = new StateGraph(GraphState)
   .addEdge("researchOne", "normalize")
   .addEdge("normalize", "verify")
   .addConditionalEdges("verify", afterVerify, {
-    retryKickoff: "retryKickoff",
+    reviseBump: "reviseBump",
     final: "final",
   })
-  .addConditionalEdges("retryKickoff", fanOutResearch, {
-    normalize: "normalize",
-    researchOne: "researchOne",
-  })
+  // Rewrite only: same findings, normalize with priorReviseReason, re-verify.
+  .addEdge("reviseBump", "normalize")
   .addEdge("final", END)
   .compile();
 
