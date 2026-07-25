@@ -21,8 +21,7 @@ START → plan → Send(researchOne)×N → normalize → verify → final → E
 | verify | Draft ok? `pass` / `revise` |
 | final | Draft → report |
 
-Search: `searchWeb` (Tavily) + `searchDocs` (files in `corpus/`, keyword rank for now).  
-**Later:** better doc retrieval (embeddings and/or give full docs to the model) — see comment in `searchDocs`.
+Search: `searchWeb` (Tavily). Research calls `searchAll()`, which currently only runs web search.
 
 ## Async jobs
 
@@ -46,7 +45,7 @@ bun install
 bun run dev   # http://localhost:8787
 bun run test
 
-# Mixed corpus + frozen-web quality evals (needs MIMO_API_KEY; see evals/README.md)
+# Frozen-web quality evals (needs MIMO_API_KEY; see evals/README.md)
 bun run eval -- --dry-run
 bun run eval
 ```
@@ -80,7 +79,7 @@ src/verify.ts
 src/final.ts
 src/mimo.ts
 src/parseJson.ts
-corpus/           # local docs for searchDocs
+evals/            # frozen-web quality scenarios
 ```
 
 ## Interview demo UI

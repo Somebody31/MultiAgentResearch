@@ -2,14 +2,13 @@
 //
 // What this does:
 //   1. Freezes web search with EVAL_WEB_FIXTURES (no Tavily).
-//   2. Still uses real local corpus/ files via searchDocs.
-//   3. Runs the real pipeline (needs MIMO_API_KEY for the language model).
-//   4. Checks simple hard rules (gates).
-//   5. Optionally asks the model to judge quality (--judge).
+//   2. Runs the real pipeline (needs MIMO_API_KEY for the language model).
+//   3. Checks simple hard rules (gates).
+//   4. Optionally asks the model to judge quality (--judge).
 //
 // Run:
 //   bun run eval
-//   bun run eval -- --id cross-source-send-vs-ecosystem
+//   bun run eval -- --id send-and-map-reduce
 //   bun run eval -- --judge
 //   bun run eval -- --dry-run   # only list scenarios, no LLM calls
 
@@ -20,15 +19,14 @@ import { askMimo } from "../src/mimo.ts";
 import { parseJsonObject } from "../src/parseJson.ts";
 
 const ROOT = join(import.meta.dir, "..");
-const SCENARIOS_PATH = join(import.meta.dir, "scenarios", "mixed-corpus-web.json");
-const WEB_FIXTURES_PATH = join(import.meta.dir, "fixtures", "web-mixed.json");
+const SCENARIOS_PATH = join(import.meta.dir, "scenarios", "web-research.json");
+const WEB_FIXTURES_PATH = join(import.meta.dir, "fixtures", "web-research.json");
 
 type Gates = {
   reportMustIncludeAny?: string[];
   reportMustIncludeAll?: string[];
   /** Each inner list is OR; all groups must pass (AND of ORs). */
   reportMustIncludeAnyGroups?: string[][];
-  findingsMustIncludeUrlSubstring?: string[];
   findingsMustIncludeUrlSubstringAny?: string[];
 };
 
@@ -36,7 +34,6 @@ type Scenario = {
   id: string;
   title: string;
   query: string;
-  mustUseBothSources?: boolean;
   gates: Gates;
   judge?: { passIff: string; mustNot?: string };
 };
@@ -113,17 +110,6 @@ function runGates(
     }
   }
 
-  if (g.findingsMustIncludeUrlSubstring?.length) {
-    for (const sub of g.findingsMustIncludeUrlSubstring) {
-      const ok = urls.toLowerCase().includes(sub.toLowerCase());
-      results.push({
-        name: `findings url contains "${sub}"`,
-        ok,
-        detail: ok ? "found in findings" : `no finding url contained ${sub}`,
-      });
-    }
-  }
-
   if (g.findingsMustIncludeUrlSubstringAny?.length) {
     const ok = g.findingsMustIncludeUrlSubstringAny.some((sub) =>
       urls.toLowerCase().includes(sub.toLowerCase()),
@@ -132,21 +118,8 @@ function runGates(
       name: "findingsMustIncludeUrlSubstringAny",
       ok,
       detail: ok
-        ? "found a web-style finding url"
+        ? "found a web finding url"
         : `needed one of: ${g.findingsMustIncludeUrlSubstringAny.join(", ")}`,
-    });
-  }
-
-  if (scenario.mustUseBothSources) {
-    const hasDoc = findings.some((f) => f.sourceUrl.includes("file://corpus/"));
-    const hasWeb = findings.some(
-      (f) =>
-        f.sourceUrl.startsWith("http://") || f.sourceUrl.startsWith("https://"),
-    );
-    results.push({
-      name: "mustUseBothSources",
-      ok: hasDoc && hasWeb,
-      detail: `doc findings=${hasDoc} web findings=${hasWeb} (count=${findings.length})`,
     });
   }
 

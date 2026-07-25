@@ -1,0 +1,36 @@
+{
+  "title": "Choose the visual world",
+  "question": "Multi-session research desk for a resume-grade demo: architecture + report + metrics. Keep the assigned world, take a fused alternate, re-roll, or play the category standard.",
+  "options": [
+    {
+      "id": "stage-tape-desk",
+      "label": "Stage tape desk",
+      "kicker": "THE ROLL",
+      "lineage": "orchestration timeline / stage Gantt + multi-session research desk",
+      "body": "The product is a desk where a research job unrolls as a horizontal stage tape: plan \u2192 parallel research lanes \u2192 normalize \u2192 verify (pass/revise) \u2192 final. Sessions live on a rail; a metrics strip shows resume-friendly numbers (wall time, stage count, fan-out N, verdict/retry, synthetic tokens/cost labeled DEMO). Cool lab-gray surfaces, one restrained signal accent, tabular digits for instruments. First viewport: session archive + empty compose with dormant tape and zeroed instruments\u2014run animates the tape and fills the report. Risk: if metrics and report are weak, it reads as project-management chrome.",
+      "hero": "https://impeccable.style/worlds/cards/scientific-notation-particle-detector-event-display-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/scientific-notation-particle-detector-event-display.webp"
+    },
+    {
+      "id": "event-reconstruction",
+      "label": "Event reconstruction",
+      "kicker": "FUSED ALTERNATE",
+      "lineage": "particle-detector event display \u00d7 multi-agent research job",
+      "body": "One research job is one frozen collision event. Sub-questions are tracks through concentric detector layers (pipeline stages); deposited-energy bars become DEMO metrics; sessions are an event browser. Near-black vacuum ground, steel-blue rings, signal yellow/cyan tracks. Strongest \u201cshow the architecture\u201d read for technical interviews. Risk: sci-fi density can overshadow the final report unless the report is a first-class panel after reconstruction.",
+      "hero": "https://impeccable.style/worlds/cards/scientific-notation-particle-detector-event-display-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/scientific-notation-particle-detector-event-display.webp"
+    },
+    {
+      "id": "eval-test-bench",
+      "label": "Eval test bench",
+      "kicker": "FUSED ALTERNATE",
+      "lineage": "lab test bench: adjust \u00b7 launch \u00b7 trace through a measured field",
+      "body": "Adjust the query, launch a simulated job, watch the trajectory through stages while instruments update. Resume numbers are native (latency, cost, coverage properties, pass/revise). Neutral bench materials, high-contrast readouts, clear launch control. Risk: without a bold stage graph, it can look like generic MLOps SaaS.",
+      "hero": "https://impeccable.style/worlds/cards/risograph-web-system-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/risograph-web-system.webp"
+    }
+  ],
+  "reroll": true,
+  "canon": true,
+  "steer": true
+}

@@ -1,0 +1,49 @@
+{
+  "fixtures": [
+    {
+      "whenQueryMatches": "map-reduce|map reduce|fan-out|fan out|parallel|production|ecosystem|send|langgraph",
+      "hits": [
+        {
+          "title": "LangGraph map-reduce style fan-out",
+          "url": "https://example.com/langgraph/map-reduce-fanout",
+          "content": "LangGraph models workflows as graphs: nodes are steps, edges choose the next step, and shared state carries data. Send() starts the same node many times in parallel (map-reduce style). Workers often append into a list channel with a reducer; a join node aggregates. Common advice: keep worker prompts narrow, bound concurrency, and treat reducer merges as append-only until an explicit reset."
+        },
+        {
+          "title": "Conditional edges and revise loops",
+          "url": "https://example.com/langgraph/conditional-edges",
+          "content": "Conditional edges route based on state, for example pass versus revise. A limited repair loop can re-run research after clearing old findings, then continue to a final answer node. Bound retries so the graph cannot loop forever."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "async|poll|job|pending|timeout|slow|fail|retry|rate limit|client|api",
+      "hits": [
+        {
+          "title": "Async research job client patterns",
+          "url": "https://example.com/api/async-research-clients",
+          "content": "Long research should not block one HTTP request. Pattern: client POSTs a query; server returns a job id with status pending; client polls GET /jobs/:id until done or error; when done, read the result. In-memory job maps are fine for demos; production often uses a queue. Clients should poll with backoff and set an overall job timeout."
+        },
+        {
+          "title": "Handling search API failures mid-pipeline",
+          "url": "https://example.com/search/failures",
+          "content": "When a web search API returns 429 or 5xx, pipelines may fail the whole run or continue with whatever evidence remains. Good reports either use remaining evidence and note the gap, or fail cleanly—they should not invent URLs or claim a search succeeded when it did not."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "pipeline|stage|plan|research|normalize|verify|final|release|changelog|version",
+      "hits": [
+        {
+          "title": "Multi-stage research pipelines",
+          "url": "https://example.com/agents/research-pipeline",
+          "content": "A multi-stage research system often: (1) Plan — split the query into 2–4 sub-questions; (2) Research — search the web and extract short findings; (3) Normalize — merge findings into one draft; (4) Verify — check the draft against findings (pass or revise); (5) Final — write the user-facing report. Recent product or library release questions need live web search for changelogs, not only general architecture notes."
+        },
+        {
+          "title": "LangGraph release notes (synthetic fixture)",
+          "url": "https://example.com/langgraph/changelog-0.2",
+          "content": "Synthetic fixture: LangGraph release notes often highlight streaming, checkpoint docs, and Send()-based map-reduce examples. Exact version numbers change; this fixture exists so evals can test multi-part web answers without calling the live internet."
+        }
+      ]
+    }
+  ]
+}

@@ -1,23 +1,19 @@
 // Look things up. Research only calls searchAll() — not Tavily directly.
 //
-// Two places we look:
-//   searchWeb  — internet (Tavily API)
-//   searchDocs — local files in ./corpus
+// Today there is one place we look:
+//   searchWeb — internet (Tavily API), or frozen JSON when evals set EVAL_WEB_FIXTURES
 //
 // To add another place later: write a function like searchWeb, then
 // call it inside searchAll and add its results to the list.
 
-import { readdir, readFile } from "node:fs/promises";
-import { join, basename } from "node:path";
+import { readFile } from "node:fs/promises";
 
 export type SearchHit = {
   title: string;
   url: string;
   content: string;
-  source: "web" | "document";
+  source: "web";
 };
-
-const CORPUS_DIR = join(import.meta.dir, "..", "corpus");
 
 // Internet search via Tavily — unless evals freeze the web results.
 //
@@ -92,59 +88,8 @@ async function searchWebFromFixtures(
   return [];
 }
 
-// Local document search: read markdown files under ./corpus and rank by keyword hits.
-//
-// LATER (better retrieval — not done yet):
-//   - Embeddings: embed query + chunks, rank by vector similarity
-//   - Or skip ranking: pass whole small docs straight into the model
-// Keyword score is a simple starter; swap the body of this function when ready.
-export async function searchDocs(query: string): Promise<SearchHit[]> {
-  const terms = query
-    .toLowerCase()
-    .split(/\W+/)
-    .filter((t) => t.length > 2);
-
-  let names: string[];
-  try {
-    names = await readdir(CORPUS_DIR);
-  } catch {
-    return [];
-  }
-
-  const hits: (SearchHit & { score: number })[] = [];
-
-  for (const name of names) {
-    if (!name.endsWith(".md")) continue;
-    const path = join(CORPUS_DIR, name);
-    const text = await readFile(path, "utf8");
-    const lower = text.toLowerCase();
-
-    // Score = how many query words appear in the file.
-    let score = 0;
-    for (const term of terms) {
-      if (lower.includes(term)) score += 1;
-    }
-    if (score === 0 && terms.length > 0) continue;
-
-    // Snippet: first ~400 chars (good enough for the LLM to extract facts).
-    const content = text.replace(/\s+/g, " ").trim().slice(0, 400);
-
-    hits.push({
-      title: basename(name, ".md"),
-      url: `file://corpus/${name}`,
-      content,
-      source: "document",
-      score: terms.length === 0 ? 1 : score,
-    });
-  }
-
-  hits.sort((a, b) => b.score - a.score);
-  return hits.slice(0, 3).map(({ score: _s, ...hit }) => hit);
-}
-
-// Run every search and put all hits in one list.
+// Run every search place and put all hits in one list.
+// Right now that is only web search.
 export async function searchAll(query: string): Promise<SearchHit[]> {
-  const webHits = await searchWeb(query);
-  const docHits = await searchDocs(query);
-  return [...webHits, ...docHits];
+  return searchWeb(query);
 }

@@ -1,0 +1,7 @@
+{
+  "files": ["multi-agent-research-tool.html", "index.html"],
+  "exclude": [],
+  "insertBefore": "</body>",
+  "commentSyntax": "html",
+  "cspChecked": true
+}

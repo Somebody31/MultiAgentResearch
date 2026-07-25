@@ -54,14 +54,6 @@ describe("app", () => {
 });
 
 describe("search", () => {
-  test("searchDocs finds corpus files by keyword", async () => {
-    const { searchDocs } = await import("../src/search.ts");
-    const hits = await searchDocs("LangGraph Send parallel");
-    expect(hits.length).toBeGreaterThan(0);
-    expect(hits.every((h) => h.source === "document")).toBe(true);
-    expect(hits[0].url.startsWith("file://corpus/")).toBe(true);
-  });
-
   test("searchAll is a function", async () => {
     const { searchAll } = await import("../src/search.ts");
     expect(typeof searchAll).toBe("function");
@@ -69,7 +61,7 @@ describe("search", () => {
 
   test("searchWeb uses frozen fixtures when EVAL_WEB_FIXTURES is set", async () => {
     const prev = process.env.EVAL_WEB_FIXTURES;
-    process.env.EVAL_WEB_FIXTURES = `${import.meta.dir}/../evals/fixtures/web-mixed.json`;
+    process.env.EVAL_WEB_FIXTURES = `${import.meta.dir}/../evals/fixtures/web-research.json`;
     try {
       const { searchWeb } = await import("../src/search.ts");
       const hits = await searchWeb("typical production map-reduce fan-out");

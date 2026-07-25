@@ -1,0 +1,36 @@
+{
+  "title": "Choose the visual world (re-roll \u00b7 simpler)",
+  "question": "Steer: keep it a bit simple. Same product (multi-session desk, architecture + report + DEMO metrics). Previous options discarded.",
+  "options": [
+    {
+      "id": "quiet-research-console",
+      "label": "Quiet research console",
+      "kicker": "THE ROLL",
+      "lineage": "calm operator console \u00b7 light monochrome + one accent",
+      "body": "Simple desk UI that still proves the product: left session list, main column for compose \u2192 short stage step-rail (plan \u00b7 research\u00d7N \u00b7 normalize \u00b7 verify \u00b7 final) \u2192 report. Metrics as one compact footer (wall time, stages, fan-out, verdict, DEMO tokens)\u2014resume-readable, not a dashboard wall. Pale cool ground, ink black type, single blue accent for running/active. First viewport is almost empty: pick or start a session, type a query, run. Risk: too plain for a portfolio unless the stage rail and report feel intentional.",
+      "hero": "https://impeccable.style/worlds/cards/broadcast-programming-teletext-service-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/broadcast-programming-teletext-service.webp"
+    },
+    {
+      "id": "teletext-service",
+      "label": "Teletext pages",
+      "kicker": "FUSED ALTERNATE",
+      "lineage": "broadcast teletext magazine \u00d7 research desk",
+      "body": "Architecture and report as numbered \u201cpages\u201d (100 compose, 200 live run, 300 report, 400 metrics). High-contrast limited palette, blocky clarity, session as channel. Very simple graphic grammar; strong resume novelty without ornament. Risk: can feel gimmicky if the page metaphor fights multi-session tasks.",
+      "hero": "https://impeccable.style/worlds/cards/broadcast-programming-teletext-service-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/broadcast-programming-teletext-service.webp"
+    },
+    {
+      "id": "neubrutal-desk",
+      "label": "Hard edges desk",
+      "kicker": "FUSED ALTERNATE",
+      "lineage": "neubrutalist award-grade UI \u00b7 simple structure",
+      "body": "Thick borders, flat color blocks, no soft chrome. Sessions, stage rail, report, and metrics each a clear slab. Easy to scan for interviewers; little decoration. Risk: loud branding if color is overdone\u2014keep blocks few and quiet.",
+      "hero": "https://impeccable.style/worlds/cards/neubrutalist-award-grade-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/neubrutalist-award-grade.webp"
+    }
+  ],
+  "reroll": true,
+  "canon": true,
+  "steer": true
+}
