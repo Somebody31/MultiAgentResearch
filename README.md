@@ -45,6 +45,10 @@ bun install
 
 bun run dev   # http://localhost:8787
 bun run test
+
+# Mixed corpus + frozen-web quality evals (needs MIMO_API_KEY; see evals/README.md)
+bun run eval -- --dry-run
+bun run eval
 ```
 
 ## API

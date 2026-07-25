@@ -19,8 +19,18 @@ export type SearchHit = {
 
 const CORPUS_DIR = join(import.meta.dir, "..", "corpus");
 
-// Internet search via Tavily.
+// Internet search via Tavily — unless evals freeze the web results.
+//
+// Evals set EVAL_WEB_FIXTURES to a JSON file path. That file lists canned
+// web hits so runs do not call Tavily (stable, free, offline-friendly).
+// Shape: { "fixtures": [ { "whenQueryMatches": "keyword|other", "hits": [...] } ] }
+// First matching group wins; if none match, return [].
 export async function searchWeb(query: string): Promise<SearchHit[]> {
+  const fixturePath = process.env.EVAL_WEB_FIXTURES;
+  if (fixturePath) {
+    return searchWebFromFixtures(query, fixturePath);
+  }
+
   const res = await fetch("https://api.tavily.com/search", {
     method: "POST",
     headers: {
@@ -44,6 +54,42 @@ export async function searchWeb(query: string): Promise<SearchHit[]> {
     content: r.content ?? "",
     source: "web" as const,
   }));
+}
+
+type WebFixtureFile = {
+  fixtures?: {
+    whenQueryMatches: string;
+    hits: { title?: string; url?: string; content?: string }[];
+  }[];
+};
+
+async function searchWebFromFixtures(
+  query: string,
+  fixturePath: string,
+): Promise<SearchHit[]> {
+  const raw = await readFile(fixturePath, "utf8");
+  const data = JSON.parse(raw) as WebFixtureFile;
+  const q = query.toLowerCase();
+
+  for (const group of data.fixtures ?? []) {
+    // Simple "word|other" match (case-insensitive). Not a full regex engine.
+    const parts = group.whenQueryMatches
+      .toLowerCase()
+      .split("|")
+      .map((p) => p.trim())
+      .filter(Boolean);
+    const hit = parts.some((p) => q.includes(p));
+    if (!hit) continue;
+
+    return (group.hits ?? []).slice(0, 3).map((r) => ({
+      title: r.title ?? "",
+      url: r.url ?? "",
+      content: r.content ?? "",
+      source: "web" as const,
+    }));
+  }
+
+  return [];
 }
 
 // Local document search: read markdown files under ./corpus and rank by keyword hits.

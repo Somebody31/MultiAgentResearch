@@ -1,0 +1,54 @@
+{
+  "fixtures": [
+    {
+      "whenQueryMatches": "map-reduce|map reduce|fan-out|fan out|parallel|production|ecosystem|typical|outside",
+      "hits": [
+        {
+          "title": "LangGraph map-reduce style fan-out (docs style summary)",
+          "url": "https://example.com/langgraph/map-reduce-fanout",
+          "content": "In production LangGraph apps, teams often fan out work with Send() or equivalent map-reduce patterns: one planner node emits many worker tasks, workers write into a shared list channel with a reducer, then a join node aggregates. Common advice: keep worker prompts narrow, bound concurrency, and treat reducer merges as append-only until a explicit reset. This is a general ecosystem pattern, not a description of any single demo repo."
+        },
+        {
+          "title": "Operational notes on parallel agent workers",
+          "url": "https://example.com/agents/parallel-workers",
+          "content": "When research workers run in parallel, isolate tool credentials, log per-subtask failures, and avoid assuming every branch returns. Empty branches should contribute zero findings rather than inventing filler. Join steps should dedupe overlapping claims before a final write-up."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "tavily|web search|timeout|slow|fail|retry|rate limit|poll client|robust client",
+      "hits": [
+        {
+          "title": "Client patterns for long-running research jobs",
+          "url": "https://example.com/api/async-research-clients",
+          "content": "Clients that start async research jobs should poll with backoff, treat pending and running as in-progress, and stop on done or error. If a dependency like web search is slow, the job may stay running longer; clients should use timeouts on the whole job, not only on a single poll. On error status, surface the server error string and allow a fresh POST rather than inventing partial answers."
+        },
+        {
+          "title": "Handling search API failures mid-pipeline",
+          "url": "https://example.com/search/failures",
+          "content": "When a web search API returns 429 or 5xx, pipelines may fail the whole run or continue with local documents only. Good reports either use remaining evidence and note the gap, or fail cleanly—they should not invent URLs or claim a search succeeded when it did not."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "release|changelog|0.2|version|recent|what changed",
+      "hits": [
+        {
+          "title": "LangGraph release notes (synthetic fixture)",
+          "url": "https://example.com/langgraph/changelog-0.2",
+          "content": "Synthetic fixture: LangGraph 0.2-style notes often highlight smoother streaming, clearer checkpoint docs, and Send()-based map-reduce examples. Exact version numbers and dates in real releases change; this fixture only exists so evals can test mixed corpus+web answers without calling the live internet."
+        }
+      ]
+    },
+    {
+      "whenQueryMatches": "langgraph|send|graph|workflow|state",
+      "hits": [
+        {
+          "title": "LangGraph overview (synthetic web)",
+          "url": "https://example.com/langgraph/overview",
+          "content": "LangGraph models agents as graphs: nodes are steps, edges choose the next step, and shared state carries data between steps. Send() can start the same node many times in parallel. Conditional edges can route to repair loops (for example revise then research again) before a final answer node."
+        }
+      ]
+    }
+  ]
+}

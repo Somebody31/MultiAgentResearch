@@ -1,0 +1,68 @@
+[
+  {
+    "id": "cross-source-send-vs-ecosystem",
+    "title": "This repo's Send fan-out + general LangGraph ecosystem pattern",
+    "query": "How does this project's LangGraph research graph use Send for parallel research, and how does that compare to a typical production map-reduce or fan-out pattern people use with LangGraph outside this repo?",
+    "mustUseBothSources": true,
+    "gates": {
+      "reportMustIncludeAny": [
+        "Send",
+        "send",
+        "fan-out",
+        "fan out",
+        "parallel"
+      ],
+      "reportMustIncludeAll": [],
+      "reportMustIncludeAnyGroups": [
+        ["plan", "research", "normalize", "verify", "final"],
+        ["map-reduce", "map reduce", "reducer", "worker", "concurrency", "ecosystem", "production"]
+      ],
+      "findingsMustIncludeUrlSubstring": ["file://corpus/"],
+      "findingsMustIncludeUrlSubstringAny": ["example.com", "https://"]
+    },
+    "judge": {
+      "passIff": "The report explains this repository's research graph (plan, parallel research via Send-style fan-out, normalize, verify with limited revise, final) using local project knowledge, AND separately describes a general production/ecosystem map-reduce or fan-out pattern from web-style sources, without inventing APIs that contradict the local notes or claiming the synthetic web pages are this repo.",
+      "mustNot": "Collapse repo-specific and ecosystem advice into one invented design, invent a second retry loop beyond one revise, or cite only one side (corpus-only or web-only) for both parts of the question."
+    }
+  },
+  {
+    "id": "async-jobs-plus-search-failures",
+    "title": "Async job polling (corpus) + robust client under search failures (web)",
+    "query": "Explain how clients should poll this research API for long-running jobs, and what a robust client should do if web search is slow or fails mid-research.",
+    "mustUseBothSources": true,
+    "gates": {
+      "reportMustIncludeAny": ["poll", "pending", "done", "error", "job"],
+      "reportMustIncludeAll": [],
+      "reportMustIncludeAnyGroups": [
+        ["POST", "GET", "jobs", "pending", "running"],
+        ["timeout", "backoff", "429", "error", "gap", "retry", "fail"]
+      ],
+      "findingsMustIncludeUrlSubstring": ["file://corpus/"],
+      "findingsMustIncludeUrlSubstringAny": ["example.com", "https://"]
+    },
+    "judge": {
+      "passIff": "The report correctly describes this project's async job pattern (start research, return quickly, poll until done or error, in-memory limits if mentioned) AND gives client guidance for slow or failed web search grounded in the provided web-style evidence (timeouts, backoff, surface errors, note gaps)—without inventing Redis queues or Celery as if they were already implemented here.",
+      "mustNot": "Claim jobs are stored in Redis/production queue as current behavior, or ignore the local polling API when answering the first half."
+    }
+  },
+  {
+    "id": "pipeline-stages-plus-changelog-web",
+    "title": "Local pipeline stages + when web is needed for release questions",
+    "query": "Walk through each stage of this multi-agent research pipeline. Then, for a question like 'What changed in recent LangGraph releases?', say which stages should rely on local project notes versus live web search, and propose 2-4 short sub-questions for that release question.",
+    "mustUseBothSources": true,
+    "gates": {
+      "reportMustIncludeAny": ["plan", "research", "verify", "final"],
+      "reportMustIncludeAll": [],
+      "reportMustIncludeAnyGroups": [
+        ["normalize", "draft", "findings", "sub-question", "sub question"],
+        ["web", "release", "changelog", "version", "document", "local", "corpus"]
+      ],
+      "findingsMustIncludeUrlSubstring": ["file://corpus/"],
+      "findingsMustIncludeUrlSubstringAny": ["example.com", "https://"]
+    },
+    "judge": {
+      "passIff": "The report lists the pipeline stages in a way consistent with this project, explains that local corpus notes cover how the system works while recent release/changelog facts need web search, and proposes multiple concrete sub-questions for a release-oriented query.",
+      "mustNot": "Say local corpus alone can answer live version changelogs, or invent pipeline stages that are not plan/research/normalize/verify/final (or clear synonyms)."
+    }
+  }
+]

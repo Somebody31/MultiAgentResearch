@@ -10,7 +10,8 @@
     "demo": "bunx --bun serve . -p 4173",
     "test": "bun test tests/app.test.ts && node tests/research-ui.test.mjs",
     "test:api": "bun test tests/app.test.ts",
-    "test:ui": "node tests/research-ui.test.mjs"
+    "test:ui": "node tests/research-ui.test.mjs",
+    "eval": "bun run evals/run.ts"
   },
   "dependencies": {
     "@langchain/core": "^1.2.3",

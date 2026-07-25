@@ -66,6 +66,21 @@ describe("search", () => {
     const { searchAll } = await import("../src/search.ts");
     expect(typeof searchAll).toBe("function");
   });
+
+  test("searchWeb uses frozen fixtures when EVAL_WEB_FIXTURES is set", async () => {
+    const prev = process.env.EVAL_WEB_FIXTURES;
+    process.env.EVAL_WEB_FIXTURES = `${import.meta.dir}/../evals/fixtures/web-mixed.json`;
+    try {
+      const { searchWeb } = await import("../src/search.ts");
+      const hits = await searchWeb("typical production map-reduce fan-out");
+      expect(hits.length).toBeGreaterThan(0);
+      expect(hits.every((h) => h.source === "web")).toBe(true);
+      expect(hits.some((h) => h.url.includes("example.com"))).toBe(true);
+    } finally {
+      if (prev === undefined) delete process.env.EVAL_WEB_FIXTURES;
+      else process.env.EVAL_WEB_FIXTURES = prev;
+    }
+  });
 });
 
 describe("parseJson", () => {
