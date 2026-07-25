@@ -214,6 +214,14 @@ const graph = new StateGraph(GraphState)
   .addEdge("final", END)
   .compile();
 
+/**
+ * How research work is scheduled.
+ * - fixed (default): plan once → researchOne × N (current graph)
+ * - dynamic (future): LLM reasoner loop calling subagents; not wired yet
+ *   See docs/FUTURE_DYNAMIC_AGENTS.md and src/reasoning/
+ */
+export type OrchestrationMode = "fixed" | "dynamic";
+
 /** Optional eval inputs. Production callers omit this. */
 export type RunResearchOptions = {
   /**
@@ -227,12 +235,26 @@ export type RunResearchOptions = {
    * Default every_normalize when a plant is set.
    */
   plantMode?: PlantMode;
+  /**
+   * Future: "dynamic" will use LLM-called subagents with variable fan-out.
+   * Only "fixed" is implemented; "dynamic" throws until shipped.
+   */
+  orchestration?: OrchestrationMode;
 };
 
 export async function runResearch(
   query: string,
   options?: RunResearchOptions,
 ) {
+  const mode = options?.orchestration ?? "fixed";
+  if (mode === "dynamic") {
+    throw new Error(
+      'orchestration "dynamic" is not implemented yet ' +
+        "(LLM reasoner + variable subagents). " +
+        "See docs/FUTURE_DYNAMIC_AGENTS.md",
+    );
+  }
+
   return graph.invoke({
     query,
     retries: 0,

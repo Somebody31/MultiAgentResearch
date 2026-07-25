@@ -84,11 +84,17 @@ src/fingerprints.ts  # plant leak + draft-vs-findings fingerprints
 src/final.ts
 src/llm.ts           # DeepSeek V4 Flash (system/user for input cache)
 src/parseJson.ts
+src/reasoning/       # FUTURE: dynamic LLM reasoner + subagents (not wired)
 scripts/run-eval.ts  # faithfulness suite
 scripts/score-eval.ts
 docs/FAITHFULNESS_EVALS.md
+docs/FUTURE_DYNAMIC_AGENTS.md  # design for variable agent fan-out
 evals/               # frozen-web fixtures + older scenario harness
 ```
+
+## Future: dynamic orchestration
+
+Default remains **fixed** plan → N research nodes. A planned **dynamic** mode will use an LLM reasoner that calls subagents (`web_research`, `reason`, `critique`) with variable fan-out and step budgets — not a fixed research-node count. Design and stubs: `docs/FUTURE_DYNAMIC_AGENTS.md`, `src/reasoning/`. `runResearch({ orchestration: "dynamic" })` throws until implemented.
 
 ## Interview demo UI
 

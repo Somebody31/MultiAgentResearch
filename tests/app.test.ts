@@ -112,6 +112,19 @@ describe("pipeline graph", () => {
     expect(typeof runResearch).toBe("function");
   });
 
+  test("runResearch dynamic orchestration is reserved (throws)", async () => {
+    const { runResearch } = await import("../src/pipeline.ts");
+    await expect(
+      runResearch("test", { orchestration: "dynamic" }),
+    ).rejects.toThrow(/not implemented/i);
+  });
+
+  test("reasoning resolveBudget merges defaults", async () => {
+    const { resolveBudget } = await import("../src/reasoning/orchestrator.ts");
+    expect(resolveBudget({ maxSteps: 3 }).maxSteps).toBe(3);
+    expect(resolveBudget({ maxSteps: 3 }).maxParallelAgents).toBe(3);
+  });
+
   test("afterVerify: pass → final", async () => {
     const { afterVerify } = await import("../src/pipeline.ts");
     expect(afterVerify({ verdict: "pass", retries: 0 })).toBe("final");
