@@ -6,7 +6,8 @@
 //                 │                         │        ▼        │
 //                 │                    retryKickoff ─┘        │
 //                 │                    (RESET findings,       │
-//                 │                     Send again)           │
+//                 │                     Send again; normalize │
+//                 │                     sees priorReviseReason)│
 //
 // Fan-out uses LangGraph Send() (not Promise.all).
 // findings use a concat reducer; retry sends "RESET" first.
@@ -66,7 +67,10 @@ async function researchOneNode(state: typeof GraphState.State) {
 }
 
 async function normalizeNode(state: typeof GraphState.State) {
-  let draft = await normalizeClaims(state.query, state.findings);
+  // On a revise retry, priorReviseReason is set so the rewrite targets what failed.
+  let draft = await normalizeClaims(state.query, state.findings, {
+    priorReviseReason: state.priorReviseReason,
+  });
 
   // Eval seam only: plant text that is not in findings, right before verify.
   // Re-applied on every normalize (including after a revise retry).
