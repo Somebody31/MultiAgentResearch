@@ -251,6 +251,8 @@ async function main() {
     process.exit(1);
   }
 
+  resetLlmCacheStats();
+
   const questions = JSON.parse(
     await readFile(QUESTIONS_PATH, "utf8"),
   ) as EvalQuestion[];
@@ -296,6 +298,15 @@ async function main() {
   await mkdir(dirname(args.outPath), { recursive: true });
   await writeFile(args.outPath, JSON.stringify(rows, null, 2) + "\n", "utf8");
   console.log(`\nWrote ${rows.length} row(s) → ${args.outPath}`);
+
+  const { hitTokens, missTokens, calls } = llmCacheStats;
+  const total = hitTokens + missTokens;
+  const hitPct =
+    total > 0 ? ((100 * hitTokens) / total).toFixed(1) : "n/a";
+  console.log(
+    `LLM input cache (DeepSeek prefix): calls=${calls} hit_tokens=${hitTokens} miss_tokens=${missTokens} hit_rate=${hitPct}%`,
+  );
+  console.log("Per-call log: LLM_LOG_CACHE=1");
   console.log("Score with: bun run scripts/score-eval.ts");
 }
 
