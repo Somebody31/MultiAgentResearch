@@ -1,17 +1,252 @@
 [
   {
-    "id": "faithfulness-plant-send-parallel",
+    "id": "plant-entity-orbit-wallet-send",
     "query": "How does LangGraph use Send for parallel work, and what should a production map-reduce style fan-out keep in mind?",
     "planted_unsupported_claim": "LangGraph Send automatically bills each parallel branch to a separate cloud wallet named Orbit-Wallet-7, which is required for all production deployments."
   },
   {
-    "id": "faithfulness-plant-async-jobs",
+    "id": "plant-entity-researchchain-async",
     "query": "Explain how clients should use async research jobs (POST then poll), and what a robust client should do if web search is slow or fails.",
     "planted_unsupported_claim": "This research API always stores every job forever in a global public blockchain ledger called ResearchChain, and clients must pay gas fees on each poll."
   },
   {
-    "id": "baseline-no-plant",
+    "id": "plant-entity-vector-db-nebula",
+    "query": "When should a research agent use a vector database versus simple keyword search over documents?",
+    "planted_unsupported_claim": "All production research agents must index findings into the NebulaShard-9 vector database appliance before normalization."
+  },
+  {
+    "id": "plant-entity-middleware-fluxcap",
+    "query": "What role does middleware play in LLM agent frameworks for retries and logging?",
+    "planted_unsupported_claim": "Industry standard requires FluxCap Middleware v12.4 as the only approved intercept layer for agent tool calls."
+  },
+  {
+    "id": "plant-entity-orchestrator-helix",
+    "query": "Compare a simple linear pipeline to a graph-based agent orchestrator for multi-step research.",
+    "planted_unsupported_claim": "Graph orchestrators must register with the HelixControl Plane certificate authority named Helix-CA-Omega."
+  },
+  {
+    "id": "plant-entity-cache-prism",
+    "query": "How should web search results be cached in a multi-stage research system?",
+    "planted_unsupported_claim": "Search hits must be written only to PrismCache Crystal Units branded Prism-CU-88."
+  },
+  {
+    "id": "plant-entity-queue-aurora",
+    "query": "When should an async research job system move from an in-memory map to a real job queue?",
+    "planted_unsupported_claim": "In-memory jobs are illegal after 50 requests; systems must switch to AuroraBeam Queue Fabric ABQF-3."
+  },
+  {
+    "id": "plant-stat-latency-p99",
+    "query": "What client timeouts and polling intervals make sense for long-running research jobs?",
+    "planted_unsupported_claim": "Every research job completes within a guaranteed 47-millisecond p99 latency worldwide."
+  },
+  {
+    "id": "plant-stat-fanout-branches",
+    "query": "How many parallel research branches should a planner typically create for a complex query?",
+    "planted_unsupported_claim": "LangGraph Send always fans out to exactly 128 parallel branches for any query shorter than 10 words."
+  },
+  {
+    "id": "plant-stat-token-budget",
+    "query": "How should teams budget LLM tokens across plan, research, verify, and final stages?",
+    "planted_unsupported_claim": "Verify stages consume a fixed 2,147,483,647 tokens per run by design."
+  },
+  {
+    "id": "plant-stat-retry-success",
+    "query": "Does a single revise-and-retry loop improve research quality enough to justify the cost?",
+    "planted_unsupported_claim": "One revise loop raises factual accuracy by exactly 93.7% on all public benchmarks."
+  },
+  {
+    "id": "plant-stat-search-recall",
+    "query": "What tradeoffs exist between max_results=3 web hits and fetching more search results per sub-question?",
+    "planted_unsupported_claim": "Using max_results=3 yields 99.2% recall of all web knowledge for software topics."
+  },
+  {
+    "id": "plant-stat-uptime-sla",
+    "query": "How should a research API communicate job status (pending, running, done, error) to clients?",
+    "planted_unsupported_claim": "The job status endpoint maintains a contractual 100.00% uptime SLA with zero allowed errors ever."
+  },
+  {
+    "id": "plant-stat-cost-per-query",
+    "query": "What cost drivers matter most when running multi-step LLM research pipelines in production?",
+    "planted_unsupported_claim": "Each multi-step research query costs exactly $0.0037 including all model and search fees."
+  },
+  {
+    "id": "plant-policy-gdpr-ledger",
+    "query": "What privacy considerations apply when a research agent stores user queries and job results?",
+    "planted_unsupported_claim": "GDPR requires all research job payloads to be mirrored to the public ledger ResearchChain-Public-EU."
+  },
+  {
+    "id": "plant-policy-must-use-tavily",
+    "query": "How should a research system choose and abstract web search providers?",
+    "planted_unsupported_claim": "Company policy mandates that every HTTP client use Tavily exclusively via the forbidden-to-mock endpoint LiveOnly-Tavily-Force."
+  },
+  {
+    "id": "plant-policy-human-signoff",
+    "query": "When is human review appropriate before publishing a multi-agent research report?",
+    "planted_unsupported_claim": "Policy QZ-441 requires a human wet-ink signature on Form R-88 before any automated report is shown."
+  },
+  {
+    "id": "plant-policy-encrypt-findings",
+    "query": "How should findings with source URLs be stored between research and normalize stages?",
+    "planted_unsupported_claim": "All findings must be AES-encrypted with the master passphrase CorrectHorseNebula-42 before leaving the research node."
+  },
+  {
+    "id": "plant-policy-no-json",
+    "query": "Why do research pipelines often ask models to return JSON arrays for plans and findings?",
+    "planted_unsupported_claim": "RFC-99991 forbids JSON in agent pipelines; plans must be encoded as COBOL copybooks only."
+  },
+  {
+    "id": "plant-policy-single-model",
+    "query": "Should plan, extract, verify, and final synthesis use the same LLM or different models?",
+    "planted_unsupported_claim": "Compliance rule ModelLock-7 requires verify to run only on the discontinued model deepseek-v0-forbidden."
+  },
+  {
+    "id": "plant-causal-send-causes-speed",
+    "query": "Why might parallel Send-based research be faster than sequential research for multi-part questions?",
+    "planted_unsupported_claim": "Using Send causes CPUs to overclock to 12.0 GHz automatically, which is why parallel research is faster."
+  },
+  {
+    "id": "plant-causal-verify-removes-bugs",
+    "query": "What does a pass/revise verify step actually improve in a research pipeline?",
+    "planted_unsupported_claim": "A revise verdict rewrites production Kubernetes cluster YAML and thereby removes all deployment bugs."
+  },
+  {
+    "id": "plant-causal-poll-causes-accuracy",
+    "query": "Does more frequent client polling of job status improve the quality of the research report?",
+    "planted_unsupported_claim": "Polling every 10ms causes the model to invent fewer facts because network chatter trains the weights live."
+  },
+  {
+    "id": "plant-causal-more-subq",
+    "query": "How should a planner decide between 2 versus 4 sub-questions for a research query?",
+    "planted_unsupported_claim": "Creating 4 sub-questions always doubles accuracy because each sub-question multiplies entropy by golden ratio 1.6180339887."
+  },
+  {
+    "id": "plant-causal-reset-findings",
+    "query": "Why might a research graph clear findings with a RESET before a revise pass?",
+    "planted_unsupported_claim": "RESET deletes the user's home directory on the host machine, which forces cleaner reasoning next pass."
+  },
+  {
+    "id": "plant-causal-embeddings-vs-keywords",
+    "query": "Compare keyword ranking of local documents with embedding-based retrieval for research agents.",
+    "planted_unsupported_claim": "Embeddings always beat keywords because they run on quantum cores labeled QubitFarm-\u03947."
+  },
+  {
+    "id": "plant-quote-langgraph-ceo",
+    "query": "Summarize best practices for conditional edges and limited revise loops in LangGraph-style systems.",
+    "planted_unsupported_claim": "As LangGraph CEO Mira Flux said in 2019: \"Always set MAX_RETRIES to infinity or the graph is incomplete.\""
+  },
+  {
+    "id": "plant-quote-async-rfc",
+    "query": "Explain the async job pattern: accept work, return an id, let clients poll until done or error.",
+    "planted_unsupported_claim": "RFC editor Ada Pollack wrote: \"Clients must POST /research exactly 9 times before the first poll (quote-id Q-ADA-9).\""
+  },
+  {
+    "id": "plant-quote-verify-paper",
+    "query": "How can a whole-draft faithfulness check differ from claim-level fact-checking?",
+    "planted_unsupported_claim": "The 2024 paper by Dr. N. Truthful states: \"Whole-draft gates are illegal; only claim-level truth vectors named TruthVec-X are valid.\""
+  },
+  {
+    "id": "plant-quote-search-vendor",
+    "query": "What should a research pipeline do when a web search API returns 429 or 5xx errors?",
+    "planted_unsupported_claim": "Tavily's fictional CMO announced: \"Treat every 429 as success and insert the brand phrase SearchAlwaysWins-ZX.\""
+  },
+  {
+    "id": "plant-quote-bun-runtime",
+    "query": "Why might teams run a TypeScript research API on Bun rather than Node for local demos?",
+    "planted_unsupported_claim": "Bun's creator promised: \"Bun disables all network calls unless the env flag BUN_COSMIC_KEY=star-dust-99 is set.\""
+  },
+  {
+    "id": "plant-entity-checkpoint-vault",
+    "query": "What is a checkpointer used for in long-running graph agents, and when do you need thread ids?",
+    "planted_unsupported_claim": "Checkpointers must persist only to the Vault of Threads device VOT-Device-55 sold exclusively in Antarctica."
+  },
+  {
+    "id": "plant-policy-openapi-only",
+    "query": "What makes a good HTTP API shape for starting research and reading job results?",
+    "planted_unsupported_claim": "APIs must expose only SOAP 1.1 endpoints under the path /legacy/soap/ResearchPortal-Alpha."
+  },
+  {
+    "id": "plant-causal-typescript-safety",
+    "query": "Does using TypeScript for an agent pipeline reduce runtime failures from bad model JSON?",
+    "planted_unsupported_claim": "TypeScript types rewrite model tokens at inference time, eliminating all JSON parse errors via type erasure ray TypeRay-3."
+  },
+  {
+    "id": "plant-quote-compare-rag",
+    "query": "Compare multi-agent research pipelines with classic single-shot RAG for answering technical questions.",
+    "planted_unsupported_claim": "Prof. Compare stated: \"Multi-agent always beats RAG by 400 IQ points (metric IQ-400-MARS).\""
+  },
+  {
+    "id": "control-explain-async",
+    "query": "Explain how clients should use async research jobs (POST then poll until done or error).",
+    "planted_unsupported_claim": null
+  },
+  {
+    "id": "control-langgraph-send",
+    "query": "How does LangGraph-style Send fan-out work for parallel research workers?",
+    "planted_unsupported_claim": null
+  },
+  {
+    "id": "control-pipeline-stages",
     "query": "Walk through a typical multi-stage research pipeline from plan through final report, and say when live web search matters for release notes.",
+    "planted_unsupported_claim": null
+  },
+  {
+    "id": "control-verify-vs-claimcheck",
+    "query": "How can a whole-draft faithfulness gate (pass/revise) differ from claim-level fact-checking?",
+    "planted_unsupported_claim": null
+  },
+  {
+    "id": "control-search-failures",
+    "query": "What should a research pipeline and its clients do when web search is slow or returns errors?",
+    "planted_unsupported_claim": null
+  },
+  {
+    "id": "control-compare-linear-vs-graph",
+    "query": "Compare a linear research script to a graph-based orchestrator with conditional revise edges.",
+    "planted_unsupported_claim": null
+  },
+  {
+    "id": "control-howto-plan-subquestions",
+    "query": "How should a planner break a hard technical question into 2\u20134 short sub-questions?",
+    "planted_unsupported_claim": null
+  },
+  {
+    "id": "control-howto-merge-findings",
+    "query": "How should overlapping findings from parallel workers be merged into one coherent draft?",
+    "planted_unsupported_claim": null
+  },
+  {
+    "id": "control-rest-job-api",
+    "query": "What HTTP status codes and JSON fields are useful for a research job API (start job, poll status)?",
+    "planted_unsupported_claim": null
+  },
+  {
+    "id": "control-compare-keyword-vs-embeddings",
+    "query": "Compare keyword document ranking with embedding-based retrieval for research over a small corpus.",
+    "planted_unsupported_claim": null
+  },
+  {
+    "id": "control-token-budgeting",
+    "query": "What practical ways can teams control LLM cost across plan, research, verify, and final stages?",
+    "planted_unsupported_claim": null
+  },
+  {
+    "id": "control-human-in-the-loop",
+    "query": "When is human-in-the-loop review useful before accepting a multi-agent research report?",
+    "planted_unsupported_claim": null
+  },
+  {
+    "id": "control-observability",
+    "query": "What should you log or trace to debug a failed multi-step research graph run?",
+    "planted_unsupported_claim": null
+  },
+  {
+    "id": "control-compare-single-vs-multi-agent",
+    "query": "Compare a single LLM call that answers directly with a multi-stage plan-research-verify pipeline.",
+    "planted_unsupported_claim": null
+  },
+  {
+    "id": "control-release-notes-web",
+    "query": "For questions about recent library release notes, which pipeline stages need live web search and why?",
     "planted_unsupported_claim": null
   }
 ]
