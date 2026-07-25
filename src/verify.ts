@@ -1,7 +1,16 @@
 // Whole-draft faithfulness gate: draft vs findings only (not world fact-check).
 // Returns pass | revise, plus a short reason used on a later re-check.
+//
+// Layers:
+//   1) LLM faithfulness judgment (VERIFY_SYSTEM)
+//   2) Deterministic: draft fingerprints not in findings → force revise
+//   3) Deterministic (re-check only): prior revise reason fingerprints still
+//      in draft and not in findings → force revise
 
-import { priorReasonStillInDraft } from "./fingerprints.ts";
+import {
+  priorReasonStillInDraft,
+  unsupportedFingerprintsInDraft,
+} from "./fingerprints.ts";
 import { askLlm } from "./llm.ts";
 import { parseJsonObject } from "./parseJson.ts";
 import type { Finding } from "./research.ts";
@@ -37,7 +46,7 @@ Be especially suspicious of content that does NOT appear in the findings, includ
 - Precise statistics, SLAs, prices, version numbers, or form/policy codes not in findings
 - Causal claims that sound technical but are not backed by findings
 
-If any such item is in the draft and not clearly supported by a finding, return "revise" and name it in the reason.
+If any such item is in the draft and not clearly supported by a finding, return "revise" and name the unsupported span in the reason (quote brands, model ids, or slogan phrases when present).
 
 When the user message includes a prior revise reason (RE-CHECK):
 - Return "pass" ONLY if every issue in the prior reason is clearly gone from the draft
@@ -63,6 +72,7 @@ export async function verifyClaims(
     .join("\n");
 
   const prior = options?.priorReviseReason?.trim() ?? "";
+  const allowed = findingsBlob(findings);
 
   // Dynamic tail: findings, draft, then prior reason last (volatile).
   let user = `Findings (only allowed evidence):\n${listed}\n\nDraft:\n${draft}`;
@@ -94,15 +104,19 @@ export async function verifyClaims(
 
   let finalVerdict: Verdict = verdict;
 
-  // Deterministic backup on re-check: if the LLM says pass but distinctive
-  // tokens from the prior reason still appear in the draft (and not findings),
-  // force revise so a soft second pass cannot ship the same plant.
+  // Every pass: high-signal tokens in the draft that never appear in findings
+  // force revise (catches silent LLM misses and soft second passes).
+  if (finalVerdict === "pass") {
+    const unsupported = unsupportedFingerprintsInDraft(draft, allowed);
+    if (unsupported.length > 0) {
+      finalVerdict = "revise";
+      reason = `unsupported tokens not in findings: ${unsupported.slice(0, 6).join("; ")}`;
+    }
+  }
+
+  // Re-check: prior reason leftovers still in draft (and not findings).
   if (finalVerdict === "pass" && prior.length > 0) {
-    const leftovers = priorReasonStillInDraft(
-      draft,
-      findingsBlob(findings),
-      prior,
-    );
+    const leftovers = priorReasonStillInDraft(draft, allowed, prior);
     if (leftovers.length > 0) {
       finalVerdict = "revise";
       reason = `prior issues still present in draft: ${leftovers.slice(0, 4).join("; ")}`;

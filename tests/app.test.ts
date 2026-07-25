@@ -204,6 +204,23 @@ describe("eval plant match helper", () => {
     ).toEqual([]);
   });
 
+  test("unsupportedFingerprintsInDraft finds brands not in findings", async () => {
+    const { unsupportedFingerprintsInDraft } = await import(
+      "../src/fingerprints.ts"
+    );
+    const draft =
+      "Send enables fan-out. PrismCache Crystal Units Prism-CU-88 are required.";
+    const findings = "Send enables fan-out. Bound concurrency in production.";
+    const hits = unsupportedFingerprintsInDraft(draft, findings);
+    expect(hits.some((h) => h.includes("prism"))).toBe(true);
+    expect(
+      unsupportedFingerprintsInDraft(
+        "Send enables fan-out with a reducer.",
+        findings,
+      ),
+    ).toEqual([]);
+  });
+
   test("expandEvalJobs builds gate + self_correct for plants", async () => {
     const { expandEvalJobs } = await import("../scripts/run-eval.ts");
     const jobs = expandEvalJobs([

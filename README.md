@@ -45,9 +45,13 @@ bun install
 bun run dev   # http://localhost:8787
 bun run test
 
-# Frozen-web quality evals (needs DEEPSEEK_API_KEY; see evals/README.md)
+# Faithfulness plant evals (gate + self_correct; needs DEEPSEEK_API_KEY)
+# See docs/FAITHFULNESS_EVALS.md
+bun run eval:run -- --concurrency 20
+bun run eval:score
+
+# Older frozen-web scenario harness (evals/README.md)
 bun run eval -- --dry-run
-bun run eval
 ```
 
 ## API
@@ -68,18 +72,22 @@ curl -s http://localhost:8787/jobs/<id>
 ## Files
 
 ```
-src/pipeline.ts   # LangGraph graph (Send fan-out)
-src/jobs.ts       # in-memory async jobs
-src/index.ts      # HTTP
+src/pipeline.ts      # LangGraph graph (Send fan-out, plant seam, rewrite revise)
+src/jobs.ts          # in-memory async jobs
+src/index.ts         # HTTP
 src/plan.ts
-src/research.ts   # researchOne
-src/search.ts     # web + docs
+src/research.ts      # researchOne
+src/search.ts        # web (fixtures in eval)
 src/normalize.ts
-src/verify.ts
+src/verify.ts        # faithfulness gate + deterministic fingerprint backup
+src/fingerprints.ts  # plant leak + draft-vs-findings fingerprints
 src/final.ts
-src/llm.ts        # DeepSeek V4 Flash
+src/llm.ts           # DeepSeek V4 Flash (system/user for input cache)
 src/parseJson.ts
-evals/            # frozen-web quality scenarios
+scripts/run-eval.ts  # faithfulness suite
+scripts/score-eval.ts
+docs/FAITHFULNESS_EVALS.md
+evals/               # frozen-web fixtures + older scenario harness
 ```
 
 ## Interview demo UI

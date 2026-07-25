@@ -14,6 +14,8 @@ dist/
 
 # Frontend anti-patterns checklist (keep trackable despite *.md)
 !docs/FRONTEND_DONTS.md
+# Faithfulness eval / verify gate design
+!docs/FAITHFULNESS_EVALS.md
 
 # Local Impeccable / design-tool state
 .impeccable/

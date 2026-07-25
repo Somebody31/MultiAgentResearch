@@ -222,6 +222,31 @@ export function textContainsPlant(
 }
 
 /**
+ * High-signal fingerprints that appear in `draft` but not in `findingsText`.
+ * Used as a deterministic faithfulness backup on every verify pass.
+ */
+export function unsupportedFingerprintsInDraft(
+  draft: string,
+  findingsText: string,
+): string[] {
+  const d = draft.trim();
+  if (!d) return [];
+  const f = findingsText.toLowerCase();
+  const hits: string[] = [];
+
+  for (const fp of extractFingerprints(d)) {
+    if (fp.length < 4) continue;
+    // Fingerprint must actually still be in draft (extract is from draft)
+    // and must not appear in allowed findings.
+    if (!f.includes(fp)) {
+      hits.push(fp);
+    }
+  }
+
+  return [...new Set(hits)];
+}
+
+/**
  * Distinctive spans from a prior revise reason that still appear in the draft
  * and are not supported by findings text. Used as a deterministic re-check.
  */
