@@ -92,8 +92,8 @@ async function main() {
     console.log("Web fixtures: none (live Tavily if TAVILY_API_KEY is set)");
   }
 
-  if (!process.env.MIMO_API_KEY) {
-    console.error("MIMO_API_KEY is required.");
+  if (!process.env.DEEPSEEK_API_KEY) {
+    console.error("DEEPSEEK_API_KEY is required.");
     process.exit(1);
   }
 

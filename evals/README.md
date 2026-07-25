@@ -5,9 +5,9 @@ This folder runs **frozen web** scenarios against the real LangGraph pipeline.
 ## Why
 
 - **Web** is frozen (`EVAL_WEB_FIXTURES` → `fixtures/web-research.json`) so we do not call Tavily.
-- **Model** is still live (`MIMO_API_KEY`) so plan / extract / write behave like production.
+- **Model** is still live (`DEEPSEEK_API_KEY`) so plan / extract / write behave like production.
 - **Gates** are simple string/url checks (fast, no judge).
-- **`--judge`** is optional and uses MiMo to score semantic quality.
+- **`--judge`** is optional and uses the LLM to score semantic quality.
 
 ## Run
 
@@ -15,7 +15,7 @@ This folder runs **frozen web** scenarios against the real LangGraph pipeline.
 # list scenarios only
 bun run eval -- --dry-run
 
-# gates only (needs MIMO_API_KEY)
+# gates only (needs DEEPSEEK_API_KEY)
 bun run eval
 
 # one scenario

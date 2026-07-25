@@ -3,7 +3,7 @@
 // The graph fans out with LangGraph Send() — one researchOne node per
 // sub-question. This file only knows how to handle a single question.
 
-import { askMimo } from "./mimo.ts";
+import { askLlm } from "./llm.ts";
 import { parseJsonArray } from "./parseJson.ts";
 import { searchAll, type SearchHit } from "./search.ts";
 
@@ -45,7 +45,7 @@ Return ONLY a JSON array like:
 
 Use only facts from the results. 1-3 findings.`;
 
-  const text = await askMimo(prompt);
+  const text = await askLlm(prompt);
   const rows = parseJsonArray(text);
   if (!rows) return [];
 

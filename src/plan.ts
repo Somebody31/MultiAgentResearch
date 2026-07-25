@@ -1,6 +1,6 @@
 // Turn one big question into 2–4 smaller questions.
 
-import { askMimo } from "./mimo.ts";
+import { askLlm } from "./llm.ts";
 import { parseJsonArray } from "./parseJson.ts";
 
 export async function plan(query: string): Promise<string[]> {
@@ -9,7 +9,7 @@ Return ONLY a JSON array of strings.
 
 Query: ${query}`;
 
-  const text = await askMimo(prompt);
+  const text = await askLlm(prompt);
   const parsed = parseJsonArray(text);
 
   // Need a real list of strings, otherwise we cannot research.

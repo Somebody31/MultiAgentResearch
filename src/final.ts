@@ -1,6 +1,6 @@
 // Turn the draft into the final report the user reads.
 
-import { askMimo } from "./mimo.ts";
+import { askLlm } from "./llm.ts";
 
 export async function synthesizeFinal(
   query: string,
@@ -21,5 +21,5 @@ Rules:
 
 Return ONLY the report text.`;
 
-  return await askMimo(prompt);
+  return await askLlm(prompt);
 }

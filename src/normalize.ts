@@ -1,6 +1,6 @@
 // Turn many short findings into one draft paragraph set.
 
-import { askMimo } from "./mimo.ts";
+import { askLlm } from "./llm.ts";
 import type { Finding } from "./research.ts";
 
 export async function normalizeClaims(
@@ -32,5 +32,5 @@ Rules:
 
 Return ONLY the draft text.`;
 
-  return await askMimo(prompt);
+  return await askLlm(prompt);
 }

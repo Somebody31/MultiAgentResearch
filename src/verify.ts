@@ -1,6 +1,6 @@
 // Check draft against findings. Returns "pass" or "revise".
 
-import { askMimo } from "./mimo.ts";
+import { askLlm } from "./llm.ts";
 import { parseJsonObject } from "./parseJson.ts";
 import type { Finding } from "./research.ts";
 
@@ -30,7 +30,7 @@ Return ONLY one line of JSON, exactly one of:
 {"verdict":"pass"}
 {"verdict":"revise"}`;
 
-  const text = await askMimo(prompt);
+  const text = await askLlm(prompt);
   const parsed = parseJsonObject(text);
   const verdict = parsed?.verdict;
 

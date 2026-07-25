@@ -2,7 +2,7 @@
 
 Research API: break a question into parts, search, draft, check, then report.
 
-**Stack:** Bun, Hono, LangGraph, MiMo, Tavily  
+**Stack:** Bun, Hono, LangGraph, DeepSeek V4 Flash, Tavily  
 **Start here:** `src/pipeline.ts`
 
 ## Flow
@@ -39,13 +39,13 @@ Jobs live in memory (restart clears them).
 bun install
 
 # .env
-# MIMO_API_KEY=...
+# DEEPSEEK_API_KEY=...
 # TAVILY_API_KEY=...
 
 bun run dev   # http://localhost:8787
 bun run test
 
-# Frozen-web quality evals (needs MIMO_API_KEY; see evals/README.md)
+# Frozen-web quality evals (needs DEEPSEEK_API_KEY; see evals/README.md)
 bun run eval -- --dry-run
 bun run eval
 ```
@@ -77,7 +77,7 @@ src/search.ts     # web + docs
 src/normalize.ts
 src/verify.ts
 src/final.ts
-src/mimo.ts
+src/llm.ts        # DeepSeek V4 Flash
 src/parseJson.ts
 evals/            # frozen-web quality scenarios
 ```

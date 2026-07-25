@@ -2,7 +2,7 @@
 //
 // What this does:
 //   1. Freezes web search with EVAL_WEB_FIXTURES (no Tavily).
-//   2. Runs the real pipeline (needs MIMO_API_KEY for the language model).
+//   2. Runs the real pipeline (needs DEEPSEEK_API_KEY for the language model).
 //   3. Checks simple hard rules (gates).
 //   4. Optionally asks the model to judge quality (--judge).
 //
@@ -15,7 +15,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { runResearch } from "../src/pipeline.ts";
-import { askMimo } from "../src/mimo.ts";
+import { askLlm } from "../src/llm.ts";
 import { parseJsonObject } from "../src/parseJson.ts";
 
 const ROOT = join(import.meta.dir, "..");
@@ -159,7 +159,7 @@ ${j.mustNot ?? "(none)"}
 
 Return ONLY JSON: {"verdict":"pass"} or {"verdict":"fail","reason":"short why"}`;
 
-  const text = await askMimo(prompt);
+  const text = await askLlm(prompt);
   const parsed = parseJsonObject(text);
   const verdict = parsed?.verdict;
   if (verdict === "pass") {
@@ -208,8 +208,8 @@ async function main() {
     return;
   }
 
-  if (!process.env.MIMO_API_KEY) {
-    console.error("MIMO_API_KEY is required (pipeline still calls the model).");
+  if (!process.env.DEEPSEEK_API_KEY) {
+    console.error("DEEPSEEK_API_KEY is required (pipeline still calls the model).");
     process.exit(1);
   }
 
