@@ -40,6 +40,10 @@ const GraphState = Annotation.Root({
   verdict: Annotation<Verdict>({ default: () => "pass" }),
   retries: Annotation<number>({ default: () => 0 }),
   finalReport: Annotation<string>({ default: () => "" }),
+  // Eval-only: optional text appended after normalize (every pass, including
+  // after revise). Production leaves this null. Not claim-level fact-check —
+  // used to score the whole-draft faithfulness gate (draft vs findings).
+  plantUnsupportedClaim: Annotation<string | null>({ default: () => null }),
 });
 
 // --- Nodes ----------------------------------------------------------------
@@ -54,7 +58,16 @@ async function researchOneNode(state: typeof GraphState.State) {
 }
 
 async function normalizeNode(state: typeof GraphState.State) {
-  return { draft: await normalizeClaims(state.query, state.findings) };
+  let draft = await normalizeClaims(state.query, state.findings);
+
+  // Eval seam only: plant text that is not in findings, right before verify.
+  // Re-applied on every normalize (including after a revise retry).
+  const plant = state.plantUnsupportedClaim;
+  if (typeof plant === "string" && plant.trim() !== "") {
+    draft = `${draft}\n\n${plant.trim()}`;
+  }
+
+  return { draft };
 }
 
 async function verifyNode(state: typeof GraphState.State) {
@@ -90,6 +103,7 @@ export function fanOutResearch(state: typeof GraphState.State) {
         verdict: state.verdict,
         retries: state.retries,
         finalReport: state.finalReport,
+        plantUnsupportedClaim: state.plantUnsupportedClaim,
       }),
   );
 }
@@ -122,6 +136,21 @@ const graph = new StateGraph(GraphState)
   .addEdge("final", END)
   .compile();
 
-export async function runResearch(query: string) {
-  return graph.invoke({ query });
+/** Optional eval inputs. Production callers omit this. */
+export type RunResearchOptions = {
+  /**
+   * Eval only: append this text to the draft after every normalize, before
+   * the faithfulness gate (verify). Use to plant unsupported draft content.
+   */
+  plantUnsupportedClaim?: string | null;
+};
+
+export async function runResearch(
+  query: string,
+  options?: RunResearchOptions,
+) {
+  return graph.invoke({
+    query,
+    plantUnsupportedClaim: options?.plantUnsupportedClaim ?? null,
+  });
 }

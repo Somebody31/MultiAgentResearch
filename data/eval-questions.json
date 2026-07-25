@@ -1,0 +1,17 @@
+[
+  {
+    "id": "faithfulness-plant-send-parallel",
+    "query": "How does LangGraph use Send for parallel work, and what should a production map-reduce style fan-out keep in mind?",
+    "planted_unsupported_claim": "LangGraph Send automatically bills each parallel branch to a separate cloud wallet named Orbit-Wallet-7, which is required for all production deployments."
+  },
+  {
+    "id": "faithfulness-plant-async-jobs",
+    "query": "Explain how clients should use async research jobs (POST then poll), and what a robust client should do if web search is slow or fails.",
+    "planted_unsupported_claim": "This research API always stores every job forever in a global public blockchain ledger called ResearchChain, and clients must pay gas fees on each poll."
+  },
+  {
+    "id": "baseline-no-plant",
+    "query": "Walk through a typical multi-stage research pipeline from plan through final report, and say when live web search matters for release notes.",
+    "planted_unsupported_claim": null
+  }
+]

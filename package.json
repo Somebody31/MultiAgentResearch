@@ -11,7 +11,9 @@
     "test": "bun test tests/app.test.ts && node tests/research-ui.test.mjs",
     "test:api": "bun test tests/app.test.ts",
     "test:ui": "node tests/research-ui.test.mjs",
-    "eval": "bun run evals/run.ts"
+    "eval": "bun run evals/run.ts",
+    "eval:run": "bun run scripts/run-eval.ts",
+    "eval:score": "bun run scripts/score-eval.ts"
   },
   "dependencies": {
     "@langchain/core": "^1.2.3",

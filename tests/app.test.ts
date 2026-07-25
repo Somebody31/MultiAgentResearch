@@ -134,8 +134,21 @@ describe("pipeline graph", () => {
       verdict: "pass",
       retries: 0,
       finalReport: "",
+      plantUnsupportedClaim: null,
     });
     expect(Array.isArray(sends)).toBe(true);
     expect((sends as unknown[]).length).toBe(2);
+  });
+});
+
+describe("eval plant match helper", () => {
+  test("textContainsPlant matches distinctive planted text", async () => {
+    const { textContainsPlant } = await import("../scripts/run-eval.ts");
+    const plant =
+      "LangGraph Send automatically bills each parallel branch to a separate cloud wallet named Orbit-Wallet-7";
+    expect(textContainsPlant(`Intro. ${plant} Outro.`, plant)).toBe(true);
+    expect(textContainsPlant("normal report about Send and parallel work", plant)).toBe(
+      false,
+    );
   });
 });
