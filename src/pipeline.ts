@@ -46,6 +46,12 @@ const GraphState = Annotation.Root({
   plantUnsupportedClaim: Annotation<string | null>({ default: () => null }),
 });
 
+/** Always a number — LangGraph / Send can leave channels undefined. */
+function retryCount(state: { retries?: number | null }): number {
+  const n = state.retries;
+  return typeof n === "number" && Number.isFinite(n) ? n : 0;
+}
+
 // --- Nodes ----------------------------------------------------------------
 
 async function planNode(state: typeof GraphState.State) {
@@ -78,12 +84,46 @@ async function retryKickoffNode(state: typeof GraphState.State) {
   // Clear old findings, count the retry, then fan-out runs again via edges.
   return {
     findings: "RESET" as const,
-    retries: state.retries + 1,
+    retries: retryCount(state) + 1,
   };
 }
 
 async function finalNode(state: typeof GraphState.State) {
+  // Faithfulness gate still says revise after any allowed retries:
+  // do not polish the unfaithful draft into a normal user report.
+  // List only findings so unsupported draft text (including eval plants) cannot leak.
+  if (state.verdict === "revise") {
+    return {
+      finalReport: unfaithfulFallbackReport(state.query, state.findings),
+    };
+  }
+
   return { finalReport: await synthesizeFinal(state.query, state.draft) };
+}
+
+/** User-facing fallback when the draft failed the faithfulness gate. */
+export function unfaithfulFallbackReport(
+  query: string,
+  findings: Finding[],
+): string {
+  const lines = [
+    "Research could not be verified as faithful to the gathered findings.",
+    "The draft was not published as a normal report.",
+    "",
+    `Query: ${query}`,
+    "",
+    "Findings only (allowed evidence):",
+  ];
+
+  if (findings.length === 0) {
+    lines.push("- (no findings)");
+  } else {
+    for (const f of findings) {
+      lines.push(`- ${f.claim} (${f.sourceUrl})`);
+    }
+  }
+
+  return lines.join("\n");
 }
 
 // --- Edges ----------------------------------------------------------------
@@ -91,6 +131,8 @@ async function finalNode(state: typeof GraphState.State) {
 // Start one researchOne branch per sub-question (LangGraph Send).
 export function fanOutResearch(state: typeof GraphState.State) {
   if (state.subQuestions.length === 0) return "normalize";
+
+  const retries = retryCount(state);
 
   return state.subQuestions.map(
     (q) =>
@@ -101,18 +143,20 @@ export function fanOutResearch(state: typeof GraphState.State) {
         activeSubQuestion: q,
         draft: state.draft,
         verdict: state.verdict,
-        retries: state.retries,
+        retries,
         finalReport: state.finalReport,
-        plantUnsupportedClaim: state.plantUnsupportedClaim,
+        plantUnsupportedClaim: state.plantUnsupportedClaim ?? null,
       }),
   );
 }
 
 export function afterVerify(state: {
   verdict: Verdict;
-  retries: number;
+  retries?: number | null;
 }): "retryKickoff" | "final" {
-  if (state.verdict === "revise" && state.retries < MAX_RETRIES) {
+  // Coerce retries: `undefined < 1` is false in JS and skipped the revise path.
+  const retries = retryCount(state);
+  if (state.verdict === "revise" && retries < MAX_RETRIES) {
     return "retryKickoff";
   }
   return "final";
@@ -128,11 +172,20 @@ const graph = new StateGraph(GraphState)
   .addNode("retryKickoff", retryKickoffNode)
   .addNode("final", finalNode)
   .addEdge(START, "plan")
-  .addConditionalEdges("plan", fanOutResearch)
+  .addConditionalEdges("plan", fanOutResearch, {
+    normalize: "normalize",
+    researchOne: "researchOne",
+  })
   .addEdge("researchOne", "normalize")
   .addEdge("normalize", "verify")
-  .addConditionalEdges("verify", afterVerify)
-  .addConditionalEdges("retryKickoff", fanOutResearch)
+  .addConditionalEdges("verify", afterVerify, {
+    retryKickoff: "retryKickoff",
+    final: "final",
+  })
+  .addConditionalEdges("retryKickoff", fanOutResearch, {
+    normalize: "normalize",
+    researchOne: "researchOne",
+  })
   .addEdge("final", END)
   .compile();
 
@@ -151,6 +204,8 @@ export async function runResearch(
 ) {
   return graph.invoke({
     query,
+    retries: 0,
+    verdict: "pass" as Verdict,
     plantUnsupportedClaim: options?.plantUnsupportedClaim ?? null,
   });
 }

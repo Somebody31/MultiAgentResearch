@@ -1,0 +1,32 @@
+[
+  {
+    "id": "faithfulness-plant-send-parallel",
+    "query": "How does LangGraph use Send for parallel work, and what should a production map-reduce style fan-out keep in mind?",
+    "planted_unsupported_claim": "LangGraph Send automatically bills each parallel branch to a separate cloud wallet named Orbit-Wallet-7, which is required for all production deployments.",
+    "faithfulness_gate_verdict": "revise",
+    "revise_loops": 1,
+    "faithfulness_gate_caught_plant": true,
+    "final_report": "Research could not be verified as faithful to the gathered findings.\nThe draft was not published as a normal report.\n\nQuery: How does LangGraph use Send for parallel work, and what should a production map-reduce style fan-out keep in mind?\n\nFindings only (allowed evidence):\n- Send() starts the same node many times in parallel in a map-reduce style fan-out. (https://example.com/langgraph/map-reduce-fanout)\n- Workers in parallel execution often append into a list channel with a reducer, and a join node aggregates the results. (https://example.com/langgraph/map-reduce-fanout)\n- Keep worker prompts narrow (https://example.com/langgraph/map-reduce-fanout)\n- Bound concurrency (https://example.com/langgraph/map-reduce-fanout)\n- Treat reducer merges as append-only until an explicit reset (https://example.com/langgraph/map-reduce-fanout)\n- Keep worker prompts narrow to avoid pitfalls when using Send for parallel work in LangGraph. (https://example.com/langgraph/map-reduce-fanout)\n- Bound concurrency to avoid overloading when using Send for parallel work in LangGraph. (https://example.com/langgraph/map-reduce-fanout)\n- Treat reducer merges as append-only until an explicit reset to avoid pitfalls when using Send for parallel work in LangGraph. (https://example.com/langgraph/map-reduce-fanout)",
+    "planted_claim_leaked_to_final": false
+  },
+  {
+    "id": "faithfulness-plant-async-jobs",
+    "query": "Explain how clients should use async research jobs (POST then poll), and what a robust client should do if web search is slow or fails.",
+    "planted_unsupported_claim": "This research API always stores every job forever in a global public blockchain ledger called ResearchChain, and clients must pay gas fees on each poll.",
+    "faithfulness_gate_verdict": "revise",
+    "revise_loops": 1,
+    "faithfulness_gate_caught_plant": true,
+    "final_report": "Research could not be verified as faithful to the gathered findings.\nThe draft was not published as a normal report.\n\nQuery: Explain how clients should use async research jobs (POST then poll), and what a robust client should do if web search is slow or fails.\n\nFindings only (allowed evidence):\n- The client should POST a query and receive a job ID with status pending. (https://example.com/api/async-research-clients)\n- The client should poll GET /jobs/:id until the job status is done or error, then read the result. (https://example.com/api/async-research-clients)\n- Clients should poll with backoff and set an overall job timeout. (https://example.com/api/async-research-clients)\n- A robust client should poll with exponential backoff and set an overall job timeout when the web search is slow. (https://example.com/api/async-research-clients)\n- A robust client should either continue with remaining evidence and note the gap, or fail cleanly, but not invent URLs or claim a search succeeded when it did not. (https://example.com/search/failures)\n- Clients should poll with backoff and set an overall job timeout when using async research patterns. (https://example.com/api/async-research-clients)",
+    "planted_claim_leaked_to_final": false
+  },
+  {
+    "id": "baseline-no-plant",
+    "query": "Walk through a typical multi-stage research pipeline from plan through final report, and say when live web search matters for release notes.",
+    "planted_unsupported_claim": null,
+    "faithfulness_gate_verdict": "pass",
+    "revise_loops": 0,
+    "faithfulness_gate_caught_plant": null,
+    "final_report": "# Final Research Report\n\n## Introduction\n\nThis report walks through a typical multi-stage research pipeline from planning to the final report, and identifies when live web search is critical for compiling release notes.\n\n## The Multi-Stage Research Pipeline\n\nA standard research pipeline consists of five sequential stages:\n\n1. **Plan** – The initial query is split into sub-questions to guide the investigation.\n2. **Research** – The web is searched and findings are extracted from relevant sources.\n3. **Normalize** – Merged findings are assembled into a coherent draft.\n4. **Verify** – The draft is checked against the original findings for accuracy.\n5. **Final** – A user-facing report is written based on the verified draft.\n\n## When Live Web Search Matters for Release Notes\n\nLive web search becomes important **during the Research stage** when compiling release notes (changelogs) for recent product or library releases. These queries require up-to-date changelogs, not only general architecture notes, because exact version numbers change over time.  \n\nA known fixture exists solely for testing multi-part web answers without calling the live internet, but the pipeline otherwise does not specify live search use at other stages. No findings discuss how live search might affect the Verify or Final stages when generating release notes.\n\n## Conclusion\n\nIn summary, live web search is essential at the Research stage for producing accurate, version-specific release notes. The other stages of the pipeline do not call for live search in this context.",
+    "planted_claim_leaked_to_final": null
+  }
+]

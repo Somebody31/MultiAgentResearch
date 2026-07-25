@@ -123,6 +123,29 @@ describe("pipeline graph", () => {
     expect(afterVerify({ verdict: "revise", retries: 1 })).toBe("final");
   });
 
+  test("afterVerify: missing retries still allows one revise", async () => {
+    const { afterVerify } = await import("../src/pipeline.ts");
+    // undefined < 1 is false in JS — must coerce so the revise path runs
+    expect(afterVerify({ verdict: "revise", retries: undefined })).toBe(
+      "retryKickoff",
+    );
+    expect(afterVerify({ verdict: "revise" })).toBe("retryKickoff");
+  });
+
+  test("unfaithfulFallbackReport lists findings only (no draft plant)", async () => {
+    const { unfaithfulFallbackReport } = await import("../src/pipeline.ts");
+    const report = unfaithfulFallbackReport("q?", [
+      {
+        subQuestion: "s",
+        claim: "real finding",
+        sourceUrl: "https://example.com/a",
+      },
+    ]);
+    expect(report).toContain("could not be verified");
+    expect(report).toContain("real finding");
+    expect(report).not.toContain("Orbit-Wallet-7");
+  });
+
   test("fanOutResearch returns one Send per sub-question", async () => {
     const { fanOutResearch } = await import("../src/pipeline.ts");
     const sends = fanOutResearch({
