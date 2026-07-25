@@ -221,6 +221,35 @@ describe("eval plant match helper", () => {
     ).toEqual([]);
   });
 
+  test("unsupportedFingerprintsInDraft ignores clean paraphrase without brands", async () => {
+    const { unsupportedFingerprintsInDraft } = await import(
+      "../src/fingerprints.ts"
+    );
+    const findings =
+      "Clients should poll with backoff. POST creates a job id. Long jobs need an overall timeout.";
+    const draft =
+      "A robust client posts to create a job, then polls with exponential backoff and sets an overall job timeout for long-running research.";
+    expect(unsupportedFingerprintsInDraft(draft, findings)).toEqual([]);
+  });
+
+  test("extractStrictFingerprints skips soft topic hyphens", async () => {
+    const { extractStrictFingerprints } = await import(
+      "../src/fingerprints.ts"
+    );
+    const soft = extractStrictFingerprints(
+      "Use multi-step pipelines and in-memory maps for small systems.",
+    );
+    expect(soft).not.toContain("multi-step");
+    expect(soft).not.toContain("in-memory");
+    const hard = extractStrictFingerprints(
+      "Require Orbit-Wallet-7 and ModelLock-7 before deploy.",
+    );
+    expect(hard.some((h) => h.includes("orbit") || h.includes("wallet"))).toBe(
+      true,
+    );
+    expect(hard.some((h) => h.includes("modellock"))).toBe(true);
+  });
+
   test("expandEvalJobs builds gate + self_correct for plants", async () => {
     const { expandEvalJobs } = await import("../scripts/run-eval.ts");
     const jobs = expandEvalJobs([

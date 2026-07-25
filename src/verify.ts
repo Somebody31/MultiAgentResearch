@@ -36,23 +36,26 @@ export type VerifyOptions = {
 export const VERIFY_SYSTEM = `Check a research draft against its findings (faithfulness only, not world truth).
 
 Decide:
-- "pass" if the draft is supported by the findings
-- "revise" if there are big gaps, contradictions, or unsupported claims
+- "pass" if the draft is reasonably supported by the findings (paraphrase and merging are OK)
+- "revise" only for material unsupported claims — not for style, structure, or minor gaps already implied by findings
 
-Be especially suspicious of content that does NOT appear in the findings, including:
-- Proper nouns, product names, brand names, codenames, or appliance names (e.g. invented systems or wallets)
-- Model names / model ids and "compliance rules" that name specific models
-- Attributed quotes (someone "said", "announced", "stated") with slogan-like phrases
+Return "revise" when the draft introduces content that does NOT appear in the findings, especially:
+- Invented product/brand/codenames or appliance names not in findings
+- Model names / model ids and fake "compliance rules" naming specific models
+- Attributed quotes (someone "said", "announced", "stated") with slogan-like phrases not in findings
 - Precise statistics, SLAs, prices, version numbers, or form/policy codes not in findings
-- Causal claims that sound technical but are not backed by findings
 
-If any such item is in the draft and not clearly supported by a finding, return "revise" and name the unsupported span in the reason (quote brands, model ids, or slogan phrases when present).
+Do NOT revise merely because:
+- The draft omits some findings
+- Wording differs from findings while meaning matches
+- Structure or tone is imperfect
+
+If you revise, name the unsupported span in the reason (quote brands, model ids, or slogan phrases when present).
 
 When the user message includes a prior revise reason (RE-CHECK):
 - Return "pass" ONLY if every issue in the prior reason is clearly gone from the draft
 - If the same unsupported claims, names, numbers, quotes, or gaps remain (even rephrased), return "revise"
-- Do not pass just because the rest of the draft looks polished or mostly matches findings
-- Do not pass if the draft still contains distinctive names, model ids, metrics, or quoted phrases from the prior reason unless those exact strings appear in the findings
+- Do not pass just because the rest of the draft looks polished
 
 Return ONLY JSON (one object), with a short reason naming the main problem or "ok":
 {"verdict":"pass","reason":"ok"}

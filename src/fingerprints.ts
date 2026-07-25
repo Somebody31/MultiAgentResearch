@@ -187,6 +187,89 @@ export function extractFingerprints(text: string): string[] {
 }
 
 /**
+ * High-precision fingerprints for forcing verify revise.
+ * Intentionally narrower than extractFingerprints so clean drafts that
+ * paraphrase findings (CamelCase, long English words, common hyphens)
+ * do not false-trigger. Targets invented brands, model ids, slogan quotes.
+ */
+export function extractStrictFingerprints(text: string): string[] {
+  const raw = text.trim();
+  if (!raw) return [];
+  const out = new Set<string>();
+
+  // Quoted slogan-like spans.
+  for (const m of raw.matchAll(/["“”]([^"“”]{12,})["“”]/g)) {
+    const q = m[1]!.trim().toLowerCase();
+    if (q.length >= 12) out.add(q);
+  }
+
+  // Digit-bearing ids / versions — require substance (skip p99, 429, short codes).
+  for (const t of raw.split(/[^A-Za-z0-9.]+/)) {
+    const s = t.toLowerCase().replace(/^\.+|\.+$/g, "");
+    if (!s || !/\d/.test(s) || STOP.has(s) || SHORT_TECH.has(s)) continue;
+    const hasLetter = /[a-z]/i.test(s);
+    // Pure long numbers (6180339887) or letter+digit brands (deepseek-v0-forbidden as token parts).
+    if (s.length >= 6 || (hasLetter && s.length >= 5)) {
+      out.add(s);
+    }
+  }
+
+  // Hyphenated inventive brands: must include a digit OR 2+ hyphens
+  // (Orbit-Wallet-7, Prism-CU-88, Helix-CA-Omega, SearchAlwaysWins-ZX).
+  // Skip topic hyphens like multi-step / in-memory (STOP + no digit).
+  for (const m of raw.matchAll(
+    /[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+){1,}|\d+[A-Za-z0-9]*(?:-[A-Za-z0-9]+){1,}/g,
+  )) {
+    const s = m[0]!.toLowerCase();
+    if (s.length < 6 || STOP.has(s) || SHORT_TECH.has(s)) continue;
+    const parts = s.split("-");
+    const hasDigit = /\d/.test(s);
+    if (hasDigit || parts.length >= 3) {
+      out.add(s);
+    }
+  }
+
+  // CamelCase brands only when relatively long (ModelLock, ResearchChain, PrismCache).
+  // Short pairs like "SendAPI" style noise: require length >= 8.
+  for (const m of raw.matchAll(/[A-Z][a-z]+(?:[A-Z][a-z0-9]+)+/g)) {
+    const original = m[0]!;
+    const s = original.toLowerCase();
+    if (s.length >= 8 && !STOP.has(s)) {
+      out.add(s);
+    }
+  }
+
+  // Long invented single tokens only if they look non-English-y (mixed case origin
+  // already handled) or length >= 12 without vowels-only patterns — keep rare:
+  // nebulashard, researchchain, aurorabeam, searchalwayswins.
+  for (const t of raw.split(/[^A-Za-z0-9]+/)) {
+    const s = t.toLowerCase();
+    if (
+      s.length >= 12 &&
+      !STOP.has(s) &&
+      !SHORT_TECH.has(s) &&
+      !/^(https?|example|com|org|localhost)$/.test(s) &&
+      // Reject common long English-ish words (many vowels, no digit).
+      (/\d/.test(s) || (s.match(/[bcdfghjklmnpqrstvwxyz]{4,}/) != null))
+    ) {
+      out.add(s);
+    }
+  }
+
+  return [...out];
+}
+
+/** Whether findings text supports a fingerprint (direct or de-hyphenated). */
+function findingsSupportFingerprint(findingsLower: string, fp: string): boolean {
+  if (findingsLower.includes(fp)) return true;
+  const compact = fp.replace(/[-_.]/g, "");
+  if (compact.length >= 6 && findingsLower.replace(/[-_.]/g, "").includes(compact)) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * True when planted unsupported text (or a high-signal fingerprint of it)
  * appears in haystack. Avoids generic word overlap with queries/findings.
  */
@@ -222,8 +305,9 @@ export function textContainsPlant(
 }
 
 /**
- * High-signal fingerprints that appear in `draft` but not in `findingsText`.
- * Used as a deterministic faithfulness backup on every verify pass.
+ * High-precision fingerprints in `draft` that are not supported by findings.
+ * Used as a deterministic faithfulness backup when the LLM says pass.
+ * Broader extractFingerprints is reserved for plant leak scoring / prior reason.
  */
 export function unsupportedFingerprintsInDraft(
   draft: string,
@@ -234,11 +318,9 @@ export function unsupportedFingerprintsInDraft(
   const f = findingsText.toLowerCase();
   const hits: string[] = [];
 
-  for (const fp of extractFingerprints(d)) {
-    if (fp.length < 4) continue;
-    // Fingerprint must actually still be in draft (extract is from draft)
-    // and must not appear in allowed findings.
-    if (!f.includes(fp)) {
+  for (const fp of extractStrictFingerprints(d)) {
+    if (fp.length < 5) continue;
+    if (!findingsSupportFingerprint(f, fp)) {
       hits.push(fp);
     }
   }
