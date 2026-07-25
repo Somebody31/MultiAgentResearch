@@ -22,6 +22,9 @@ import { synthesizeFinal } from "./final.ts";
 
 const MAX_RETRIES = 1;
 
+/** Eval-only: how often unsupported plant text is appended after normalize. */
+export type PlantMode = "every_normalize" | "once";
+
 const GraphState = Annotation.Root({
   query: Annotation<string>(),
   subQuestions: Annotation<string[]>({ default: () => [] }),
@@ -38,10 +41,11 @@ const GraphState = Annotation.Root({
   finalReport: Annotation<string>({ default: () => "" }),
   // Set when verify returns revise; rewrite normalize + re-check use this.
   priorReviseReason: Annotation<string | null>({ default: () => null }),
-  // Eval-only: optional text appended after normalize (every pass, including
-  // after revise). Production leaves this null. Not claim-level fact-check —
-  // used to score the whole-draft faithfulness gate (draft vs findings).
+  // Eval-only plant seam (production leaves claim null).
   plantUnsupportedClaim: Annotation<string | null>({ default: () => null }),
+  plantMode: Annotation<PlantMode>({ default: () => "every_normalize" }),
+  /** True after plant was applied at least once (for plantMode "once"). */
+  plantInjected: Annotation<boolean>({ default: () => false }),
 });
 
 /** Always a number — LangGraph / Send can leave channels undefined. */
@@ -67,14 +71,23 @@ async function normalizeNode(state: typeof GraphState.State) {
     priorReviseReason: state.priorReviseReason,
   });
 
-  // Eval seam only: plant text that is not in findings, right before verify.
-  // Re-applied on every normalize (including after a revise rewrite).
+  // Eval seam: optional unsupported text after normalize, before verify.
+  // every_normalize: re-inject every pass (gate toughness).
+  // once: inject only the first time (self-correct measurement).
   const plant = state.plantUnsupportedClaim;
+  const mode = state.plantMode ?? "every_normalize";
+  let plantInjected = state.plantInjected === true;
+
   if (typeof plant === "string" && plant.trim() !== "") {
-    draft = `${draft}\n\n${plant.trim()}`;
+    const shouldPlant =
+      mode === "every_normalize" || (mode === "once" && !plantInjected);
+    if (shouldPlant) {
+      draft = `${draft}\n\n${plant.trim()}`;
+      plantInjected = true;
+    }
   }
 
-  return { draft };
+  return { draft, plantInjected };
 }
 
 async function verifyNode(state: typeof GraphState.State) {
@@ -138,26 +151,29 @@ export function unfaithfulFallbackReport(
 
 // --- Edges ----------------------------------------------------------------
 
+function sendPayload(state: typeof GraphState.State, activeSubQuestion: string) {
+  return {
+    query: state.query,
+    subQuestions: state.subQuestions,
+    findings: state.findings,
+    activeSubQuestion,
+    draft: state.draft,
+    verdict: state.verdict,
+    retries: retryCount(state),
+    finalReport: state.finalReport,
+    priorReviseReason: state.priorReviseReason ?? null,
+    plantUnsupportedClaim: state.plantUnsupportedClaim ?? null,
+    plantMode: state.plantMode ?? "every_normalize",
+    plantInjected: state.plantInjected === true,
+  };
+}
+
 // Start one researchOne branch per sub-question (LangGraph Send).
 export function fanOutResearch(state: typeof GraphState.State) {
   if (state.subQuestions.length === 0) return "normalize";
 
-  const retries = retryCount(state);
-
   return state.subQuestions.map(
-    (q) =>
-      new Send("researchOne", {
-        query: state.query,
-        subQuestions: state.subQuestions,
-        findings: state.findings,
-        activeSubQuestion: q,
-        draft: state.draft,
-        verdict: state.verdict,
-        retries,
-        finalReport: state.finalReport,
-        priorReviseReason: state.priorReviseReason ?? null,
-        plantUnsupportedClaim: state.plantUnsupportedClaim ?? null,
-      }),
+    (q) => new Send("researchOne", sendPayload(state, q)),
   );
 }
 
@@ -201,10 +217,16 @@ const graph = new StateGraph(GraphState)
 /** Optional eval inputs. Production callers omit this. */
 export type RunResearchOptions = {
   /**
-   * Eval only: append this text to the draft after every normalize, before
-   * the faithfulness gate (verify). Use to plant unsupported draft content.
+   * Eval only: unsupported draft text injected after normalize.
+   * See plantMode for re-injection policy.
    */
   plantUnsupportedClaim?: string | null;
+  /**
+   * every_normalize: re-inject after every normalize (gate toughness eval).
+   * once: inject only on first normalize (self-correct eval).
+   * Default every_normalize when a plant is set.
+   */
+  plantMode?: PlantMode;
 };
 
 export async function runResearch(
@@ -217,5 +239,7 @@ export async function runResearch(
     verdict: "pass" as Verdict,
     priorReviseReason: null,
     plantUnsupportedClaim: options?.plantUnsupportedClaim ?? null,
+    plantMode: options?.plantMode ?? "every_normalize",
+    plantInjected: false,
   });
 }

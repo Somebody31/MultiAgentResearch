@@ -159,6 +159,8 @@ describe("pipeline graph", () => {
       finalReport: "",
       priorReviseReason: null,
       plantUnsupportedClaim: null,
+      plantMode: "every_normalize",
+      plantInjected: false,
     });
     expect(Array.isArray(sends)).toBe(true);
     expect((sends as unknown[]).length).toBe(2);
@@ -174,5 +176,37 @@ describe("eval plant match helper", () => {
     expect(textContainsPlant("normal report about Send and parallel work", plant)).toBe(
       false,
     );
+  });
+
+  test("expandEvalJobs builds gate + self_correct for plants", async () => {
+    const { expandEvalJobs } = await import("../scripts/run-eval.ts");
+    const jobs = expandEvalJobs([
+      {
+        id: "p1",
+        query: "q",
+        planted_unsupported_claim: "Bad claim Orbit-Wallet-7 only",
+      },
+      { id: "c1", query: "q2", planted_unsupported_claim: null },
+    ]);
+    expect(jobs.map((j) => j.id)).toEqual([
+      "p1__gate",
+      "p1__self_correct",
+      "c1",
+    ]);
+    expect(jobs[0]?.plant_mode).toBe("every_normalize");
+    expect(jobs[1]?.plant_mode).toBe("once");
+    expect(jobs[2]?.suite).toBe("baseline");
+  });
+
+  test("mapPool runs with concurrency and preserves order", async () => {
+    const { mapPool } = await import("../scripts/run-eval.ts");
+    const seen: number[] = [];
+    const out = await mapPool([10, 20, 30, 40, 50], 2, async (n, i) => {
+      seen.push(i);
+      await Bun.sleep(5);
+      return n * 2;
+    });
+    expect(out).toEqual([20, 40, 60, 80, 100]);
+    expect(seen.sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4]);
   });
 });
