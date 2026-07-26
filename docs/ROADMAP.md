@@ -111,4 +111,5 @@ reasoner loop → call agents (budgeted) or finish
 1. Prefer small vertical slices over big rewrites.  
 2. New work: add a row here **before** large code.  
 3. When shipping: tick checklist, move row to **Now**, append `docs/DECISIONS.md`.  
-4. Design detail for dynamic mode lives in this section + `src/reasoning/` — no separate future-feature doc.
+4. Design detail for dynamic mode lives in this section + `src/reasoning/` — no separate future-feature doc.  
+5. Current system shape: [ARCHITECTURE.md](./ARCHITECTURE.md).

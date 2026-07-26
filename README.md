@@ -3,7 +3,7 @@
 Research API: break a question into parts, search, draft, check, then report.
 
 **Stack:** Bun, Hono, LangGraph, DeepSeek V4 Flash, Tavily  
-**Start here:** `src/pipeline.ts`
+**Start here:** `src/pipeline.ts` · **Architecture:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · **Roadmap:** [docs/ROADMAP.md](docs/ROADMAP.md)
 
 ## Flow
 
@@ -49,9 +49,6 @@ bun run test
 # See docs/FAITHFULNESS_EVALS.md
 bun run eval:run -- --concurrency 20
 bun run eval:score
-
-# Older frozen-web scenario harness (evals/README.md)
-bun run eval -- --dry-run
 ```
 
 ## API
@@ -87,9 +84,10 @@ src/parseJson.ts
 src/reasoning/       # dynamic orchestration stubs (not wired; see roadmap)
 scripts/run-eval.ts  # faithfulness suite
 scripts/score-eval.ts
+docs/ARCHITECTURE.md # how the system works today
+docs/ROADMAP.md      # planned work
 docs/FAITHFULNESS_EVALS.md
-docs/ROADMAP.md      # planned work (dynamic mode, evals, UX)
-evals/               # frozen-web fixtures + older scenario harness
+evals/fixtures/      # frozen web for evals
 ```
 
 ## Roadmap
@@ -107,4 +105,3 @@ bun run demo
 ```
 
 Do not stop at a directory listing: that means you opened the folder root without `index.html` loading. Use `http://localhost:4173/` or the HTML file itself, not a random path that lists the repo.
-

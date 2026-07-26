@@ -6,18 +6,18 @@ node_modules/
 dist/
 .DS_Store
 
-# Docs stay local only — only README + corpus (searchDocs) on GitHub
+# Generated eval output (recreate with bun run eval:run)
+data/eval-results.json
+
+# Docs stay local only unless allowlisted below
 *.md
 !README.md
-!corpus/
-!corpus/**
 
-# Frontend anti-patterns checklist (keep trackable despite *.md)
-!docs/FRONTEND_DONTS.md
-# Faithfulness eval / verify gate design
-!docs/FAITHFULNESS_EVALS.md
-# Product roadmap (includes dynamic orchestration plan)
+# Tracked project docs
+!docs/ARCHITECTURE.md
 !docs/ROADMAP.md
+!docs/FAITHFULNESS_EVALS.md
+!docs/FRONTEND_DONTS.md
 
 # Local Impeccable / design-tool state
 .impeccable/
