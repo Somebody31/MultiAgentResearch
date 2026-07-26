@@ -217,8 +217,8 @@ const graph = new StateGraph(GraphState)
 /**
  * How research work is scheduled.
  * - fixed (default): plan once → researchOne × N (current graph)
- * - dynamic (future): LLM reasoner loop calling subagents; not wired yet
- *   See docs/FUTURE_DYNAMIC_AGENTS.md and src/reasoning/
+ * - dynamic (roadmap): LLM reasoner loop calling subagents; not wired yet
+ *   See docs/ROADMAP.md and src/reasoning/
  */
 export type OrchestrationMode = "fixed" | "dynamic";
 
@@ -251,7 +251,7 @@ export async function runResearch(
     throw new Error(
       'orchestration "dynamic" is not implemented yet ' +
         "(LLM reasoner + variable subagents). " +
-        "See docs/FUTURE_DYNAMIC_AGENTS.md",
+        "See docs/ROADMAP.md",
     );
   }
 

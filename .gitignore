@@ -16,8 +16,8 @@ dist/
 !docs/FRONTEND_DONTS.md
 # Faithfulness eval / verify gate design
 !docs/FAITHFULNESS_EVALS.md
-# Future dynamic reasoning / LLM-called subagents design
-!docs/FUTURE_DYNAMIC_AGENTS.md
+# Product roadmap (includes dynamic orchestration plan)
+!docs/ROADMAP.md
 
 # Local Impeccable / design-tool state
 .impeccable/

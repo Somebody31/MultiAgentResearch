@@ -1,6 +1,6 @@
-// Future dynamic gather loop: LLM reasoner calls subagents (variable fan-out).
+// Dynamic gather loop stubs: LLM reasoner calls subagents (variable fan-out).
 // NOT wired into runResearch / HTTP yet — throws if invoked.
-// See docs/FUTURE_DYNAMIC_AGENTS.md.
+// See docs/ROADMAP.md.
 
 import type { Finding } from "../research.ts";
 import { agentHandlers, isAgentId } from "./agents.ts";
@@ -39,7 +39,7 @@ export async function gatherWithDynamicAgents(
 ): Promise<DynamicGatherResult> {
   throw new Error(
     "Dynamic orchestration is not implemented yet. " +
-      "Use fixed mode (default runResearch). See docs/FUTURE_DYNAMIC_AGENTS.md",
+      "Use fixed mode (default runResearch). See docs/ROADMAP.md",
   );
 }
 

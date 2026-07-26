@@ -1,5 +1,5 @@
-// Future dynamic orchestration types.
-// Not used by the production fixed graph yet — see docs/FUTURE_DYNAMIC_AGENTS.md.
+// Dynamic orchestration types (roadmap).
+// Not used by the production fixed graph yet — see docs/ROADMAP.md.
 
 import type { Finding } from "../research.ts";
 

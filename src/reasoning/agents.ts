@@ -1,4 +1,4 @@
-// Future agent registry for dynamic orchestration.
+// Agent registry for dynamic orchestration (roadmap).
 // Production path does not call this yet.
 
 import { researchOne, type Finding } from "../research.ts";
