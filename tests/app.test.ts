@@ -40,11 +40,35 @@ describe("app", () => {
     const body = await res.json();
     expect(typeof body.id).toBe("string");
     expect(body.status === "pending" || body.status === "running").toBe(true);
+    expect(body.orchestration).toBe("fixed");
 
     const poll = await app.request(`/jobs/${body.id}`);
     expect(poll.status).toBe(200);
     const job = await poll.json();
     expect(job.id).toBe(body.id);
+  });
+
+  test("POST /research accepts orchestration dynamic", async () => {
+    const res = await app.request("/research", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: "What is LangGraph?",
+        orchestration: "dynamic",
+      }),
+    });
+    expect(res.status).toBe(202);
+    const body = await res.json();
+    expect(body.orchestration).toBe("dynamic");
+  });
+
+  test("POST /research rejects bad orchestration", async () => {
+    const res = await app.request("/research", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: "q", orchestration: "swarm" }),
+    });
+    expect(res.status).toBe(400);
   });
 
   test("GET /jobs/:id 404 for unknown id", async () => {
@@ -112,17 +136,202 @@ describe("pipeline graph", () => {
     expect(typeof runResearch).toBe("function");
   });
 
-  test("runResearch dynamic orchestration is reserved (throws)", async () => {
-    const { runResearch } = await import("../src/pipeline.ts");
-    await expect(
-      runResearch("test", { orchestration: "dynamic" }),
-    ).rejects.toThrow(/not implemented/i);
-  });
-
   test("reasoning resolveBudget merges defaults", async () => {
     const { resolveBudget } = await import("../src/reasoning/orchestrator.ts");
     expect(resolveBudget({ maxSteps: 3 }).maxSteps).toBe(3);
     expect(resolveBudget({ maxSteps: 3 }).maxParallelAgents).toBe(3);
+  });
+
+  test("parseReasonerAction accepts finish and call_agents", async () => {
+    const { parseReasonerAction } = await import(
+      "../src/reasoning/parseAction.ts"
+    );
+    expect(
+      parseReasonerAction('{"type":"finish","rationale":"enough"}'),
+    ).toEqual({ type: "finish", rationale: "enough" });
+    expect(
+      parseReasonerAction(
+        'Sure: {"type":"call_agents","calls":[{"agent":"web_research","input":"What is Send?"}],"note":"start"}',
+      ),
+    ).toEqual({
+      type: "call_agents",
+      calls: [{ agent: "web_research", input: "What is Send?" }],
+      note: "start",
+    });
+    expect(parseReasonerAction("not json")).toBeNull();
+    expect(
+      parseReasonerAction(
+        '{"type":"call_agents","calls":[{"agent":"nope","input":"x"}]}',
+      ),
+    ).toBeNull();
+  });
+
+  test("runAgentCalls runs handlers under maxParallel", async () => {
+    const { runAgentCalls } = await import("../src/reasoning/orchestrator.ts");
+    const seen: string[] = [];
+    const out = await runAgentCalls(
+      [
+        { agent: "web_research", input: "a" },
+        { agent: "reason", input: "b" },
+        { agent: "critique", input: "c" },
+      ],
+      {
+        query: "q",
+        findingsSoFar: [],
+        scratchpad: "",
+        maxParallel: 2,
+        handlers: {
+          web_research: async (input) => {
+            seen.push(input);
+            return [{ claim: `w:${input}`, sourceUrl: "t://w" }];
+          },
+          reason: async (input) => {
+            seen.push(input);
+            return [{ claim: `r:${input}`, sourceUrl: "t://r" }];
+          },
+          critique: async (input) => {
+            seen.push(input);
+            return [{ claim: `c:${input}`, sourceUrl: "t://c" }];
+          },
+        },
+      },
+    );
+    expect(out).toHaveLength(2);
+    expect(seen.sort()).toEqual(["a", "b"]);
+    expect(out.map((r) => r.findings[0]?.claim).sort()).toEqual([
+      "r:b",
+      "w:a",
+    ]);
+  });
+
+  test("gatherWithDynamicAgents stops on finish and max_steps", async () => {
+    const { gatherWithDynamicAgents } = await import(
+      "../src/reasoning/orchestrator.ts"
+    );
+
+    const finished = await gatherWithDynamicAgents("q", {
+      budget: { maxSteps: 5, maxParallelAgents: 2, maxFindings: 10 },
+      decide: async ({ step }) => {
+        if (step === 0) {
+          return {
+            type: "call_agents",
+            calls: [{ agent: "web_research", input: "sub" }],
+          };
+        }
+        return { type: "finish", rationale: "done gathering" };
+      },
+      handlers: {
+        web_research: async () => [
+          { claim: "fact one", sourceUrl: "https://example.com/1" },
+        ],
+      },
+    });
+    expect(finished.stopReason).toBe("finish");
+    expect(finished.findings).toHaveLength(1);
+    expect(finished.traces).toHaveLength(2);
+
+    let steps = 0;
+    const capped = await gatherWithDynamicAgents("q", {
+      budget: { maxSteps: 2, maxParallelAgents: 1, maxFindings: 50 },
+      decide: async () => {
+        steps += 1;
+        return {
+          type: "call_agents",
+          calls: [{ agent: "web_research", input: `s${steps}` }],
+        };
+      },
+      handlers: {
+        web_research: async (input) => [
+          { claim: input, sourceUrl: "https://example.com/x" },
+        ],
+      },
+    });
+    expect(capped.stopReason).toBe("max_steps");
+    expect(capped.findings).toHaveLength(2);
+    expect(steps).toBe(2);
+  });
+
+  test("gatherWithDynamicAgents stops on max_findings", async () => {
+    const { gatherWithDynamicAgents } = await import(
+      "../src/reasoning/orchestrator.ts"
+    );
+    const result = await gatherWithDynamicAgents("q", {
+      budget: { maxSteps: 8, maxParallelAgents: 3, maxFindings: 2 },
+      decide: async () => ({
+        type: "call_agents",
+        calls: [
+          { agent: "web_research", input: "a" },
+          { agent: "web_research", input: "b" },
+          { agent: "web_research", input: "c" },
+        ],
+      }),
+      handlers: {
+        web_research: async (input) => [
+          { claim: `hit-${input}`, sourceUrl: "https://example.com" },
+        ],
+      },
+    });
+    expect(result.stopReason).toBe("max_findings");
+    expect(result.findings.length).toBeLessThanOrEqual(2);
+  });
+
+  test("runResearch dynamic gather + post-pipeline with stubbed LLM", async () => {
+    const { spyOn } = await import("bun:test");
+    const llm = await import("../src/llm.ts");
+    const spy = spyOn(llm, "askLlm").mockImplementation(
+      async (input: { stage?: string; system?: string; user?: string } | string) => {
+        const stage = typeof input === "string" ? "" : (input.stage ?? "");
+        if (stage === "verify") {
+          return JSON.stringify({ verdict: "pass", reason: "ok" });
+        }
+        if (stage === "normalize") {
+          return "Draft: X is a test concept used in unit tests.";
+        }
+        if (stage === "final") {
+          return "Final report: X is a test concept.";
+        }
+        return "ok";
+      },
+    );
+
+    try {
+      const { runResearch } = await import("../src/pipeline.ts");
+      let step = 0;
+      const result = await runResearch("What is X?", {
+        orchestration: "dynamic",
+        dynamic: {
+          budget: { maxSteps: 3, maxParallelAgents: 1, maxFindings: 5 },
+          decide: async () => {
+            step += 1;
+            if (step === 1) {
+              return {
+                type: "call_agents",
+                calls: [{ agent: "web_research", input: "X basics" }],
+                note: "first look",
+              };
+            }
+            return { type: "finish", rationale: "enough" };
+          },
+          handlers: {
+            web_research: async () => [
+              {
+                claim: "X is a test concept used in unit tests.",
+                sourceUrl: "https://example.com/x",
+              },
+            ],
+          },
+        },
+      });
+
+      expect(result.orchestration).toBe("dynamic");
+      expect(result.findings).toHaveLength(1);
+      expect(result.stopReason).toBe("finish");
+      expect(result.scratchpad).toContain("first look");
+      expect(result.verdict).toBe("pass");
+      expect(result.finalReport).toContain("X is a test concept");
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   test("afterVerify: pass → final", async () => {

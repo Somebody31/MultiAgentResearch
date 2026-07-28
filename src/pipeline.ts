@@ -19,6 +19,15 @@ import { researchOne, type Finding } from "./research.ts";
 import { normalizeClaims } from "./normalize.ts";
 import { verifyClaims, type Verdict } from "./verify.ts";
 import { synthesizeFinal } from "./final.ts";
+import {
+  gatherWithDynamicAgents,
+  type DynamicGatherOptions,
+} from "./reasoning/orchestrator.ts";
+import type {
+  DynamicGatherResult,
+  OrchestrationMode,
+  ReasoningStepTrace,
+} from "./reasoning/types.ts";
 
 const MAX_RETRIES = 1;
 
@@ -214,15 +223,10 @@ const graph = new StateGraph(GraphState)
   .addEdge("final", END)
   .compile();
 
-/**
- * How research work is scheduled.
- * - fixed (default): plan once → researchOne × N (current graph)
- * - dynamic (roadmap): LLM reasoner loop calling subagents; not wired yet
- *   See docs/ROADMAP.md and src/reasoning/
- */
-export type OrchestrationMode = "fixed" | "dynamic";
+// Re-export mode type for callers (API, tests).
+export type { OrchestrationMode };
 
-/** Optional eval inputs. Production callers omit this. */
+/** Optional inputs. Production usually only sets query (+ optional orchestration). */
 export type RunResearchOptions = {
   /**
    * Eval only: unsupported draft text injected after normalize.
@@ -236,26 +240,46 @@ export type RunResearchOptions = {
    */
   plantMode?: PlantMode;
   /**
-   * Future: "dynamic" will use LLM-called subagents with variable fan-out.
-   * Only "fixed" is implemented; "dynamic" throws until shipped.
+   * fixed (default): plan once → researchOne × N via LangGraph.
+   * dynamic: LLM reasoner loop + subagents, then same normalize → verify → final.
    */
   orchestration?: OrchestrationMode;
+  /** Dynamic-only: budgets, injected decide/handlers for tests. */
+  dynamic?: DynamicGatherOptions;
+};
+
+/** Shape returned by both fixed graph invoke and dynamic path. */
+export type ResearchResult = {
+  query: string;
+  subQuestions: string[];
+  findings: Finding[];
+  activeSubQuestion: string;
+  draft: string;
+  verdict: Verdict;
+  retries: number;
+  finalReport: string;
+  priorReviseReason: string | null;
+  plantUnsupportedClaim: string | null;
+  plantMode: PlantMode;
+  plantInjected: boolean;
+  /** Present when orchestration was dynamic. */
+  orchestration?: OrchestrationMode;
+  scratchpad?: string;
+  reasoningTraces?: ReasoningStepTrace[];
+  stopReason?: DynamicGatherResult["stopReason"];
 };
 
 export async function runResearch(
   query: string,
   options?: RunResearchOptions,
-) {
+): Promise<ResearchResult> {
   const mode = options?.orchestration ?? "fixed";
+
   if (mode === "dynamic") {
-    throw new Error(
-      'orchestration "dynamic" is not implemented yet ' +
-        "(LLM reasoner + variable subagents). " +
-        "See docs/ROADMAP.md",
-    );
+    return runResearchDynamic(query, options);
   }
 
-  return graph.invoke({
+  const state = await graph.invoke({
     query,
     retries: 0,
     verdict: "pass" as Verdict,
@@ -264,4 +288,126 @@ export async function runResearch(
     plantMode: options?.plantMode ?? "every_normalize",
     plantInjected: false,
   });
+
+  return {
+    query: state.query,
+    subQuestions: state.subQuestions,
+    findings: state.findings,
+    activeSubQuestion: state.activeSubQuestion,
+    draft: state.draft,
+    verdict: state.verdict,
+    retries: retryCount(state),
+    finalReport: state.finalReport,
+    priorReviseReason: state.priorReviseReason ?? null,
+    plantUnsupportedClaim: state.plantUnsupportedClaim ?? null,
+    plantMode: state.plantMode ?? "every_normalize",
+    plantInjected: state.plantInjected === true,
+    orchestration: "fixed",
+  };
+}
+
+/**
+ * Dynamic path: reasoner loop gathers findings, then the same
+ * normalize → verify → (optional rewrite) → final stages as fixed mode.
+ */
+async function runResearchDynamic(
+  query: string,
+  options?: RunResearchOptions,
+): Promise<ResearchResult> {
+  const gather = await gatherWithDynamicAgents(query, options?.dynamic);
+
+  const synthesized = await synthesizeFromFindings(query, gather.findings, {
+    plantUnsupportedClaim: options?.plantUnsupportedClaim,
+    plantMode: options?.plantMode,
+  });
+
+  return {
+    ...synthesized,
+    query,
+    subQuestions: [],
+    activeSubQuestion: "",
+    orchestration: "dynamic",
+    scratchpad: gather.scratchpad,
+    reasoningTraces: gather.traces,
+    stopReason: gather.stopReason,
+  };
+}
+
+/**
+ * Shared post-gather pipeline: draft, faithfulness gate (one rewrite), report.
+ * Used by dynamic mode; fixed mode still runs these as LangGraph nodes.
+ */
+export async function synthesizeFromFindings(
+  query: string,
+  findings: Finding[],
+  options?: {
+    plantUnsupportedClaim?: string | null;
+    plantMode?: PlantMode;
+  },
+): Promise<{
+  findings: Finding[];
+  draft: string;
+  verdict: Verdict;
+  retries: number;
+  finalReport: string;
+  priorReviseReason: string | null;
+  plantUnsupportedClaim: string | null;
+  plantMode: PlantMode;
+  plantInjected: boolean;
+}> {
+  const plantClaim = options?.plantUnsupportedClaim ?? null;
+  const plantMode = options?.plantMode ?? "every_normalize";
+  let plantInjected = false;
+  let priorReviseReason: string | null = null;
+  let retries = 0;
+
+  async function normalizePass(): Promise<string> {
+    let draft = await normalizeClaims(query, findings, { priorReviseReason });
+    if (typeof plantClaim === "string" && plantClaim.trim() !== "") {
+      const shouldPlant =
+        plantMode === "every_normalize" ||
+        (plantMode === "once" && !plantInjected);
+      if (shouldPlant) {
+        draft = `${draft}\n\n${plantClaim.trim()}`;
+        plantInjected = true;
+      }
+    }
+    return draft;
+  }
+
+  let draft = await normalizePass();
+  let verifyResult = await verifyClaims(draft, findings, {
+    priorReviseReason,
+  });
+  let verdict = verifyResult.verdict;
+  priorReviseReason =
+    verdict === "revise" ? verifyResult.reason : null;
+
+  if (verdict === "revise" && retries < MAX_RETRIES) {
+    retries += 1;
+    draft = await normalizePass();
+    verifyResult = await verifyClaims(draft, findings, {
+      priorReviseReason,
+    });
+    verdict = verifyResult.verdict;
+    priorReviseReason =
+      verdict === "revise" ? verifyResult.reason : null;
+  }
+
+  const finalReport =
+    verdict === "revise"
+      ? unfaithfulFallbackReport(query, findings)
+      : await synthesizeFinal(query, draft);
+
+  return {
+    findings,
+    draft,
+    verdict,
+    retries,
+    finalReport,
+    priorReviseReason,
+    plantUnsupportedClaim: plantClaim,
+    plantMode,
+    plantInjected,
+  };
 }

@@ -1,5 +1,5 @@
-// Dynamic orchestration types (roadmap).
-// Not used by the production fixed graph yet — see docs/ROADMAP.md.
+// Dynamic orchestration types.
+// Fixed mode still uses plan → N researchOne in pipeline.ts.
 
 import type { Finding } from "../research.ts";
 

@@ -54,17 +54,24 @@ bun run eval:score
 ## API
 
 ```bash
-# start
+# start (fixed mode — default)
 curl -s -X POST http://localhost:8787/research \
   -H 'content-type: application/json' \
   -d '{"query":"What is LangGraph?"}'
-# → {"id":"...","status":"pending",...}
+# → {"id":"...","status":"pending","orchestration":"fixed",...}
+
+# optional: dynamic reasoner + subagents
+curl -s -X POST http://localhost:8787/research \
+  -H 'content-type: application/json' \
+  -d '{"query":"What is LangGraph?","orchestration":"dynamic"}'
 
 # poll
 curl -s http://localhost:8787/jobs/<id>
 ```
 
 `GET /health` → `{ "ok": true }`
+
+**Modes:** `fixed` (default) plans once then fans out research. `dynamic` runs a budgeted reasoner loop that calls `web_research` / `reason` / `critique`, then the same normalize → verify → final stages. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Files
 
@@ -81,7 +88,7 @@ src/fingerprints.ts  # plant leak + draft-vs-findings fingerprints
 src/final.ts
 src/llm.ts           # DeepSeek V4 Flash (system/user for input cache)
 src/parseJson.ts
-src/reasoning/       # dynamic orchestration stubs (not wired; see roadmap)
+src/reasoning/       # dynamic orchestration (reasoner + agents)
 evals/run.ts         # faithfulness suite
 evals/score.ts
 evals/questions.json
@@ -93,4 +100,4 @@ docs/FAITHFULNESS_EVALS.md
 
 ## Roadmap
 
-See **[docs/ROADMAP.md](docs/ROADMAP.md)**. Default stays **fixed** plan → N research nodes. Dynamic mode (`orchestration: "dynamic"`) is planned there; stubs live under `src/reasoning/` and still throw until wired.
+See **[docs/ROADMAP.md](docs/ROADMAP.md)**. Default stays **fixed** plan → N research. Dynamic mode is available via `orchestration: "dynamic"`.

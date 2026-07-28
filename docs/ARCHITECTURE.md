@@ -8,13 +8,13 @@ Short reference for how the system works **today**. Planned work: [ROADMAP.md](.
 |-------|--------|
 | Runtime | Bun |
 | HTTP | Hono |
-| Orchestration | LangGraph.js (`Send` fan-out) |
+| Orchestration | LangGraph.js (`Send` fan-out) for **fixed** mode; reasoner loop for **dynamic** |
 | LLM | DeepSeek V4 Flash (`DEEPSEEK_API_KEY`) |
 | Web search | Tavily (`TAVILY_API_KEY`) |
 
 Jobs are **in-memory** (`src/jobs.ts`). Restart clears them. No Redis / BullMQ / Cloud Run in the current product.
 
-## Pipeline (fixed mode)
+## Pipeline (fixed mode — default)
 
 ```text
 START → plan → Send(researchOne)×N → normalize → verify → final → END
@@ -34,14 +34,31 @@ Revise rewrites the draft from the **same findings** (no re-research). Max one r
 
 There is **no separate “audit” node** — the pass/revise gate lives in `verify`.
 
+## Pipeline (dynamic mode)
+
+```text
+reasoner loop (budgeted)
+  → call_agents: web_research | reason | critique  (parallel, capped)
+  → or finish
+       ↓
+normalize → verify → final   (same stages as fixed)
+```
+
+| Piece | File | Job |
+|-------|------|-----|
+| Reasoner | `src/reasoning/decide.ts` | LLM picks next JSON action |
+| Loop | `src/reasoning/orchestrator.ts` | Budgets, traces, agent fan-out |
+| Agents | `src/reasoning/agents.ts` | `web_research`, `reason`, `critique` |
+| Post-gather | `src/pipeline.ts` `synthesizeFromFindings` | Draft + gate + report |
+
+API: `POST /research` with `{ "query": "...", "orchestration": "dynamic" }`. Default remains `"fixed"`.
+
+Budgets (defaults): `maxSteps` 8 · `maxParallelAgents` 3 · `maxFindings` 24.
+
 ## Search
 
 - `searchAll()` → `searchWeb()` only (web).
 - Evals freeze web via `EVAL_WEB_FIXTURES` + `evals/fixtures/web-research.json`.
-
-## Dynamic mode (not shipped)
-
-`orchestration: "dynamic"` is reserved. Stubs: `src/reasoning/`. Design and checklist: [ROADMAP.md](./ROADMAP.md).
 
 ## Evals
 

@@ -11,6 +11,7 @@ Status legend: `done` · `partial` · `planned` · `later`
 | Item | Status | Notes |
 |------|--------|--------|
 | Fixed graph: plan → parallel research → normalize → verify → final | done | `src/pipeline.ts` |
+| Dynamic orchestration (reasoner + subagents) | done | `src/reasoning/`; API `orchestration: "dynamic"` |
 | Web search (Tavily) | done | `src/search.ts` |
 | Faithfulness gate + plant evals | done | `docs/FAITHFULNESS_EVALS.md` |
 | Async jobs API | done | in-memory; restarts clear jobs |
@@ -23,11 +24,9 @@ Status legend: `done` · `partial` · `planned` · `later`
 
 | | |
 |--|--|
-| **Status** | partial — types, agent registry, budget helpers, reserved API flag |
-| **Code** | `src/reasoning/` · throws from `runResearch` / `gatherWithDynamicAgents` until wired |
+| **Status** | **done** (v1) — reasoner loop + agents + same post-gather gate |
+| **Code** | `src/reasoning/*` · `runResearch({ orchestration: "dynamic" })` · API body flag |
 | **Why** | Fixed plan→N is great for cost and evals, weak when the question needs multi-step deduction, re-search, or adaptive depth |
-
-**Target (when built)**
 
 ```text
 reasoner loop → call agents (budgeted) or finish
@@ -37,39 +36,30 @@ reasoner loop → call agents (budgeted) or finish
 
 | Mode | Behavior |
 |------|----------|
-| `fixed` (default) | Today’s graph — unchanged |
+| `fixed` (default) | plan → researchOne × N (LangGraph) |
 | `dynamic` | LLM picks next agent calls under budgets |
 
-**Agents (registry only)**
+**Agents**
 
 | Id | Role |
 |----|------|
-| `web_research` | Current `researchOne` / Tavily |
+| `web_research` | `researchOne` / Tavily |
 | `reason` | Inference from findings + scratchpad |
 | `critique` | Gaps / unsupported claims (no new facts) |
 
-**Budgets (defaults in `src/reasoning/types.ts`)**
+**Budgets** (`src/reasoning/types.ts`): `maxSteps` 8 · `maxParallelAgents` 3 · `maxFindings` 24
 
-- `maxSteps` (e.g. 8) · `maxParallelAgents` (e.g. 3) · `maxFindings` (e.g. 24)
-- Force finish on budget exhaust; no free-form tools/shell in v1
+**Checklist**
 
-**Faithfulness**
-
-- Reuse normalize → verify → final
-- Prefer verifying against web findings + explicit premises, not free-form scratchpad
-
-**Implementation checklist**
-
-- [x] Types + agent registry stubs (`src/reasoning/`)
-- [x] `orchestration: "dynamic"` reserved (throws with clear error)
-- [ ] Reasoner prompt + JSON action schema
-- [ ] Loop wired (prefer outer reasoner node + `Send` per step)
-- [ ] API accepts mode without throw; default remains `fixed`
-- [ ] Unit tests: action parse, budget stop, `runAgentCalls`
+- [x] Types + agent registry
+- [x] Reasoner prompt + JSON action schema (`decide.ts`, `parseAction.ts`)
+- [x] Loop wired (`gatherWithDynamicAgents`)
+- [x] API accepts mode; default remains `fixed`
+- [x] Unit tests: action parse, budget stop, `runAgentCalls`, dynamic `runResearch`
 - [ ] Optional dynamic eval smoke (budget + plant leak still 0%)
-- [ ] Decision log entry when shipping
+- [x] Decision log entry when shipping
 
-**Out of scope for v1**
+**Still later / out of scope for v1**
 
 - Replacing fixed mode for all traffic  
 - Unrestricted tools / shell  
