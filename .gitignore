@@ -7,7 +7,7 @@ dist/
 .DS_Store
 
 # Generated eval output (recreate with bun run eval:run)
-data/eval-results.json
+evals/results.json
 
 # Docs stay local only unless allowlisted below
 *.md

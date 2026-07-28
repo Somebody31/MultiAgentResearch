@@ -82,12 +82,13 @@ src/final.ts
 src/llm.ts           # DeepSeek V4 Flash (system/user for input cache)
 src/parseJson.ts
 src/reasoning/       # dynamic orchestration stubs (not wired; see roadmap)
-scripts/run-eval.ts  # faithfulness suite
-scripts/score-eval.ts
-docs/ARCHITECTURE.md # how the system works today
-docs/ROADMAP.md      # planned work
-docs/FAITHFULNESS_EVALS.md
+evals/run.ts         # faithfulness suite
+evals/score.ts
+evals/questions.json
 evals/fixtures/      # frozen web for evals
+docs/ARCHITECTURE.md
+docs/ROADMAP.md
+docs/FAITHFULNESS_EVALS.md
 ```
 
 ## Roadmap

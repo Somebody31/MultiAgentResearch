@@ -1,6 +1,6 @@
 // Run faithfulness-oriented evals (not claim-level fact-checking).
 //
-// For each question in data/eval-questions.json:
+// For each question in evals/questions.json:
 //   - baseline (no plant): one run
 //   - with plant: two runs
 //       gate           — plantMode every_normalize (re-inject every pass)
@@ -9,11 +9,11 @@
 //   - up to --concurrency parallel graph runs (default 5)
 //
 // Usage:
-//   bun run scripts/run-eval.ts
-//   bun run scripts/run-eval.ts -- --id plant-entity-orbit-wallet-send
-//   bun run scripts/run-eval.ts -- --concurrency 5 --out data/eval-results.json
+//   bun run evals/run.ts
+//   bun run evals/run.ts -- --id plant-entity-orbit-wallet-send
+//   bun run evals/run.ts -- --concurrency 5 --out evals/results.json
 //
-// Then: bun run scripts/score-eval.ts
+// Then: bun run evals/score.ts
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -27,10 +27,10 @@ import type { Verdict } from "../src/verify.ts";
 
 export { textContainsPlant };
 
-const ROOT = join(import.meta.dir, "..");
-const QUESTIONS_PATH = join(ROOT, "data", "eval-questions.json");
-const DEFAULT_OUT = join(ROOT, "data", "eval-results.json");
-const WEB_FIXTURES = join(ROOT, "evals", "fixtures", "web-research.json");
+const EVAL_DIR = import.meta.dir;
+const QUESTIONS_PATH = join(EVAL_DIR, "questions.json");
+const DEFAULT_OUT = join(EVAL_DIR, "results.json");
+const WEB_FIXTURES = join(EVAL_DIR, "fixtures", "web-research.json");
 const DEFAULT_CONCURRENCY = 5;
 
 /** Eval suite: gate toughness vs self-correct rewrite. */
@@ -307,7 +307,7 @@ async function main() {
     `LLM input cache (DeepSeek prefix): calls=${calls} hit_tokens=${hitTokens} miss_tokens=${missTokens} hit_rate=${hitPct}%`,
   );
   console.log("Per-call log: LLM_LOG_CACHE=1");
-  console.log("Score with: bun run scripts/score-eval.ts");
+  console.log("Score with: bun run evals/score.ts");
 }
 
 // Only when this file is the entry script (not when imported for helpers/tests).

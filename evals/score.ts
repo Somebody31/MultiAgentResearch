@@ -1,19 +1,18 @@
-// Score faithfulness eval results from scripts/run-eval.ts.
+// Score faithfulness eval results from evals/run.ts.
 //
 // Two planted suites (plus baseline):
 //   gate           — plant re-injected every normalize; catch + leak rates
 //   self_correct   — plant once; recovery rate (caught + pass + no leak)
 //
 // Usage:
-//   bun run scripts/score-eval.ts
-//   bun run scripts/score-eval.ts -- --in data/eval-results.json
+//   bun run evals/score.ts
+//   bun run evals/score.ts -- --in evals/results.json
 
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { EvalRow, EvalSuite } from "./run-eval.ts";
+import type { EvalRow, EvalSuite } from "./run.ts";
 
-const ROOT = join(import.meta.dir, "..");
-const DEFAULT_IN = join(ROOT, "data", "eval-results.json");
+const DEFAULT_IN = join(import.meta.dir, "results.json");
 
 function parseArgs(argv: string[]) {
   let inPath = DEFAULT_IN;
@@ -143,7 +142,7 @@ async function main() {
   const rows = JSON.parse(await readFile(inPath, "utf8")) as EvalRow[];
 
   if (!Array.isArray(rows) || rows.length === 0) {
-    console.error(`No rows in ${inPath}. Run scripts/run-eval.ts first.`);
+    console.error(`No rows in ${inPath}. Run evals/run.ts first.`);
     process.exit(1);
   }
 

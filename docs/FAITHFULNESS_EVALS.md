@@ -96,6 +96,6 @@ Eval end prints DeepSeek prefix cache totals (`hit_tokens` / `miss_tokens`).
 | Verify | `src/verify.ts` |
 | Plant seam + revise graph | `src/pipeline.ts` |
 | Normalize rewrite | `src/normalize.ts` |
-| Run / score | `scripts/run-eval.ts`, `scripts/score-eval.ts` |
-| Questions | `data/eval-questions.json` |
+| Run / score | `evals/run.ts`, `evals/score.ts` |
+| Questions | `evals/questions.json` |
 | Web fixtures | `evals/fixtures/web-research.json` |

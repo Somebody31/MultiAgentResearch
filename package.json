@@ -8,8 +8,8 @@
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
     "test": "bun test tests/app.test.ts",
-    "eval:run": "bun run scripts/run-eval.ts",
-    "eval:score": "bun run scripts/score-eval.ts"
+    "eval:run": "bun run evals/run.ts",
+    "eval:score": "bun run evals/score.ts"
   },
   "dependencies": {
     "@langchain/core": "^1.2.3",

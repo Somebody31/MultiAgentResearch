@@ -60,6 +60,6 @@ Details: [FAITHFULNESS_EVALS.md](./FAITHFULNESS_EVALS.md).
 |-----|---------|
 | [README.md](../README.md) | Run / API |
 | [ROADMAP.md](./ROADMAP.md) | Planned work |
-| [CONTEXT.md](../CONTEXT.md) | Domain glossary (local) |
+| [CONTEXT.md](./CONTEXT.md) | Domain glossary (local) |
 | [DECISIONS.md](./DECISIONS.md) | Change log (local) |
 | [AGENTS.md](../AGENTS.md) | Agent coding rules (local) |

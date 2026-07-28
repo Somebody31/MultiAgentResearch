@@ -264,7 +264,7 @@ describe("eval plant match helper", () => {
   });
 
   test("expandEvalJobs builds gate + self_correct for plants", async () => {
-    const { expandEvalJobs } = await import("../scripts/run-eval.ts");
+    const { expandEvalJobs } = await import("../evals/run.ts");
     const jobs = expandEvalJobs([
       {
         id: "p1",
@@ -284,7 +284,7 @@ describe("eval plant match helper", () => {
   });
 
   test("mapPool runs with concurrency and preserves order", async () => {
-    const { mapPool } = await import("../scripts/run-eval.ts");
+    const { mapPool } = await import("../evals/run.ts");
     const seen: number[] = [];
     const out = await mapPool([10, 20, 30, 40, 50], 2, async (n, i) => {
       seen.push(i);
