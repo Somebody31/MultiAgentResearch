@@ -2,7 +2,7 @@
 
 Research API: break a question into parts, search, draft, check, then report.
 
-**Stack:** Bun, Hono, LangGraph, DeepSeek V4 Flash, Tavily, Redis (rate limits)  
+**Stack:** Bun, Hono, LangGraph, DeepSeek V4 Flash, Tavily, Upstash Redis (rate limits)  
 **Start here:** `src/pipeline.ts` · **Architecture:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · **Roadmap:** [docs/ROADMAP.md](docs/ROADMAP.md)
 
 ## Flow
@@ -35,24 +35,22 @@ Jobs live in memory (restart clears them).
 
 ## Rate limiting
 
-`POST /research` is limited to **10 starts per 60s per client** (IP from `X-Forwarded-For` / `X-Real-IP`, else `local`).
+`POST /research` is limited to **10 requests per 60s per IP** (`x-forwarded-for`).
 
-- Counters live in **Redis** at `redis://127.0.0.1:6379` by default (optional `REDIS_URL`).
-- If Redis is unreachable, the process uses an **in-memory** counter so the API still runs.
-- Over limit → **429** with `retryAfterSec` and `Retry-After` / `X-RateLimit-*` headers.
+- Production: set `UPSTASH_REDIS_URL` and `UPSTASH_REDIS_TOKEN` (Upstash).
+- Local / tests without those env vars: in-memory counter (one process).
+- Over limit → **429** `{ "error": "Too many requests, slow down." }`
 
 ## Run
 
 ```bash
 bun install
 
-# .env (API keys; Redis defaults to localhost)
+# .env
 # DEEPSEEK_API_KEY=...
 # TAVILY_API_KEY=...
-# REDIS_URL=redis://127.0.0.1:6379   # optional
-
-# Optional: local Redis for shared rate limits
-# redis-server   # or: docker run -p 6379:6379 redis:7-alpine
+# UPSTASH_REDIS_URL=...      # optional (rate limits)
+# UPSTASH_REDIS_TOKEN=...    # optional (rate limits)
 
 bun run dev   # http://localhost:8787
 bun run test
@@ -89,10 +87,10 @@ curl -s http://localhost:8787/jobs/<id>
 
 ```
 src/pipeline.ts      # LangGraph graph (Send fan-out, plant seam, rewrite revise)
-src/jobs.ts          # in-memory async jobs
-src/index.ts         # HTTP
-src/redis.ts         # Bun Redis client (local default URL)
-src/rateLimit.ts     # fixed-window limit for POST /research
+src/jobs.ts                # in-memory async jobs
+src/index.ts               # HTTP
+src/rateLimiter.ts         # isRateLimited(ip) — Upstash or memory
+src/middleware/rateLimit.ts
 src/plan.ts
 src/research.ts      # researchOne
 src/search.ts        # web (fixtures in eval)

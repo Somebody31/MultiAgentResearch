@@ -11,20 +11,21 @@ Short reference for how the system works **today**. Planned work: [ROADMAP.md](.
 | Orchestration | LangGraph.js (`Send` fan-out) for **fixed** mode; reasoner loop for **dynamic** |
 | LLM | DeepSeek V4 Flash (`DEEPSEEK_API_KEY`) |
 | Web search | Tavily (`TAVILY_API_KEY`) |
-| Rate limit | Redis (Bun `RedisClient`) on `POST /research`; in-memory fallback if Redis is down |
+| Rate limit | Upstash Redis on `POST /research` (memory Map if Upstash env is unset) |
 
 Jobs are **in-memory** (`src/jobs.ts`). Restart clears them.
 
 ## Rate limiting
 
-- **Where:** `POST /research` only (expensive path).
-- **How:** fixed window — default **10 requests / 60 seconds** per client.
-- **Client id:** `X-Forwarded-For` (first hop) → `X-Real-IP` → `"local"`.
-- **Store:** Redis key `rate:research:{clientId}` via `INCR` + `EXPIRE`. Default URL `redis://127.0.0.1:6379` (optional `REDIS_URL`).
-- **If Redis is down:** process falls back to an in-memory counter (one machine only).
-- **429 body:** `{ "error": "rate limit exceeded", "retryAfterSec": N }` plus `Retry-After` / `X-RateLimit-*` headers.
+Simple fixed window on `POST /research` only:
 
-Code: `src/redis.ts`, `src/rateLimit.ts`, wired in `src/index.ts`.
+1. Read IP from `x-forwarded-for` (else `"unknown"`).
+2. `INCR ratelimit:{ip}`; on first hit, `EXPIRE` 60s.
+3. If count &gt; 10 → **429** `{ "error": "Too many requests, slow down." }`.
+
+Code: `src/rateLimiter.ts` + `src/middleware/rateLimit.ts`.
+
+Env (production): `UPSTASH_REDIS_URL`, `UPSTASH_REDIS_TOKEN`. Without them, counters stay in a process-local Map.
 
 ## Pipeline (fixed mode — default)
 

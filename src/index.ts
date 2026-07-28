@@ -6,17 +6,11 @@
 //
 // Body for POST: { "query": "...", "orchestration": "fixed" | "dynamic" }
 // "orchestration" is optional (default "fixed").
-//
-// POST /research is rate-limited (Redis when available, memory fallback).
 
 import { Hono } from "hono";
 import { getJob, jobToJson, startResearchJob } from "./jobs.ts";
+import { rateLimitMiddleware } from "./middleware/rateLimit.ts";
 import type { OrchestrationMode } from "./pipeline.ts";
-import {
-  clientIdFromHeaders,
-  consumeRateLimit,
-  type RateLimitResult,
-} from "./rateLimit.ts";
 
 const app = new Hono();
 
@@ -30,36 +24,8 @@ function readOrchestration(value: unknown): OrchestrationMode | "bad" {
   return "bad";
 }
 
-/** Attach standard rate-limit headers to a response. */
-function setRateLimitHeaders(
-  c: { header: (name: string, value: string) => void },
-  result: RateLimitResult,
-): void {
-  c.header("X-RateLimit-Limit", String(result.limit));
-  c.header("X-RateLimit-Remaining", String(result.remaining));
-  if (!result.allowed) {
-    c.header("Retry-After", String(result.retryAfterSec));
-  }
-}
-
-app.post("/research", async (c) => {
-  // Count this client against the research limit (before starting work).
-  const clientId = clientIdFromHeaders({
-    get: (name) => c.req.header(name),
-  });
-  const rate = await consumeRateLimit(clientId);
-  setRateLimitHeaders(c, rate);
-
-  if (!rate.allowed) {
-    return c.json(
-      {
-        error: "rate limit exceeded",
-        retryAfterSec: rate.retryAfterSec,
-      },
-      429,
-    );
-  }
-
+// Rate limit only the expensive route.
+app.post("/research", rateLimitMiddleware, async (c) => {
   const body = await c.req.json();
   const query = body?.query;
 
