@@ -105,6 +105,16 @@ function showDetails(job) {
     ["findings", Array.isArray(result.findings) ? result.findings.length : "—"],
   ];
 
+  // Fixed mode: show which sub-questions used search vs llm
+  if (Array.isArray(result.plannedSubQuestions) && result.plannedSubQuestions.length > 0) {
+    const parts = [];
+    for (const p of result.plannedSubQuestions) {
+      const route = p.route === "llm" ? "llm" : "search";
+      parts.push(`${route}: ${p.question}`);
+    }
+    rows.push(["planned", parts.join(" · ")]);
+  }
+
   if (result.stopReason) {
     rows.push(["stop reason", result.stopReason]);
   }

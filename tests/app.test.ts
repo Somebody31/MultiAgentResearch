@@ -428,13 +428,17 @@ describe("pipeline graph", () => {
     expect(report).not.toContain("Orbit-Wallet-7");
   });
 
-  test("fanOutResearch returns one Send per sub-question", async () => {
+  test("fanOutResearch returns one Send per planned sub-question", async () => {
     const { fanOutResearch } = await import("../src/pipeline.ts");
     const sends = fanOutResearch({
       query: "q",
-      subQuestions: ["a", "b"],
+      planned: [
+        { question: "a", route: "search" },
+        { question: "b", route: "llm" },
+      ],
       findings: [],
       activeSubQuestion: "",
+      activeRoute: "search",
       draft: "",
       verdict: "pass",
       retries: 0,
@@ -446,6 +450,63 @@ describe("pipeline graph", () => {
     });
     expect(Array.isArray(sends)).toBe(true);
     expect((sends as unknown[]).length).toBe(2);
+  });
+});
+
+describe("plan routes", () => {
+  test("parsePlannedSubQuestions accepts objects and plain strings", async () => {
+    const { parsePlannedSubQuestions } = await import("../src/plan.ts");
+    expect(
+      parsePlannedSubQuestions([
+        { question: "What is X?", route: "llm" },
+        { question: "Latest X release notes?", route: "search" },
+        "legacy string question",
+        { q: "alias field", mode: "llm" },
+        { question: "  ", route: "search" },
+      ]),
+    ).toEqual([
+      { question: "What is X?", route: "llm" },
+      { question: "Latest X release notes?", route: "search" },
+      { question: "legacy string question", route: "search" },
+      { question: "alias field", route: "llm" },
+    ]);
+  });
+});
+
+describe("research routes", () => {
+  test("researchOne llm route does not call search", async () => {
+    const { spyOn } = await import("bun:test");
+    const llm = await import("../src/llm.ts");
+    const search = await import("../src/search.ts");
+
+    const searchSpy = spyOn(search, "searchAll").mockResolvedValue([
+      {
+        title: "should not be used",
+        url: "https://example.com",
+        content: "nope",
+        source: "web",
+      },
+    ]);
+    const llmSpy = spyOn(llm, "askLlm").mockResolvedValue(
+      JSON.stringify([
+        { claim: "X is a concept.", sourceUrl: "llm://knowledge" },
+      ]),
+    );
+
+    try {
+      const { researchOne, LLM_SOURCE_URL } = await import(
+        "../src/research.ts"
+      );
+      const findings = await researchOne("What is X in principle?", "llm");
+      expect(searchSpy).not.toHaveBeenCalled();
+      expect(llmSpy).toHaveBeenCalled();
+      expect(findings.length).toBe(1);
+      expect(findings[0]?.claim).toContain("X is a concept");
+      expect(findings[0]?.sourceUrl).toBe(LLM_SOURCE_URL);
+    } finally {
+      searchSpy.mockRestore();
+      llmSpy.mockRestore();
+    }
   });
 });
 

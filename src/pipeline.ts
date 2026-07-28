@@ -3,7 +3,7 @@
 // Two ways to gather findings:
 //
 //   fixed (default):
-//     plan → research each sub-question (in parallel) → draft → check → report
+//     plan (each sub-q is search or llm) → answer each in parallel → draft → check → report
 //
 //   dynamic:
 //     reasoner picks agents under a budget → draft → check → report
@@ -12,7 +12,12 @@
 //   draft (normalize) → verify → maybe rewrite once → final report
 
 import { Annotation, END, Send, START, StateGraph } from "@langchain/langgraph";
-import { plan } from "./plan.ts";
+import {
+  plan,
+  plannedQuestionTexts,
+  type PlannedSubQuestion,
+  type SubQuestionRoute,
+} from "./plan.ts";
 import { researchOne, type Finding } from "./research.ts";
 import { normalizeClaims } from "./normalize.ts";
 import { verifyClaims, type Verdict } from "./verify.ts";
@@ -49,9 +54,13 @@ export type { OrchestrationMode };
  */
 export type GraphStateShape = {
   query: string;
-  subQuestions: string[];
+  /** Planner output: question text + search | llm route. */
+  planned: PlannedSubQuestion[];
   findings: Finding[];
+  /** This branch's sub-question text (set by Send). */
   activeSubQuestion: string;
+  /** This branch's route (set by Send). */
+  activeRoute: SubQuestionRoute;
   draft: string;
   verdict: Verdict;
   retries: number;
@@ -64,7 +73,7 @@ export type GraphStateShape = {
 
 const GraphState = Annotation.Root({
   query: Annotation<string>(),
-  subQuestions: Annotation<string[]>({ default: () => [] }),
+  planned: Annotation<PlannedSubQuestion[]>({ default: () => [] }),
   // Many research branches append here (concat, not replace).
   findings: Annotation<Finding[]>({
     default: () => [],
@@ -73,6 +82,7 @@ const GraphState = Annotation.Root({
   }),
   // This branch's sub-question (set by Send for each researchOne).
   activeSubQuestion: Annotation<string>({ default: () => "" }),
+  activeRoute: Annotation<SubQuestionRoute>({ default: () => "search" }),
   draft: Annotation<string>({ default: () => "" }),
   verdict: Annotation<Verdict>({ default: () => "pass" }),
   // How many times we already rewrote the draft.
@@ -126,15 +136,16 @@ function maybePlant(
 
 async function planNode(
   state: GraphStateShape,
-): Promise<{ subQuestions: string[] }> {
-  const subQuestions = await plan(state.query);
-  return { subQuestions };
+): Promise<{ planned: PlannedSubQuestion[] }> {
+  const planned = await plan(state.query);
+  return { planned };
 }
 
 async function researchOneNode(
   state: GraphStateShape,
 ): Promise<{ findings: Finding[] }> {
-  const findings = await researchOne(state.activeSubQuestion);
+  const route = state.activeRoute === "llm" ? "llm" : "search";
+  const findings = await researchOne(state.activeSubQuestion, route);
   return { findings };
 }
 
@@ -218,16 +229,17 @@ export function unfaithfulFallbackReport(
 // Edges (fixed mode)
 // ---------------------------------------------------------------------------
 
-/** Copy state into a researchOne branch, with one active sub-question. */
+/** Copy state into a researchOne branch, with one active sub-question + route. */
 function researchBranch(
   state: GraphStateShape,
-  activeSubQuestion: string,
+  plannedItem: PlannedSubQuestion,
 ): GraphStateShape {
   return {
     query: state.query,
-    subQuestions: state.subQuestions,
+    planned: state.planned,
     findings: state.findings,
-    activeSubQuestion,
+    activeSubQuestion: plannedItem.question,
+    activeRoute: plannedItem.route === "llm" ? "llm" : "search",
     draft: state.draft,
     verdict: state.verdict,
     retries: retryCount(state),
@@ -239,15 +251,16 @@ function researchBranch(
   };
 }
 
-/** After plan: one researchOne Send per sub-question (or skip to draft). */
+/** After plan: one researchOne Send per planned sub-question (or skip to draft). */
 export function fanOutResearch(
   state: GraphStateShape,
 ): "normalize" | Send[] {
-  if (state.subQuestions.length === 0) return "normalize";
+  const planned = state.planned ?? [];
+  if (planned.length === 0) return "normalize";
 
   const sends: Send[] = [];
-  for (const q of state.subQuestions) {
-    sends.push(new Send("researchOne", researchBranch(state, q)));
+  for (const item of planned) {
+    sends.push(new Send("researchOne", researchBranch(state, item)));
   }
   return sends;
 }
@@ -317,7 +330,10 @@ export type WrittenReport = {
 /** What runResearch returns (both modes). */
 export type ResearchResult = {
   query: string;
+  /** Question texts only (easy to display). */
   subQuestions: string[];
+  /** Full planner rows with search | llm routes (fixed mode). */
+  plannedSubQuestions?: PlannedSubQuestion[];
   findings: Finding[];
   activeSubQuestion: string;
   draft: string;
@@ -361,9 +377,12 @@ async function runFixed(
     plantInjected: false,
   });
 
+  const planned = state.planned ?? [];
+
   return {
     query: state.query,
-    subQuestions: state.subQuestions,
+    subQuestions: plannedQuestionTexts(planned),
+    plannedSubQuestions: planned,
     findings: state.findings,
     activeSubQuestion: state.activeSubQuestion,
     draft: state.draft,

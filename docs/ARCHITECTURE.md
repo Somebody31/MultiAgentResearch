@@ -39,14 +39,14 @@ Env (production): `UPSTASH_REDIS_URL`, `UPSTASH_REDIS_TOKEN`. Without them, coun
 
 ```text
 START → plan → Send(researchOne)×N → normalize → verify → final → END
-                                    ↑                │
-                                    └── revise once ─┘
+              (route: search | llm)   ↑                │
+                                      └── revise once ─┘
 ```
 
 | Stage | File | Job |
 |-------|------|-----|
-| plan | `src/plan.ts` | Query → 2–4 sub-questions |
-| researchOne | `src/research.ts` | One sub-question → findings (Tavily) |
+| plan | `src/plan.ts` | Query → 2–4 sub-questions, each `search` or `llm` |
+| researchOne | `src/research.ts` | `search` → Tavily extract; `llm` → model knowledge (`llm://knowledge`) |
 | normalize | `src/normalize.ts` | Findings → draft |
 | verify | `src/verify.ts` | Pass or revise (LLM + fingerprint checks) |
 | final | `src/final.ts` | Draft → user report |

@@ -16,8 +16,8 @@ START → plan → Send(researchOne)×N → normalize → verify → final → E
 
 | Node | Does |
 |------|------|
-| plan | Big question → smaller questions |
-| researchOne | One sub-question (LangGraph `Send` fan-out) |
+| plan | Big question → smaller questions, each tagged `search` or `llm` |
+| researchOne | Web search **or** LLM answer (LangGraph `Send` fan-out) |
 | normalize | Facts → draft |
 | verify | Draft ok? `pass` / `revise` |
 | final | Draft → report |
