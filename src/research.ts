@@ -1,7 +1,4 @@
-// Research: search + extract short facts for one sub-question.
-//
-// The graph fans out with LangGraph Send() — one researchOne node per
-// sub-question. This file only knows how to handle a single question.
+// Research one sub-question: search the web, then extract short facts.
 
 import { askLlm } from "./llm.ts";
 import { parseJsonArray } from "./parseJson.ts";
@@ -13,7 +10,6 @@ export type Finding = {
   sourceUrl: string;
 };
 
-/** Stable system prefix for DeepSeek input cache. */
 export const RESEARCH_EXTRACT_SYSTEM = `Extract research findings from search results.
 
 Return ONLY a JSON array like:
@@ -24,13 +20,12 @@ Rules:
 - 1-3 findings
 - No commentary outside the JSON array`;
 
-// One sub-question → its findings (used by the graph's researchOne node).
+/** One sub-question → list of findings. */
 export async function researchOne(subQuestion: string): Promise<Finding[]> {
   const hits = await searchAll(subQuestion);
   return extractFindings(subQuestion, hits);
 }
 
-// Turn search hits into 1–3 short facts. Empty list if nothing useful.
 async function extractFindings(
   subQuestion: string,
   hits: SearchHit[],
@@ -44,12 +39,12 @@ async function extractFindings(
     )
     .join("\n\n");
 
-  // Dynamic tail only: sub-question then hits (hits are largest / most unique).
   const text = await askLlm({
     stage: "research",
     system: RESEARCH_EXTRACT_SYSTEM,
     user: `Sub-question:\n${subQuestion}\n\nSearch results:\n${sources}`,
   });
+
   const rows = parseJsonArray(text);
   if (!rows) return [];
 
@@ -59,7 +54,6 @@ async function extractFindings(
     const claim = (row as { claim?: unknown }).claim;
     const sourceUrl = (row as { sourceUrl?: unknown }).sourceUrl;
     if (typeof claim !== "string" || typeof sourceUrl !== "string") continue;
-
     findings.push({ subQuestion, claim, sourceUrl });
   }
   return findings;

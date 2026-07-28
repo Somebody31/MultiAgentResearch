@@ -1,23 +1,23 @@
-// Parse the reasoner's JSON into a ReasonerAction.
-// Models often wrap JSON in extra words — we slice the first object.
+// Turn the reasoner's text into a clean action object.
+// Models often add extra words around the JSON — we only need the object.
 
 import { parseJsonObject } from "../parseJson.ts";
 import { isAgentId } from "./agents.ts";
-import type { AgentCall, AgentId, ReasonerAction } from "./types.ts";
+import type { AgentCall, ReasonerAction } from "./types.ts";
 
 /**
- * Turn messy LLM text into a ReasonerAction, or null if unusable.
+ * Read a ReasonerAction from messy LLM text.
+ * Returns null if the text is not a usable action.
  *
- * Accepted shapes:
+ * Valid shapes:
  *   { "type": "finish", "rationale": "..." }
- *   { "type": "call_agents", "calls": [{ "agent": "web_research", "input": "..." }], "note": "..." }
+ *   { "type": "call_agents", "calls": [{ "agent": "web_research", "input": "..." }] }
  */
 export function parseReasonerAction(text: string): ReasonerAction | null {
   const obj = parseJsonObject(text);
   if (!obj) return null;
 
-  const type = obj.type;
-  if (type === "finish") {
+  if (obj.type === "finish") {
     const rationale =
       typeof obj.rationale === "string" && obj.rationale.trim() !== ""
         ? obj.rationale.trim()
@@ -25,34 +25,25 @@ export function parseReasonerAction(text: string): ReasonerAction | null {
     return { type: "finish", rationale };
   }
 
-  if (type === "call_agents") {
-    const rawCalls = obj.calls;
-    if (!Array.isArray(rawCalls)) return null;
+  if (obj.type !== "call_agents") return null;
+  if (!Array.isArray(obj.calls)) return null;
 
-    const calls: AgentCall[] = [];
-    for (const item of rawCalls) {
-      if (item === null || typeof item !== "object" || Array.isArray(item)) {
-        continue;
-      }
-      const row = item as Record<string, unknown>;
-      const agent = row.agent;
-      const input = row.input;
-      if (typeof agent !== "string" || !isAgentId(agent)) continue;
-      if (typeof input !== "string" || input.trim() === "") continue;
-      calls.push({ agent: agent as AgentId, input: input.trim() });
-    }
-
-    if (calls.length === 0) return null;
-
-    const note =
-      typeof obj.note === "string" && obj.note.trim() !== ""
-        ? obj.note.trim()
-        : undefined;
-
-    return note
-      ? { type: "call_agents", calls, note }
-      : { type: "call_agents", calls };
+  const calls: AgentCall[] = [];
+  for (const item of obj.calls) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const row = item as { agent?: unknown; input?: unknown };
+    if (typeof row.agent !== "string" || !isAgentId(row.agent)) continue;
+    if (typeof row.input !== "string" || row.input.trim() === "") continue;
+    calls.push({ agent: row.agent, input: row.input.trim() });
   }
 
-  return null;
+  if (calls.length === 0) return null;
+
+  const note =
+    typeof obj.note === "string" && obj.note.trim() !== ""
+      ? obj.note.trim()
+      : undefined;
+
+  if (note) return { type: "call_agents", calls, note };
+  return { type: "call_agents", calls };
 }

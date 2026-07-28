@@ -1,5 +1,5 @@
-// High-signal string fingerprints for plant leak scoring and verify re-checks.
-// Prefer invented brands, digit-bearing ids, and long quotes over generic topic words.
+// Find special tokens (brands, ids, long quotes) for plant leak checks
+// and for verify re-checks. Generic topic words are ignored.
 
 const STOP = new Set(
   [

@@ -1,11 +1,11 @@
-// HTTP server.
+// HTTP API (Hono).
 //
-// Async jobs:
-//   POST /research     → start job, return { id, status: "pending" } right away
-//   GET  /jobs/:id     → poll until status is "done" or "error"
+//   POST /research  → start a job, return id right away (202)
+//   GET  /jobs/:id  → poll until done or error
+//   GET  /health    → { ok: true }
 //
-// Body: { "query": "...", "orchestration": "fixed" | "dynamic" }  (orchestration optional)
-// Research logic lives in pipeline.ts.
+// Body for POST: { "query": "...", "orchestration": "fixed" | "dynamic" }
+// "orchestration" is optional (default "fixed").
 
 import { Hono } from "hono";
 import { getJob, jobToJson, startResearchJob } from "./jobs.ts";
@@ -13,10 +13,10 @@ import type { OrchestrationMode } from "./pipeline.ts";
 
 const app = new Hono();
 
-function parseOrchestration(value: unknown): OrchestrationMode | null {
+function readOrchestration(value: unknown): OrchestrationMode | "bad" {
   if (value === undefined || value === null || value === "") return "fixed";
   if (value === "fixed" || value === "dynamic") return value;
-  return null;
+  return "bad";
 }
 
 app.post("/research", async (c) => {
@@ -27,15 +27,15 @@ app.post("/research", async (c) => {
     return c.json({ error: 'Body must be { "query": "..." }' }, 400);
   }
 
-  const orchestration = parseOrchestration(body?.orchestration);
-  if (orchestration === null) {
+  const orchestration = readOrchestration(body?.orchestration);
+  if (orchestration === "bad") {
     return c.json(
       { error: 'orchestration must be "fixed" or "dynamic" when set' },
       400,
     );
   }
 
-  const job = startResearchJob(query.trim(), { orchestration });
+  const job = startResearchJob(query.trim(), orchestration);
   return c.json(jobToJson(job), 202);
 });
 

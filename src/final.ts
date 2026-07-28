@@ -2,7 +2,6 @@
 
 import { askLlm } from "./llm.ts";
 
-/** Stable system prefix for DeepSeek input cache. */
 export const FINAL_SYSTEM = `Write the final research report.
 
 Rules:

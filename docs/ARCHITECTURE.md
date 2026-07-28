@@ -49,7 +49,7 @@ normalize → verify → final   (same stages as fixed)
 | Reasoner | `src/reasoning/decide.ts` | LLM picks next JSON action |
 | Loop | `src/reasoning/orchestrator.ts` | Budgets, traces, agent fan-out |
 | Agents | `src/reasoning/agents.ts` | `web_research`, `reason`, `critique` |
-| Post-gather | `src/pipeline.ts` `synthesizeFromFindings` | Draft + gate + report |
+| Post-gather | `src/pipeline.ts` `writeReportFromFindings` | Draft + gate + report |
 
 API: `POST /research` with `{ "query": "...", "orchestration": "dynamic" }`. Default remains `"fixed"`.
 

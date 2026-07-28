@@ -1,17 +1,15 @@
-// Research graph powered by LangGraph.
+// The research pipeline — start here to see the whole run.
 //
-//   START → plan ─┬─ Send(researchOne) × N ─┬→ normalize → verify → final → END
-//                 │                         │                 │
-//                 │                         │  revise once    │
-//                 │                         │  (same findings)│
-//                 │                         │        ▼        │
-//                 │                    reviseBump ───┘        │
-//                 │                    → normalize again      │
-//                 │                    (sees priorReviseReason│
-//                 │                     — no re-research)     │
+// Two ways to gather findings:
 //
-// Fan-out uses LangGraph Send() (not Promise.all).
-// findings use a concat reducer.
+//   fixed (default):
+//     plan → research each sub-question (in parallel) → draft → check → report
+//
+//   dynamic:
+//     reasoner picks agents under a budget → draft → check → report
+//
+// After findings exist, both modes use the same write path:
+//   draft (normalize) → verify → maybe rewrite once → final report
 
 import { Annotation, END, Send, START, StateGraph } from "@langchain/langgraph";
 import { plan } from "./plan.ts";
@@ -29,74 +27,105 @@ import type {
   ReasoningStepTrace,
 } from "./reasoning/types.ts";
 
-const MAX_RETRIES = 1;
+/** How many times we may rewrite the draft after a failed verify. */
+const MAX_REWRITES = 1;
 
-/** Eval-only: how often unsupported plant text is appended after normalize. */
+/**
+ * Eval-only: how often we stick fake unsupported text onto the draft.
+ * - every_normalize: stick it on every draft (harder gate)
+ * - once: stick it on only the first draft (can the rewrite fix it?)
+ */
 export type PlantMode = "every_normalize" | "once";
+
+export type { OrchestrationMode };
+
+// ---------------------------------------------------------------------------
+// Shared graph state (fixed mode)
+// ---------------------------------------------------------------------------
 
 const GraphState = Annotation.Root({
   query: Annotation<string>(),
   subQuestions: Annotation<string[]>({ default: () => [] }),
+  // Many research branches append here (concat, not replace).
   findings: Annotation<Finding[]>({
     default: () => [],
-    reducer: (left: Finding[], right: Finding[]) => left.concat(right),
+    reducer: (oldList: Finding[], newList: Finding[]) =>
+      oldList.concat(newList),
   }),
-  // Which sub-question this researchOne branch is working on (Send payload).
+  // This branch's sub-question (set by Send for each researchOne).
   activeSubQuestion: Annotation<string>({ default: () => "" }),
   draft: Annotation<string>({ default: () => "" }),
   verdict: Annotation<Verdict>({ default: () => "pass" }),
-  /** How many draft rewrites after a failed verify (not research retries). */
+  // How many times we already rewrote the draft.
   retries: Annotation<number>({ default: () => 0 }),
   finalReport: Annotation<string>({ default: () => "" }),
-  // Set when verify returns revise; rewrite normalize + re-check use this.
+  // Why verify said "revise" (used on the rewrite).
   priorReviseReason: Annotation<string | null>({ default: () => null }),
-  // Eval-only plant seam (production leaves claim null).
+  // Eval-only plant (null in normal runs).
   plantUnsupportedClaim: Annotation<string | null>({ default: () => null }),
   plantMode: Annotation<PlantMode>({ default: () => "every_normalize" }),
-  /** True after plant was applied at least once (for plantMode "once"). */
   plantInjected: Annotation<boolean>({ default: () => false }),
 });
 
-/** Always a number — LangGraph / Send can leave channels undefined. */
+/** retries can be missing after Send — treat that as 0. */
 function retryCount(state: { retries?: number | null }): number {
   const n = state.retries;
-  return typeof n === "number" && Number.isFinite(n) ? n : 0;
+  if (typeof n === "number" && Number.isFinite(n)) return n;
+  return 0;
 }
 
-// --- Nodes ----------------------------------------------------------------
+/**
+ * Eval helper: optionally append fake text to the draft.
+ * Returns the new draft and whether we planted this time.
+ */
+function maybePlant(
+  draft: string,
+  plant: string | null | undefined,
+  mode: PlantMode,
+  alreadyPlanted: boolean,
+): { draft: string; plantInjected: boolean } {
+  if (typeof plant !== "string" || plant.trim() === "") {
+    return { draft, plantInjected: alreadyPlanted };
+  }
+
+  const shouldPlant =
+    mode === "every_normalize" || (mode === "once" && !alreadyPlanted);
+
+  if (!shouldPlant) {
+    return { draft, plantInjected: alreadyPlanted };
+  }
+
+  return {
+    draft: `${draft}\n\n${plant.trim()}`,
+    plantInjected: true,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Graph nodes (fixed mode)
+// ---------------------------------------------------------------------------
 
 async function planNode(state: typeof GraphState.State) {
   return { subQuestions: await plan(state.query) };
 }
 
 async function researchOneNode(state: typeof GraphState.State) {
-  const findings = await researchOne(state.activeSubQuestion);
-  return { findings };
+  return { findings: await researchOne(state.activeSubQuestion) };
 }
 
 async function normalizeNode(state: typeof GraphState.State) {
-  // On a rewrite, priorReviseReason is set so normalize targets what failed.
   let draft = await normalizeClaims(state.query, state.findings, {
     priorReviseReason: state.priorReviseReason,
   });
 
-  // Eval seam: optional unsupported text after normalize, before verify.
-  // every_normalize: re-inject every pass (gate toughness).
-  // once: inject only the first time (self-correct measurement).
-  const plant = state.plantUnsupportedClaim;
-  const mode = state.plantMode ?? "every_normalize";
-  let plantInjected = state.plantInjected === true;
+  const planted = maybePlant(
+    draft,
+    state.plantUnsupportedClaim,
+    state.plantMode ?? "every_normalize",
+    state.plantInjected === true,
+  );
 
-  if (typeof plant === "string" && plant.trim() !== "") {
-    const shouldPlant =
-      mode === "every_normalize" || (mode === "once" && !plantInjected);
-    if (shouldPlant) {
-      draft = `${draft}\n\n${plant.trim()}`;
-      plantInjected = true;
-    }
-  }
-
-  return { draft, plantInjected };
+  return { draft: planted.draft, plantInjected: planted.plantInjected };
 }
 
 async function verifyNode(state: typeof GraphState.State) {
@@ -104,36 +133,31 @@ async function verifyNode(state: typeof GraphState.State) {
     priorReviseReason: state.priorReviseReason,
   });
 
-  // Keep the latest revise reason so rewrite + second check cannot ignore it.
-  // Clear on pass so a clean draft does not carry stale blame.
   return {
     verdict: result.verdict,
-    priorReviseReason:
-      result.verdict === "revise" ? result.reason : null,
+    // Keep the reason only when we must rewrite; clear it on pass.
+    priorReviseReason: result.verdict === "revise" ? result.reason : null,
   };
 }
 
-/** Count one rewrite; keep findings — do not re-research. */
 async function reviseBumpNode(state: typeof GraphState.State) {
-  return {
-    retries: retryCount(state) + 1,
-  };
+  // Count one rewrite. Do not clear findings — we only rewrite the draft.
+  return { retries: retryCount(state) + 1 };
 }
 
 async function finalNode(state: typeof GraphState.State) {
-  // Faithfulness gate still says revise after any allowed rewrites:
-  // do not polish the unfaithful draft into a normal user report.
-  // List only findings so unsupported draft text (including eval plants) cannot leak.
   if (state.verdict === "revise") {
+    // Gate still failed — do not polish a bad draft into a normal report.
     return {
       finalReport: unfaithfulFallbackReport(state.query, state.findings),
     };
   }
-
-  return { finalReport: await synthesizeFinal(state.query, state.draft) };
+  return {
+    finalReport: await synthesizeFinal(state.query, state.draft),
+  };
 }
 
-/** User-facing fallback when the draft failed the faithfulness gate. */
+/** Safe report when the draft failed the faithfulness check. */
 export function unfaithfulFallbackReport(
   query: string,
   findings: Finding[],
@@ -158,9 +182,15 @@ export function unfaithfulFallbackReport(
   return lines.join("\n");
 }
 
-// --- Edges ----------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Edges (fixed mode)
+// ---------------------------------------------------------------------------
 
-function sendPayload(state: typeof GraphState.State, activeSubQuestion: string) {
+/** Copy state into a researchOne branch, with one active sub-question. */
+function researchBranch(
+  state: typeof GraphState.State,
+  activeSubQuestion: string,
+) {
   return {
     query: state.query,
     subQuestions: state.subQuestions,
@@ -177,28 +207,26 @@ function sendPayload(state: typeof GraphState.State, activeSubQuestion: string) 
   };
 }
 
-// Start one researchOne branch per sub-question (LangGraph Send).
+/** After plan: one researchOne Send per sub-question (or skip to draft). */
 export function fanOutResearch(state: typeof GraphState.State) {
   if (state.subQuestions.length === 0) return "normalize";
 
   return state.subQuestions.map(
-    (q) => new Send("researchOne", sendPayload(state, q)),
+    (q) => new Send("researchOne", researchBranch(state, q)),
   );
 }
 
+/** After verify: rewrite once if needed, else go to final. */
 export function afterVerify(state: {
   verdict: Verdict;
   retries?: number | null;
 }): "reviseBump" | "final" {
-  // Coerce retries: `undefined < 1` is false in JS and skipped the revise path.
   const retries = retryCount(state);
-  if (state.verdict === "revise" && retries < MAX_RETRIES) {
+  if (state.verdict === "revise" && retries < MAX_REWRITES) {
     return "reviseBump";
   }
   return "final";
 }
-
-// --- Build graph ----------------------------------------------------------
 
 const graph = new StateGraph(GraphState)
   .addNode("plan", planNode)
@@ -218,37 +246,26 @@ const graph = new StateGraph(GraphState)
     reviseBump: "reviseBump",
     final: "final",
   })
-  // Rewrite only: same findings, normalize with priorReviseReason, re-verify.
   .addEdge("reviseBump", "normalize")
   .addEdge("final", END)
   .compile();
 
-// Re-export mode type for callers (API, tests).
-export type { OrchestrationMode };
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
 
-/** Optional inputs. Production usually only sets query (+ optional orchestration). */
 export type RunResearchOptions = {
-  /**
-   * Eval only: unsupported draft text injected after normalize.
-   * See plantMode for re-injection policy.
-   */
+  /** Eval only: fake unsupported text stuck onto the draft. */
   plantUnsupportedClaim?: string | null;
-  /**
-   * every_normalize: re-inject after every normalize (gate toughness eval).
-   * once: inject only on first normalize (self-correct eval).
-   * Default every_normalize when a plant is set.
-   */
+  /** Eval only: when to stick the plant on (see PlantMode). */
   plantMode?: PlantMode;
-  /**
-   * fixed (default): plan once → researchOne × N via LangGraph.
-   * dynamic: LLM reasoner loop + subagents, then same normalize → verify → final.
-   */
+  /** "fixed" (default) or "dynamic". */
   orchestration?: OrchestrationMode;
-  /** Dynamic-only: budgets, injected decide/handlers for tests. */
+  /** Dynamic mode only: budgets and test hooks. */
   dynamic?: DynamicGatherOptions;
 };
 
-/** Shape returned by both fixed graph invoke and dynamic path. */
+/** What runResearch returns (both modes). */
 export type ResearchResult = {
   query: string;
   subQuestions: string[];
@@ -262,23 +279,28 @@ export type ResearchResult = {
   plantUnsupportedClaim: string | null;
   plantMode: PlantMode;
   plantInjected: boolean;
-  /** Present when orchestration was dynamic. */
-  orchestration?: OrchestrationMode;
+  orchestration: OrchestrationMode;
+  // Dynamic-only extras:
   scratchpad?: string;
   reasoningTraces?: ReasoningStepTrace[];
   stopReason?: DynamicGatherResult["stopReason"];
 };
 
+/** Main entry: run fixed or dynamic research. */
 export async function runResearch(
   query: string,
   options?: RunResearchOptions,
 ): Promise<ResearchResult> {
-  const mode = options?.orchestration ?? "fixed";
-
-  if (mode === "dynamic") {
-    return runResearchDynamic(query, options);
+  if ((options?.orchestration ?? "fixed") === "dynamic") {
+    return runDynamic(query, options);
   }
+  return runFixed(query, options);
+}
 
+async function runFixed(
+  query: string,
+  options?: RunResearchOptions,
+): Promise<ResearchResult> {
   const state = await graph.invoke({
     query,
     retries: 0,
@@ -306,23 +328,21 @@ export async function runResearch(
   };
 }
 
-/**
- * Dynamic path: reasoner loop gathers findings, then the same
- * normalize → verify → (optional rewrite) → final stages as fixed mode.
- */
-async function runResearchDynamic(
+async function runDynamic(
   query: string,
   options?: RunResearchOptions,
 ): Promise<ResearchResult> {
+  // 1) Gather findings with the reasoner + agents.
   const gather = await gatherWithDynamicAgents(query, options?.dynamic);
 
-  const synthesized = await synthesizeFromFindings(query, gather.findings, {
+  // 2) Same write path as fixed mode (draft → verify → report).
+  const written = await writeReportFromFindings(query, gather.findings, {
     plantUnsupportedClaim: options?.plantUnsupportedClaim,
     plantMode: options?.plantMode,
   });
 
   return {
-    ...synthesized,
+    ...written,
     query,
     subQuestions: [],
     activeSubQuestion: "",
@@ -334,10 +354,10 @@ async function runResearchDynamic(
 }
 
 /**
- * Shared post-gather pipeline: draft, faithfulness gate (one rewrite), report.
- * Used by dynamic mode; fixed mode still runs these as LangGraph nodes.
+ * Draft → verify → (one rewrite) → final report.
+ * Used by dynamic mode. Fixed mode does the same steps as graph nodes.
  */
-export async function synthesizeFromFindings(
+export async function writeReportFromFindings(
   query: string,
   findings: Finding[],
   options?: {
@@ -361,37 +381,26 @@ export async function synthesizeFromFindings(
   let priorReviseReason: string | null = null;
   let retries = 0;
 
-  async function normalizePass(): Promise<string> {
+  async function makeDraft(): Promise<string> {
     let draft = await normalizeClaims(query, findings, { priorReviseReason });
-    if (typeof plantClaim === "string" && plantClaim.trim() !== "") {
-      const shouldPlant =
-        plantMode === "every_normalize" ||
-        (plantMode === "once" && !plantInjected);
-      if (shouldPlant) {
-        draft = `${draft}\n\n${plantClaim.trim()}`;
-        plantInjected = true;
-      }
-    }
-    return draft;
+    const planted = maybePlant(draft, plantClaim, plantMode, plantInjected);
+    plantInjected = planted.plantInjected;
+    return planted.draft;
   }
 
-  let draft = await normalizePass();
-  let verifyResult = await verifyClaims(draft, findings, {
-    priorReviseReason,
-  });
-  let verdict = verifyResult.verdict;
-  priorReviseReason =
-    verdict === "revise" ? verifyResult.reason : null;
+  // First draft + check
+  let draft = await makeDraft();
+  let check = await verifyClaims(draft, findings, { priorReviseReason });
+  let verdict = check.verdict;
+  priorReviseReason = verdict === "revise" ? check.reason : null;
 
-  if (verdict === "revise" && retries < MAX_RETRIES) {
+  // One rewrite if needed (same findings, new draft)
+  if (verdict === "revise" && retries < MAX_REWRITES) {
     retries += 1;
-    draft = await normalizePass();
-    verifyResult = await verifyClaims(draft, findings, {
-      priorReviseReason,
-    });
-    verdict = verifyResult.verdict;
-    priorReviseReason =
-      verdict === "revise" ? verifyResult.reason : null;
+    draft = await makeDraft();
+    check = await verifyClaims(draft, findings, { priorReviseReason });
+    verdict = check.verdict;
+    priorReviseReason = verdict === "revise" ? check.reason : null;
   }
 
   const finalReport =

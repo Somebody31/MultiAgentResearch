@@ -1,18 +1,13 @@
-// In-memory async jobs.
+// In-memory jobs so HTTP can return right away.
 //
-// Why: research can take a long time. Instead of making the HTTP client wait
-// for the full run, we:
-//   1) create a job → return { jobId } immediately
-//   2) run research in the background
-//   3) client polls GET /jobs/:id until status is done or error
+// Flow:
+//   1) POST creates a job and returns { id, status: "pending" }
+//   2) research runs in the background
+//   3) client polls GET /jobs/:id until "done" or "error"
 //
-// Stored in a Map (lost on restart). Fine for local demos; use Redis later.
+// Jobs live in a Map (lost when the process restarts).
 
-import {
-  runResearch,
-  type OrchestrationMode,
-  type RunResearchOptions,
-} from "./pipeline.ts";
+import { runResearch, type OrchestrationMode } from "./pipeline.ts";
 
 export type JobStatus = "pending" | "running" | "done" | "error";
 
@@ -28,18 +23,13 @@ export type Job = {
 
 const jobs = new Map<string, Job>();
 
-function newId(): string {
-  return crypto.randomUUID();
-}
-
-// Create a job and start research without awaiting it here.
+/** Start research in the background; return the job immediately. */
 export function startResearchJob(
   query: string,
-  options?: Pick<RunResearchOptions, "orchestration">,
+  orchestration: OrchestrationMode = "fixed",
 ): Job {
-  const orchestration = options?.orchestration ?? "fixed";
   const job: Job = {
-    id: newId(),
+    id: crypto.randomUUID(),
     query,
     status: "pending",
     orchestration,
@@ -47,7 +37,7 @@ export function startResearchJob(
   };
   jobs.set(job.id, job);
 
-  // Fire-and-forget background work.
+  // Do not await — HTTP already returned the job id.
   void (async () => {
     job.status = "running";
     try {
@@ -66,7 +56,7 @@ export function getJob(id: string): Job | undefined {
   return jobs.get(id);
 }
 
-// Small public view (don't leak internal Map).
+/** JSON the API returns (no internal Map details). */
 export function jobToJson(job: Job) {
   return {
     id: job.id,

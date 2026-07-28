@@ -1,32 +1,31 @@
-// One reasoner step: ask the LLM what to do next (call agents or finish).
+// Ask the LLM: what should we do next — call agents, or finish?
 
 import { askLlm } from "../llm.ts";
 import type { Finding } from "../research.ts";
 import { parseReasonerAction } from "./parseAction.ts";
 import type { ReasonerAction, ReasoningBudget } from "./types.ts";
 
-/** Stable system prefix for DeepSeek input cache. */
-export const REASONER_SYSTEM = `You are the research reasoner. You choose the next action for a multi-agent research system.
+// Fixed instructions (same every call) so the model can cache this prefix.
+export const REASONER_SYSTEM = `You are the research reasoner. You choose the next action.
 
-You may only reply with ONE JSON object (no markdown fences, no extra prose outside the object):
+Reply with ONE JSON object only (no markdown):
 
-1) Call subagents (1 or more, in parallel):
-{"type":"call_agents","calls":[{"agent":"web_research","input":"focused sub-question"}],"note":"optional short plan note"}
+Call agents:
+{"type":"call_agents","calls":[{"agent":"web_research","input":"focused sub-question"}],"note":"optional note"}
 
-2) Finish gathering (enough evidence to write a draft):
+Or finish:
 {"type":"finish","rationale":"why we can stop"}
 
-Agents you may use:
-- web_research: search the web and extract findings for one focused question (best for facts, numbers, sources)
-- reason: infer only from findings + scratchpad already gathered (no new external facts)
-- critique: list gaps or unsupported claims from findings (no new facts)
+Agents:
+- web_research: search the web for one focused question
+- reason: infer only from findings + scratchpad (no new web facts)
+- critique: list gaps or unsupported claims (no new facts)
 
 Rules:
-- Prefer web_research early when evidence is thin
-- Prefer finish when findings cover the user query well enough for a draft
-- Keep each agent input short and specific
-- Do not invent URLs, brands, or stats in the JSON itself
-- Stay inside budgets listed in the user message`;
+- Prefer web_research when evidence is thin
+- Prefer finish when findings are enough for a draft
+- Keep each agent input short
+- Do not invent URLs, brands, or stats in the JSON`;
 
 export type DecideArgs = {
   query: string;
@@ -36,7 +35,7 @@ export type DecideArgs = {
   budget: ReasoningBudget;
 };
 
-/** Build the user message for the reasoner (testable without an LLM). */
+/** Build the user message (useful in tests without calling the LLM). */
 export function buildReasonerUserMessage(args: DecideArgs): string {
   const listed =
     args.findings.length === 0
@@ -48,7 +47,7 @@ export function buildReasonerUserMessage(args: DecideArgs): string {
   return `User query:
 ${args.query}
 
-Step: ${args.step + 1} of ${args.budget.maxSteps} (0-based step index ${args.step})
+Step: ${args.step + 1} of ${args.budget.maxSteps}
 Findings so far: ${args.findings.length} / max ${args.budget.maxFindings}
 Max agents this step: ${args.budget.maxParallelAgents}
 
@@ -61,10 +60,7 @@ ${listed}
 Return one JSON action object now.`;
 }
 
-/**
- * Ask the LLM for the next ReasonerAction.
- * On parse failure, finish so the loop cannot spin forever.
- */
+/** One reasoner step. If JSON is bad, finish so the loop cannot spin forever. */
 export async function decideReasonerAction(
   args: DecideArgs,
 ): Promise<ReasonerAction> {
@@ -80,6 +76,6 @@ export async function decideReasonerAction(
   return {
     type: "finish",
     rationale:
-      "Reasoner reply was not valid JSON action; finishing with evidence so far.",
+      "Reasoner reply was not valid JSON; finishing with evidence so far.",
   };
 }

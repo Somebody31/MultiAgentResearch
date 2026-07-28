@@ -1,51 +1,53 @@
-// Agent registry for dynamic orchestration.
-// The reasoner picks agents by id; handlers do the work.
+// The agents the dynamic reasoner can call.
+// Each agent takes a short task string and returns findings.
 
 import { askLlm } from "../llm.ts";
 import { parseJsonArray } from "../parseJson.ts";
 import { researchOne, type Finding } from "../research.ts";
 import type { AgentId } from "./types.ts";
 
+export type AgentContext = {
+  query: string;
+  findingsSoFar: Finding[];
+  scratchpad: string;
+};
+
 export type AgentHandler = (
   input: string,
-  context: {
-    query: string;
-    findingsSoFar: Finding[];
-    scratchpad: string;
-  },
+  context: AgentContext,
 ) => Promise<Finding[]>;
 
-/**
- * Map agent ids → implementations.
- * web_research reuses today's researchOne; reason/critique are LLM helpers.
- */
+/** agent id → function that does the work */
 export const agentHandlers: Record<AgentId, AgentHandler> = {
+  // Same research path as fixed mode (search + extract).
   async web_research(input) {
     return researchOne(input);
   },
 
+  // Think using only what we already have (no new web search).
   async reason(input, ctx) {
     const text = await askLlm({
       stage: "reason_agent",
       system: `You are a reasoning subagent. Use only the provided findings and scratchpad.
-Return a JSON array of 1-3 short inferential claim strings. No invented brands, URLs, or stats.`,
+Return a JSON array of 1-3 short claim strings. No invented brands, URLs, or stats.`,
       user: `User query:\n${ctx.query}\n\nTask:\n${input}\n\nFindings:\n${
-        formatFindings(ctx.findingsSoFar)
+        listClaims(ctx.findingsSoFar)
       }\n\nScratchpad:\n${ctx.scratchpad || "(empty)"}`,
     });
-    return claimsToFindings(text, "reason", "agent://reason");
+    return textToFindings(text, input, "reason");
   },
 
+  // Point out gaps — still no new external facts.
   async critique(input, ctx) {
     const text = await askLlm({
       stage: "critique_agent",
       system: `You critique research for unsupported claims and gaps.
 Return a JSON array of short issue strings. No new external facts.`,
-      user: `Task:\n${input}\n\nFindings:\n${formatFindings(
+      user: `Task:\n${input}\n\nFindings:\n${listClaims(
         ctx.findingsSoFar,
       )}\n\nScratchpad:\n${ctx.scratchpad || "(empty)"}`,
     });
-    return claimsToFindings(text, "critique", "agent://critique");
+    return textToFindings(text, input, "critique");
   },
 };
 
@@ -53,16 +55,16 @@ export function isAgentId(s: string): s is AgentId {
   return s === "web_research" || s === "reason" || s === "critique";
 }
 
-function formatFindings(findings: Finding[]): string {
+function listClaims(findings: Finding[]): string {
   if (findings.length === 0) return "(none)";
   return findings.map((f) => `- ${f.claim}`).join("\n");
 }
 
-/** Parse a JSON string array from the LLM, or fall back to one raw finding. */
-function claimsToFindings(
+/** Parse a JSON string array, or keep the whole reply as one finding. */
+function textToFindings(
   text: string,
+  subQuestion: string,
   tag: "reason" | "critique",
-  sourceUrl: string,
 ): Finding[] {
   const arr = parseJsonArray(text);
   if (arr && arr.length > 0) {
@@ -70,8 +72,9 @@ function claimsToFindings(
     for (const item of arr) {
       if (typeof item !== "string" || item.trim() === "") continue;
       out.push({
+        subQuestion,
         claim: `[${tag}] ${item.trim().slice(0, 2000)}`,
-        sourceUrl,
+        sourceUrl: `agent://${tag}`,
       });
     }
     if (out.length > 0) return out;
@@ -81,8 +84,9 @@ function claimsToFindings(
   if (!claim) return [];
   return [
     {
+      subQuestion,
       claim: `[${tag}] ${claim.slice(0, 2000)}`,
-      sourceUrl,
+      sourceUrl: `agent://${tag}`,
     },
   ];
 }

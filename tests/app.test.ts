@@ -183,15 +183,15 @@ describe("pipeline graph", () => {
         handlers: {
           web_research: async (input) => {
             seen.push(input);
-            return [{ claim: `w:${input}`, sourceUrl: "t://w" }];
+            return [{ subQuestion: input, claim: `w:${input}`, sourceUrl: "t://w" }];
           },
           reason: async (input) => {
             seen.push(input);
-            return [{ claim: `r:${input}`, sourceUrl: "t://r" }];
+            return [{ subQuestion: input, claim: `r:${input}`, sourceUrl: "t://r" }];
           },
           critique: async (input) => {
             seen.push(input);
-            return [{ claim: `c:${input}`, sourceUrl: "t://c" }];
+            return [{ subQuestion: input, claim: `c:${input}`, sourceUrl: "t://c" }];
           },
         },
       },
@@ -279,8 +279,8 @@ describe("pipeline graph", () => {
     const { spyOn } = await import("bun:test");
     const llm = await import("../src/llm.ts");
     const spy = spyOn(llm, "askLlm").mockImplementation(
-      async (input: { stage?: string; system?: string; user?: string } | string) => {
-        const stage = typeof input === "string" ? "" : (input.stage ?? "");
+      async (input: { stage?: string; system?: string; user?: string }) => {
+        const stage = input.stage ?? "";
         if (stage === "verify") {
           return JSON.stringify({ verdict: "pass", reason: "ok" });
         }
@@ -315,6 +315,7 @@ describe("pipeline graph", () => {
           handlers: {
             web_research: async () => [
               {
+                subQuestion: "X basics",
                 claim: "X is a test concept used in unit tests.",
                 sourceUrl: "https://example.com/x",
               },

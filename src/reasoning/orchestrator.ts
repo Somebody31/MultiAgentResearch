@@ -1,5 +1,10 @@
-// Dynamic gather: LLM reasoner loop calls registered subagents under budgets.
-// After this phase, pipeline runs the same normalize → verify → final path.
+// Dynamic gather: a small loop that asks a reasoner what to do next.
+//
+// Each step the reasoner either:
+//   - call_agents  → run web_research / reason / critique
+//   - finish       → stop gathering
+//
+// Then pipeline.ts writes the report (normalize → verify → final).
 
 import type { Finding } from "../research.ts";
 import {
@@ -18,10 +23,9 @@ import {
 } from "./types.ts";
 
 export type DynamicGatherOptions = {
+  /** Override step / parallel / findings caps. */
   budget?: Partial<ReasoningBudget>;
-  /**
-   * Injected decide fn for tests. Production calls the LLM reasoner.
-   */
+  /** Tests can pass a fake decide instead of the real LLM. */
   decide?: (args: {
     query: string;
     step: number;
@@ -29,37 +33,27 @@ export type DynamicGatherOptions = {
     scratchpad: string;
     budget: ReasoningBudget;
   }) => Promise<ReasonerAction>;
-  /** Override agent implementations (tests). */
+  /** Tests can pass fake agents. */
   handlers?: Partial<Record<AgentId, AgentHandler>>;
 };
 
-/**
- * Run the dynamic gather phase only (reasoner loop + agents).
- * Caller then runs normalize → verify → final (same as fixed mode).
- */
+/** Collect findings with the reasoner + agents (no draft yet). */
 export async function gatherWithDynamicAgents(
   query: string,
   options?: DynamicGatherOptions,
 ): Promise<DynamicGatherResult> {
   const budget = resolveBudget(options?.budget);
   const decide = options?.decide ?? decideReasonerAction;
-  const handlers: Record<AgentId, AgentHandler> = {
-    ...agentHandlers,
-    ...options?.handlers,
-  };
+  const handlers = { ...agentHandlers, ...options?.handlers };
 
   let findings: Finding[] = [];
   let scratchpad = "";
   const traces: ReasoningStepTrace[] = [];
 
   for (let step = 0; step < budget.maxSteps; step++) {
+    // Stop early if we already hit the findings cap.
     if (findings.length >= budget.maxFindings) {
-      return {
-        findings: findings.slice(0, budget.maxFindings),
-        scratchpad,
-        traces,
-        stopReason: "max_findings",
-      };
+      return stop(findings, scratchpad, traces, "max_findings", budget);
     }
 
     const action = await decide({
@@ -72,21 +66,21 @@ export async function gatherWithDynamicAgents(
 
     if (action.type === "finish") {
       if (action.rationale) {
-        scratchpad = appendScratch(scratchpad, `finish: ${action.rationale}`);
+        scratchpad = addNote(scratchpad, `finish: ${action.rationale}`);
       }
       traces.push({ step, action });
-      return { findings, scratchpad, traces, stopReason: "finish" };
+      return stop(findings, scratchpad, traces, "finish", budget);
     }
 
-    // call_agents
+    // action.type === "call_agents"
     const calls = action.calls.slice(0, budget.maxParallelAgents);
     if (calls.length === 0) {
       traces.push({ step, action });
-      return { findings, scratchpad, traces, stopReason: "empty_action" };
+      return stop(findings, scratchpad, traces, "empty_action", budget);
     }
 
     if (action.note) {
-      scratchpad = appendScratch(scratchpad, action.note);
+      scratchpad = addNote(scratchpad, action.note);
     }
 
     const agentResults = await runAgentCalls(calls, {
@@ -101,34 +95,13 @@ export async function gatherWithDynamicAgents(
       findings = findings.concat(r.findings);
     }
 
-    // Soft cap: keep first maxFindings
-    if (findings.length > budget.maxFindings) {
-      findings = findings.slice(0, budget.maxFindings);
-    }
-
     traces.push({ step, action, agentResults });
-
-    if (findings.length >= budget.maxFindings) {
-      return {
-        findings,
-        scratchpad,
-        traces,
-        stopReason: "max_findings",
-      };
-    }
   }
 
-  return {
-    findings,
-    scratchpad,
-    traces,
-    stopReason: "max_steps",
-  };
+  return stop(findings, scratchpad, traces, "max_steps", budget);
 }
 
-/**
- * Execute one call_agents action (parallel, budget-capped).
- */
+/** Run up to maxParallel agents (in parallel). */
 export async function runAgentCalls(
   calls: Array<{ agent: string; input: string }>,
   ctx: {
@@ -138,19 +111,16 @@ export async function runAgentCalls(
     maxParallel: number;
     handlers?: Partial<Record<AgentId, AgentHandler>>;
   },
-): Promise<
-  Array<{ agent: AgentId; input: string; findings: Finding[] }>
-> {
+): Promise<Array<{ agent: AgentId; input: string; findings: Finding[] }>> {
+  const handlers = { ...agentHandlers, ...ctx.handlers };
+
+  // Keep only known agents with non-empty input, then cap count.
   const limited = calls
     .filter((c) => isAgentId(c.agent) && c.input.trim() !== "")
     .slice(0, Math.max(1, ctx.maxParallel));
 
-  const handlers: Record<AgentId, AgentHandler> = {
-    ...agentHandlers,
-    ...ctx.handlers,
-  };
-
-  const settled = await Promise.all(
+  // Run them together (Promise.all).
+  return Promise.all(
     limited.map(async (c) => {
       const agent = c.agent as AgentId;
       const findings = await handlers[agent](c.input, {
@@ -161,23 +131,33 @@ export async function runAgentCalls(
       return { agent, input: c.input, findings };
     }),
   );
-
-  return settled;
 }
 
-/** Merge budget overrides with defaults. */
+/** Fill in missing budget fields with defaults. */
 export function resolveBudget(
   partial?: Partial<ReasoningBudget>,
 ): ReasoningBudget {
   return { ...DEFAULT_REASONING_BUDGET, ...partial };
 }
 
-export function emptyTraces(): ReasoningStepTrace[] {
-  return [];
+function stop(
+  findings: Finding[],
+  scratchpad: string,
+  traces: ReasoningStepTrace[],
+  stopReason: DynamicGatherResult["stopReason"],
+  budget: ReasoningBudget,
+): DynamicGatherResult {
+  return {
+    findings: findings.slice(0, budget.maxFindings),
+    scratchpad,
+    traces,
+    stopReason,
+  };
 }
 
-function appendScratch(prev: string, line: string): string {
+function addNote(prev: string, line: string): string {
   const t = line.trim();
   if (!t) return prev;
-  return prev ? `${prev}\n${t}` : t;
+  if (!prev) return t;
+  return `${prev}\n${t}`;
 }

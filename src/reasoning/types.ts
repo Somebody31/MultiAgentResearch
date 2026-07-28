@@ -1,34 +1,37 @@
-// Dynamic orchestration types.
-// Fixed mode still uses plan → N researchOne in pipeline.ts.
+// Types for dynamic mode (reasoner + agents).
+// Fixed mode does not need these — it uses plan → researchOne in pipeline.ts.
 
 import type { Finding } from "../research.ts";
 
-/** Production default is "fixed" (plan → N researchOne). */
+/** How research work is scheduled. Default is "fixed". */
 export type OrchestrationMode = "fixed" | "dynamic";
 
-/** Registered worker the reasoner may call. */
+/** Agents the reasoner is allowed to call. */
 export type AgentId = "web_research" | "reason" | "critique";
 
+/** One job for one agent. */
 export type AgentCall = {
   agent: AgentId;
-  /** Free-text task for that agent. */
+  /** Short task text for that agent. */
   input: string;
 };
 
 /**
- * Structured decision from the reasoning LLM each step.
- * Either spawn agent work or finish the gather phase.
+ * What the reasoner returns each step.
+ * - call_agents: run these agents next
+ * - finish: stop gathering findings
  */
 export type ReasonerAction =
   | { type: "call_agents"; calls: AgentCall[]; note?: string }
   | { type: "finish"; rationale: string };
 
+/** Limits so the loop cannot run forever. */
 export type ReasoningBudget = {
-  /** Max reasoner steps (each step = one LLM decide + optional agent fan-out). */
+  /** How many reasoner steps (decide + maybe agents). */
   maxSteps: number;
-  /** Max agents started in a single call_agents action. */
+  /** How many agents in one call_agents step. */
   maxParallelAgents: number;
-  /** Soft cap on total findings collected. */
+  /** Max findings we keep. */
   maxFindings: number;
 };
 
@@ -38,17 +41,21 @@ export const DEFAULT_REASONING_BUDGET: ReasoningBudget = {
   maxFindings: 24,
 };
 
-/** One step of the dynamic loop (for debug / traces). */
+/** One step for debugging (what the reasoner chose, what agents returned). */
 export type ReasoningStepTrace = {
   step: number;
   action: ReasonerAction;
-  agentResults?: Array<{ agent: AgentId; input: string; findings: Finding[] }>;
+  agentResults?: Array<{
+    agent: AgentId;
+    input: string;
+    findings: Finding[];
+  }>;
 };
 
+/** Result of the gather loop (before draft/report). */
 export type DynamicGatherResult = {
   findings: Finding[];
   scratchpad: string;
   traces: ReasoningStepTrace[];
-  /** Why the loop stopped. */
   stopReason: "finish" | "max_steps" | "max_findings" | "empty_action";
 };

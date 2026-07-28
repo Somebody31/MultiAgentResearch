@@ -1,17 +1,13 @@
-// Turn many short findings into one draft paragraph set.
+// Merge many findings into one draft.
 
 import { askLlm } from "./llm.ts";
 import type { Finding } from "./research.ts";
 
 export type NormalizeOptions = {
-  /**
-   * If set, this is a rewrite after verify returned "revise".
-   * The draft must fix these issues and stay within findings.
-   */
+  /** If set, this is a rewrite after verify said "revise". */
   priorReviseReason?: string | null;
 };
 
-/** Stable system prefix for DeepSeek input cache. */
 export const NORMALIZE_SYSTEM = `Merge research findings into one coherent draft.
 
 Rules:
@@ -38,8 +34,6 @@ export async function normalizeClaims(
 
   const prior = options?.priorReviseReason?.trim() ?? "";
 
-  // Fixed section order; volatile prior reason last so the prefix of user can
-  // still match when prior is empty across first-pass calls.
   let user = `Original query:\n${query}\n\nFindings (may include duplicates):\n${listed}`;
   if (prior.length > 0) {
     user += `\n\nPrior revise reason (REWRITE — must not appear in the new draft):\n${prior}`;

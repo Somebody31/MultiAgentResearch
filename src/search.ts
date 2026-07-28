@@ -1,10 +1,7 @@
-// Look things up. Research only calls searchAll() — not Tavily directly.
+// Web search. Research always calls searchAll() — not Tavily by name.
 //
-// Today there is one place we look:
-//   searchWeb — internet (Tavily API), or frozen JSON when evals set EVAL_WEB_FIXTURES
-//
-// To add another place later: write a function like searchWeb, then
-// call it inside searchAll and add its results to the list.
+// Today searchAll only uses the web.
+// To add another source later: write a function and call it inside searchAll.
 
 import { readFile } from "node:fs/promises";
 
@@ -15,16 +12,15 @@ export type SearchHit = {
   source: "web";
 };
 
-// Internet search via Tavily — unless evals freeze the web results.
-//
-// Evals set EVAL_WEB_FIXTURES to a JSON file path. That file lists canned
-// web hits so runs do not call Tavily (stable, free, offline-friendly).
-// Shape: { "fixtures": [ { "whenQueryMatches": "keyword|other", "hits": [...] } ] }
-// First matching group wins; if none match, return [].
+/**
+ * Search the internet (Tavily).
+ * When EVAL_WEB_FIXTURES is set, return frozen hits from that JSON file instead
+ * (used by evals so runs stay stable and free).
+ */
 export async function searchWeb(query: string): Promise<SearchHit[]> {
   const fixturePath = process.env.EVAL_WEB_FIXTURES;
   if (fixturePath) {
-    return searchWebFromFixtures(query, fixturePath);
+    return searchFromFixtures(query, fixturePath);
   }
 
   const res = await fetch("https://api.tavily.com/search", {
@@ -52,30 +48,38 @@ export async function searchWeb(query: string): Promise<SearchHit[]> {
   }));
 }
 
-type WebFixtureFile = {
+/** All search places, merged. Right now: web only. */
+export async function searchAll(query: string): Promise<SearchHit[]> {
+  return searchWeb(query);
+}
+
+// --- eval fixtures ---------------------------------------------------------
+
+type FixtureFile = {
   fixtures?: {
     whenQueryMatches: string;
     hits: { title?: string; url?: string; content?: string }[];
   }[];
 };
 
-async function searchWebFromFixtures(
+async function searchFromFixtures(
   query: string,
   fixturePath: string,
 ): Promise<SearchHit[]> {
   const raw = await readFile(fixturePath, "utf8");
-  const data = JSON.parse(raw) as WebFixtureFile;
+  const data = JSON.parse(raw) as FixtureFile;
   const q = query.toLowerCase();
 
   for (const group of data.fixtures ?? []) {
-    // Simple "word|other" match (case-insensitive). Not a full regex engine.
+    // "word|other" means match if the query contains any of those pieces.
     const parts = group.whenQueryMatches
       .toLowerCase()
       .split("|")
       .map((p) => p.trim())
       .filter(Boolean);
-    const hit = parts.some((p) => q.includes(p));
-    if (!hit) continue;
+
+    const matches = parts.some((p) => q.includes(p));
+    if (!matches) continue;
 
     return (group.hits ?? []).slice(0, 3).map((r) => ({
       title: r.title ?? "",
@@ -86,10 +90,4 @@ async function searchWebFromFixtures(
   }
 
   return [];
-}
-
-// Run every search place and put all hits in one list.
-// Right now that is only web search.
-export async function searchAll(query: string): Promise<SearchHit[]> {
-  return searchWeb(query);
 }
