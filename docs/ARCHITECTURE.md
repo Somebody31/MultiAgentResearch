@@ -62,7 +62,4 @@ Details: [FAITHFULNESS_EVALS.md](./FAITHFULNESS_EVALS.md).
 | [ROADMAP.md](./ROADMAP.md) | Planned work |
 | [CONTEXT.md](../CONTEXT.md) | Domain glossary (local) |
 | [DECISIONS.md](./DECISIONS.md) | Change log (local) |
-| [PRODUCT.md](../PRODUCT.md) | Product / DEMO framing (local) |
-| [DESIGN.md](../DESIGN.md) | UI visual system (local) |
-| [FRONTEND_DONTS.md](./FRONTEND_DONTS.md) | UI anti-patterns |
 | [AGENTS.md](../AGENTS.md) | Agent coding rules (local) |

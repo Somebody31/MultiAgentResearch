@@ -93,15 +93,3 @@ evals/fixtures/      # frozen web for evals
 ## Roadmap
 
 See **[docs/ROADMAP.md](docs/ROADMAP.md)**. Default stays **fixed** plan → N research nodes. Dynamic mode (`orchestration: "dynamic"`) is planned there; stubs live under `src/reasoning/` and still throw until wired.
-
-## Interview demo UI
-
-Mock research jobs in the browser — no API keys required. For the real pipeline API, use `bun run dev` above.
-
-```bash
-bun run demo
-# open http://localhost:4173/   (index redirects into the tool)
-# or open multi-agent-research-tool.html directly in a browser
-```
-
-Do not stop at a directory listing: that means you opened the folder root without `index.html` loading. Use `http://localhost:4173/` or the HTML file itself, not a random path that lists the repo.

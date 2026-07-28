@@ -14,7 +14,6 @@ Status legend: `done` · `partial` · `planned` · `later`
 | Web search (Tavily) | done | `src/search.ts` |
 | Faithfulness gate + plant evals | done | `docs/FAITHFULNESS_EVALS.md` |
 | Async jobs API | done | in-memory; restarts clear jobs |
-| Interview demo UI | done | mock jobs, no API keys |
 
 ---
 
@@ -89,11 +88,10 @@ reasoner loop → call agents (budgeted) or finish
 
 ---
 
-### 3. Product / UX (optional)
+### 3. Product polish (optional)
 
 | Item | Status | Notes |
 |------|--------|--------|
-| Demo UI wired to real API | later | Today: mock-only desk |
 | Clarify step before expensive runs | later | Common deep-research pattern |
 | Citation-focused final pass | later | Stronger source anchoring |
 
@@ -103,6 +101,7 @@ reasoner loop → call agents (budgeted) or finish
 
 - Full multi-source corpus search (web-only by decision)
 - Unattended auto-merge of research output into other systems
+- Browser demo / multitrack UI (removed; API-only)
 
 ---
 

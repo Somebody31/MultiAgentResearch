@@ -17,7 +17,6 @@ data/eval-results.json
 !docs/ARCHITECTURE.md
 !docs/ROADMAP.md
 !docs/FAITHFULNESS_EVALS.md
-!docs/FRONTEND_DONTS.md
 
 # Local Impeccable / design-tool state
 .impeccable/
