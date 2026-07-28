@@ -40,12 +40,17 @@ export async function searchWeb(query: string): Promise<SearchHit[]> {
     results?: { title?: string; url?: string; content?: string }[];
   };
 
-  return (data.results ?? []).map((r) => ({
-    title: r.title ?? "",
-    url: r.url ?? "",
-    content: r.content ?? "",
-    source: "web" as const,
-  }));
+  const results = data.results ?? [];
+  const hits: SearchHit[] = [];
+  for (const r of results) {
+    hits.push({
+      title: r.title ?? "",
+      url: r.url ?? "",
+      content: r.content ?? "",
+      source: "web",
+    });
+  }
+  return hits;
 }
 
 /** All search places, merged. Right now: web only. */
@@ -55,11 +60,19 @@ export async function searchAll(query: string): Promise<SearchHit[]> {
 
 // --- eval fixtures ---------------------------------------------------------
 
+type FixtureHit = {
+  title?: string;
+  url?: string;
+  content?: string;
+};
+
+type FixtureGroup = {
+  whenQueryMatches: string;
+  hits: FixtureHit[];
+};
+
 type FixtureFile = {
-  fixtures?: {
-    whenQueryMatches: string;
-    hits: { title?: string; url?: string; content?: string }[];
-  }[];
+  fixtures?: FixtureGroup[];
 };
 
 async function searchFromFixtures(
@@ -78,15 +91,26 @@ async function searchFromFixtures(
       .map((p) => p.trim())
       .filter(Boolean);
 
-    const matches = parts.some((p) => q.includes(p));
+    let matches = false;
+    for (const p of parts) {
+      if (q.includes(p)) {
+        matches = true;
+        break;
+      }
+    }
     if (!matches) continue;
 
-    return (group.hits ?? []).slice(0, 3).map((r) => ({
-      title: r.title ?? "",
-      url: r.url ?? "",
-      content: r.content ?? "",
-      source: "web" as const,
-    }));
+    const hits: SearchHit[] = [];
+    const limited = (group.hits ?? []).slice(0, 3);
+    for (const r of limited) {
+      hits.push({
+        title: r.title ?? "",
+        url: r.url ?? "",
+        content: r.content ?? "",
+        source: "web",
+      });
+    }
+    return hits;
   }
 
   return [];

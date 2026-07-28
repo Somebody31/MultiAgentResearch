@@ -22,9 +22,9 @@ import {
   type DynamicGatherOptions,
 } from "./reasoning/orchestrator.ts";
 import type {
-  DynamicGatherResult,
   OrchestrationMode,
   ReasoningStepTrace,
+  StopReason,
 } from "./reasoning/types.ts";
 
 /** How many times we may rewrite the draft after a failed verify. */
@@ -42,6 +42,25 @@ export type { OrchestrationMode };
 // ---------------------------------------------------------------------------
 // Shared graph state (fixed mode)
 // ---------------------------------------------------------------------------
+
+/**
+ * Shape of the LangGraph state.
+ * Written by hand so node functions do not use `typeof GraphState.State`.
+ */
+export type GraphStateShape = {
+  query: string;
+  subQuestions: string[];
+  findings: Finding[];
+  activeSubQuestion: string;
+  draft: string;
+  verdict: Verdict;
+  retries: number;
+  finalReport: string;
+  priorReviseReason: string | null;
+  plantUnsupportedClaim: string | null;
+  plantMode: PlantMode;
+  plantInjected: boolean;
+};
 
 const GraphState = Annotation.Root({
   query: Annotation<string>(),
@@ -105,15 +124,23 @@ function maybePlant(
 // Graph nodes (fixed mode)
 // ---------------------------------------------------------------------------
 
-async function planNode(state: typeof GraphState.State) {
-  return { subQuestions: await plan(state.query) };
+async function planNode(
+  state: GraphStateShape,
+): Promise<{ subQuestions: string[] }> {
+  const subQuestions = await plan(state.query);
+  return { subQuestions };
 }
 
-async function researchOneNode(state: typeof GraphState.State) {
-  return { findings: await researchOne(state.activeSubQuestion) };
+async function researchOneNode(
+  state: GraphStateShape,
+): Promise<{ findings: Finding[] }> {
+  const findings = await researchOne(state.activeSubQuestion);
+  return { findings };
 }
 
-async function normalizeNode(state: typeof GraphState.State) {
+async function normalizeNode(
+  state: GraphStateShape,
+): Promise<{ draft: string; plantInjected: boolean }> {
   let draft = await normalizeClaims(state.query, state.findings, {
     priorReviseReason: state.priorReviseReason,
   });
@@ -128,7 +155,9 @@ async function normalizeNode(state: typeof GraphState.State) {
   return { draft: planted.draft, plantInjected: planted.plantInjected };
 }
 
-async function verifyNode(state: typeof GraphState.State) {
+async function verifyNode(
+  state: GraphStateShape,
+): Promise<{ verdict: Verdict; priorReviseReason: string | null }> {
   const result = await verifyClaims(state.draft, state.findings, {
     priorReviseReason: state.priorReviseReason,
   });
@@ -140,21 +169,24 @@ async function verifyNode(state: typeof GraphState.State) {
   };
 }
 
-async function reviseBumpNode(state: typeof GraphState.State) {
+async function reviseBumpNode(
+  state: GraphStateShape,
+): Promise<{ retries: number }> {
   // Count one rewrite. Do not clear findings — we only rewrite the draft.
   return { retries: retryCount(state) + 1 };
 }
 
-async function finalNode(state: typeof GraphState.State) {
+async function finalNode(
+  state: GraphStateShape,
+): Promise<{ finalReport: string }> {
   if (state.verdict === "revise") {
     // Gate still failed — do not polish a bad draft into a normal report.
     return {
       finalReport: unfaithfulFallbackReport(state.query, state.findings),
     };
   }
-  return {
-    finalReport: await synthesizeFinal(state.query, state.draft),
-  };
+  const finalReport = await synthesizeFinal(state.query, state.draft);
+  return { finalReport };
 }
 
 /** Safe report when the draft failed the faithfulness check. */
@@ -188,9 +220,9 @@ export function unfaithfulFallbackReport(
 
 /** Copy state into a researchOne branch, with one active sub-question. */
 function researchBranch(
-  state: typeof GraphState.State,
+  state: GraphStateShape,
   activeSubQuestion: string,
-) {
+): GraphStateShape {
   return {
     query: state.query,
     subQuestions: state.subQuestions,
@@ -208,12 +240,16 @@ function researchBranch(
 }
 
 /** After plan: one researchOne Send per sub-question (or skip to draft). */
-export function fanOutResearch(state: typeof GraphState.State) {
+export function fanOutResearch(
+  state: GraphStateShape,
+): "normalize" | Send[] {
   if (state.subQuestions.length === 0) return "normalize";
 
-  return state.subQuestions.map(
-    (q) => new Send("researchOne", researchBranch(state, q)),
-  );
+  const sends: Send[] = [];
+  for (const q of state.subQuestions) {
+    sends.push(new Send("researchOne", researchBranch(state, q)));
+  }
+  return sends;
 }
 
 /** After verify: rewrite once if needed, else go to final. */
@@ -265,6 +301,19 @@ export type RunResearchOptions = {
   dynamic?: DynamicGatherOptions;
 };
 
+/** What writeReportFromFindings returns (draft + gate + report fields). */
+export type WrittenReport = {
+  findings: Finding[];
+  draft: string;
+  verdict: Verdict;
+  retries: number;
+  finalReport: string;
+  priorReviseReason: string | null;
+  plantUnsupportedClaim: string | null;
+  plantMode: PlantMode;
+  plantInjected: boolean;
+};
+
 /** What runResearch returns (both modes). */
 export type ResearchResult = {
   query: string;
@@ -283,7 +332,7 @@ export type ResearchResult = {
   // Dynamic-only extras:
   scratchpad?: string;
   reasoningTraces?: ReasoningStepTrace[];
-  stopReason?: DynamicGatherResult["stopReason"];
+  stopReason?: StopReason;
 };
 
 /** Main entry: run fixed or dynamic research. */
@@ -291,7 +340,8 @@ export async function runResearch(
   query: string,
   options?: RunResearchOptions,
 ): Promise<ResearchResult> {
-  if ((options?.orchestration ?? "fixed") === "dynamic") {
+  const mode = options?.orchestration ?? "fixed";
+  if (mode === "dynamic") {
     return runDynamic(query, options);
   }
   return runFixed(query, options);
@@ -342,10 +392,18 @@ async function runDynamic(
   });
 
   return {
-    ...written,
     query,
     subQuestions: [],
+    findings: written.findings,
     activeSubQuestion: "",
+    draft: written.draft,
+    verdict: written.verdict,
+    retries: written.retries,
+    finalReport: written.finalReport,
+    priorReviseReason: written.priorReviseReason,
+    plantUnsupportedClaim: written.plantUnsupportedClaim,
+    plantMode: written.plantMode,
+    plantInjected: written.plantInjected,
     orchestration: "dynamic",
     scratchpad: gather.scratchpad,
     reasoningTraces: gather.traces,
@@ -364,17 +422,7 @@ export async function writeReportFromFindings(
     plantUnsupportedClaim?: string | null;
     plantMode?: PlantMode;
   },
-): Promise<{
-  findings: Finding[];
-  draft: string;
-  verdict: Verdict;
-  retries: number;
-  finalReport: string;
-  priorReviseReason: string | null;
-  plantUnsupportedClaim: string | null;
-  plantMode: PlantMode;
-  plantInjected: boolean;
-}> {
+): Promise<WrittenReport> {
   const plantClaim = options?.plantUnsupportedClaim ?? null;
   const plantMode = options?.plantMode ?? "every_normalize";
   let plantInjected = false;
@@ -403,10 +451,12 @@ export async function writeReportFromFindings(
     priorReviseReason = verdict === "revise" ? check.reason : null;
   }
 
-  const finalReport =
-    verdict === "revise"
-      ? unfaithfulFallbackReport(query, findings)
-      : await synthesizeFinal(query, draft);
+  let finalReport: string;
+  if (verdict === "revise") {
+    finalReport = unfaithfulFallbackReport(query, findings);
+  } else {
+    finalReport = await synthesizeFinal(query, draft);
+  }
 
   return {
     findings,

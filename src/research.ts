@@ -32,12 +32,14 @@ async function extractFindings(
 ): Promise<Finding[]> {
   if (hits.length === 0) return [];
 
-  const sources = hits
-    .map(
-      (r, i) =>
-        `[${i + 1}] (${r.source}) ${r.title}\nURL: ${r.url}\n${r.content}`,
-    )
-    .join("\n\n");
+  const sourceParts: string[] = [];
+  for (let i = 0; i < hits.length; i++) {
+    const r = hits[i]!;
+    sourceParts.push(
+      `[${i + 1}] (${r.source}) ${r.title}\nURL: ${r.url}\n${r.content}`,
+    );
+  }
+  const sources = sourceParts.join("\n\n");
 
   const text = await askLlm({
     stage: "research",
@@ -51,9 +53,13 @@ async function extractFindings(
   const findings: Finding[] = [];
   for (const row of rows) {
     if (typeof row !== "object" || row === null) continue;
+
+    // Model returns { claim, sourceUrl } — read them carefully.
     const claim = (row as { claim?: unknown }).claim;
     const sourceUrl = (row as { sourceUrl?: unknown }).sourceUrl;
-    if (typeof claim !== "string" || typeof sourceUrl !== "string") continue;
+    if (typeof claim !== "string") continue;
+    if (typeof sourceUrl !== "string") continue;
+
     findings.push({ subQuestion, claim, sourceUrl });
   }
   return findings;

@@ -13,6 +13,11 @@ export type AskLlmOptions = {
   stage?: string;
 };
 
+export type LlmMessage = {
+  role: "system" | "user";
+  content: string;
+};
+
 /** Totals for the process (used by evals). */
 export const llmCacheStats = {
   hitTokens: 0,
@@ -20,7 +25,7 @@ export const llmCacheStats = {
   calls: 0,
 };
 
-export function resetLlmCacheStats() {
+export function resetLlmCacheStats(): void {
   llmCacheStats.hitTokens = 0;
   llmCacheStats.missTokens = 0;
   llmCacheStats.calls = 0;
@@ -33,8 +38,8 @@ export async function askLlm(input: AskLlmOptions): Promise<string> {
     throw new Error("DEEPSEEK_API_KEY is missing (set it in .env)");
   }
 
+  const messages: LlmMessage[] = [];
   const system = input.system.trim();
-  const messages: { role: "system" | "user"; content: string }[] = [];
   if (system.length > 0) {
     messages.push({ role: "system", content: system });
   }

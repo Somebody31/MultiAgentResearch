@@ -17,15 +17,32 @@ export type AgentHandler = (
   context: AgentContext,
 ) => Promise<Finding[]>;
 
+/** All three agent functions, keyed by agent id. */
+export type AgentHandlers = {
+  web_research: AgentHandler;
+  reason: AgentHandler;
+  critique: AgentHandler;
+};
+
+/**
+ * Optional overrides for tests (only set the agents you want to fake).
+ * Missing keys keep the real handlers from agentHandlers.
+ */
+export type AgentHandlerOverrides = {
+  web_research?: AgentHandler;
+  reason?: AgentHandler;
+  critique?: AgentHandler;
+};
+
 /** agent id → function that does the work */
-export const agentHandlers: Record<AgentId, AgentHandler> = {
+export const agentHandlers: AgentHandlers = {
   // Same research path as fixed mode (search + extract).
-  async web_research(input) {
+  async web_research(input: string, _ctx: AgentContext): Promise<Finding[]> {
     return researchOne(input);
   },
 
   // Think using only what we already have (no new web search).
-  async reason(input, ctx) {
+  async reason(input: string, ctx: AgentContext): Promise<Finding[]> {
     const text = await askLlm({
       stage: "reason_agent",
       system: `You are a reasoning subagent. Use only the provided findings and scratchpad.
@@ -38,7 +55,7 @@ Return a JSON array of 1-3 short claim strings. No invented brands, URLs, or sta
   },
 
   // Point out gaps — still no new external facts.
-  async critique(input, ctx) {
+  async critique(input: string, ctx: AgentContext): Promise<Finding[]> {
     const text = await askLlm({
       stage: "critique_agent",
       system: `You critique research for unsupported claims and gaps.
@@ -51,8 +68,31 @@ Return a JSON array of short issue strings. No new external facts.`,
   },
 };
 
-export function isAgentId(s: string): s is AgentId {
+/** True when s is one of the three known agent ids. */
+export function isAgentId(s: string): boolean {
   return s === "web_research" || s === "reason" || s === "critique";
+}
+
+/**
+ * Turn a string into AgentId, or null if unknown.
+ * Prefer this over casting after isAgentId.
+ */
+export function toAgentId(s: string): AgentId | null {
+  if (s === "web_research" || s === "reason" || s === "critique") {
+    return s;
+  }
+  return null;
+}
+
+/** Merge real handlers with optional test overrides. */
+export function mergeHandlers(
+  overrides?: AgentHandlerOverrides,
+): AgentHandlers {
+  return {
+    web_research: overrides?.web_research ?? agentHandlers.web_research,
+    reason: overrides?.reason ?? agentHandlers.reason,
+    critique: overrides?.critique ?? agentHandlers.critique,
+  };
 }
 
 function listClaims(findings: Finding[]): string {

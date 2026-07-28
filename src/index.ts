@@ -13,6 +13,10 @@ import type { OrchestrationMode } from "./pipeline.ts";
 
 const app = new Hono();
 
+/**
+ * Read orchestration from the request body.
+ * Returns "fixed", "dynamic", or "bad" if the value is not allowed.
+ */
 function readOrchestration(value: unknown): OrchestrationMode | "bad" {
   if (value === undefined || value === null || value === "") return "fixed";
   if (value === "fixed" || value === "dynamic") return value;

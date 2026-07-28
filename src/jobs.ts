@@ -7,7 +7,11 @@
 //
 // Jobs live in a Map (lost when the process restarts).
 
-import { runResearch, type OrchestrationMode } from "./pipeline.ts";
+import {
+  runResearch,
+  type OrchestrationMode,
+  type ResearchResult,
+} from "./pipeline.ts";
 
 export type JobStatus = "pending" | "running" | "done" | "error";
 
@@ -16,7 +20,7 @@ export type Job = {
   query: string;
   status: JobStatus;
   orchestration: OrchestrationMode;
-  result?: Awaited<ReturnType<typeof runResearch>>;
+  result?: ResearchResult;
   error?: string;
   createdAt: number;
 };
@@ -57,7 +61,15 @@ export function getJob(id: string): Job | undefined {
 }
 
 /** JSON the API returns (no internal Map details). */
-export function jobToJson(job: Job) {
+export function jobToJson(job: Job): {
+  id: string;
+  query: string;
+  status: JobStatus;
+  orchestration: OrchestrationMode;
+  result?: ResearchResult;
+  error?: string;
+  createdAt: number;
+} {
   return {
     id: job.id,
     query: job.query,

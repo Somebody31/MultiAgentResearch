@@ -2,7 +2,7 @@
 // Models often add extra words around the JSON — we only need the object.
 
 import { parseJsonObject } from "../parseJson.ts";
-import { isAgentId } from "./agents.ts";
+import { toAgentId } from "./agents.ts";
 import type { AgentCall, ReasonerAction } from "./types.ts";
 
 /**
@@ -18,10 +18,10 @@ export function parseReasonerAction(text: string): ReasonerAction | null {
   if (!obj) return null;
 
   if (obj.type === "finish") {
-    const rationale =
-      typeof obj.rationale === "string" && obj.rationale.trim() !== ""
-        ? obj.rationale.trim()
-        : "Finished.";
+    let rationale = "Finished.";
+    if (typeof obj.rationale === "string" && obj.rationale.trim() !== "") {
+      rationale = obj.rationale.trim();
+    }
     return { type: "finish", rationale };
   }
 
@@ -30,20 +30,27 @@ export function parseReasonerAction(text: string): ReasonerAction | null {
 
   const calls: AgentCall[] = [];
   for (const item of obj.calls) {
-    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    // Each call must be a plain object with agent + input strings.
+    if (!item || typeof item !== "object") continue;
+    if (Array.isArray(item)) continue;
+
     const row = item as { agent?: unknown; input?: unknown };
-    if (typeof row.agent !== "string" || !isAgentId(row.agent)) continue;
-    if (typeof row.input !== "string" || row.input.trim() === "") continue;
-    calls.push({ agent: row.agent, input: row.input.trim() });
+    if (typeof row.agent !== "string") continue;
+    if (typeof row.input !== "string") continue;
+
+    const agent = toAgentId(row.agent);
+    if (!agent) continue;
+
+    const input = row.input.trim();
+    if (input === "") continue;
+
+    calls.push({ agent, input });
   }
 
   if (calls.length === 0) return null;
 
-  const note =
-    typeof obj.note === "string" && obj.note.trim() !== ""
-      ? obj.note.trim()
-      : undefined;
-
-  if (note) return { type: "call_agents", calls, note };
+  if (typeof obj.note === "string" && obj.note.trim() !== "") {
+    return { type: "call_agents", calls, note: obj.note.trim() };
+  }
   return { type: "call_agents", calls };
 }

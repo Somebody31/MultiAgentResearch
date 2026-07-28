@@ -59,14 +59,20 @@ export async function verifyClaims(
   findings: Finding[],
   options?: VerifyOptions,
 ): Promise<VerifyResult> {
-  const listed = findings
-    .map((f, i) => `[${i + 1}] ${f.claim} (${f.sourceUrl})`)
-    .join("\n");
+  const findingLines: string[] = [];
+  for (let i = 0; i < findings.length; i++) {
+    const f = findings[i]!;
+    findingLines.push(`[${i + 1}] ${f.claim} (${f.sourceUrl})`);
+  }
+  const listed = findingLines.join("\n");
 
   const prior = options?.priorReviseReason?.trim() ?? "";
-  const findingsText = findings
-    .map((f) => `${f.claim}\n${f.sourceUrl}`)
-    .join("\n");
+
+  const findingsTextParts: string[] = [];
+  for (const f of findings) {
+    findingsTextParts.push(`${f.claim}\n${f.sourceUrl}`);
+  }
+  const findingsText = findingsTextParts.join("\n");
 
   let user = `Findings (only allowed evidence):\n${listed}\n\nDraft:\n${draft}`;
   if (prior.length > 0) {
@@ -92,12 +98,14 @@ export async function verifyClaims(
   }
 
   let verdict: Verdict = rawVerdict;
-  let reason =
-    typeof rawReason === "string" && rawReason.trim() !== ""
-      ? rawReason.trim()
-      : rawVerdict === "pass"
-        ? "ok"
-        : "unspecified faithfulness problem";
+  let reason: string;
+  if (typeof rawReason === "string" && rawReason.trim() !== "") {
+    reason = rawReason.trim();
+  } else if (rawVerdict === "pass") {
+    reason = "ok";
+  } else {
+    reason = "unspecified faithfulness problem";
+  }
 
   // Safety net: invent-y tokens in the draft that are not in findings.
   if (verdict === "pass") {

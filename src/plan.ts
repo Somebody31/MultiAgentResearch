@@ -15,9 +15,19 @@ export async function plan(query: string): Promise<string[]> {
   });
 
   const parsed = parseJsonArray(text);
-  if (!parsed || !parsed.every((item) => typeof item === "string")) {
+  if (!parsed) {
     throw new Error(`Planner did not return a JSON array of strings: ${text}`);
   }
 
-  return parsed as string[];
+  // Keep only real strings (skip numbers/objects if the model misbehaves).
+  const out: string[] = [];
+  for (const item of parsed) {
+    if (typeof item === "string") {
+      out.push(item);
+    }
+  }
+  if (out.length === 0) {
+    throw new Error(`Planner did not return a JSON array of strings: ${text}`);
+  }
+  return out;
 }

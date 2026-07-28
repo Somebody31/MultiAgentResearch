@@ -35,11 +35,28 @@ export type ReasoningBudget = {
   maxFindings: number;
 };
 
+/**
+ * Optional budget fields for tests / overrides.
+ * Missing fields fall back to DEFAULT_REASONING_BUDGET.
+ */
+export type BudgetOverrides = {
+  maxSteps?: number;
+  maxParallelAgents?: number;
+  maxFindings?: number;
+};
+
 export const DEFAULT_REASONING_BUDGET: ReasoningBudget = {
   maxSteps: 8,
   maxParallelAgents: 3,
   maxFindings: 24,
 };
+
+/** Why the gather loop stopped. */
+export type StopReason =
+  | "finish"
+  | "max_steps"
+  | "max_findings"
+  | "empty_action";
 
 /** One step for debugging (what the reasoner chose, what agents returned). */
 export type ReasoningStepTrace = {
@@ -57,5 +74,5 @@ export type DynamicGatherResult = {
   findings: Finding[];
   scratchpad: string;
   traces: ReasoningStepTrace[];
-  stopReason: "finish" | "max_steps" | "max_findings" | "empty_action";
+  stopReason: StopReason;
 };

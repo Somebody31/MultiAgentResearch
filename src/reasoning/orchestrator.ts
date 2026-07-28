@@ -8,23 +8,26 @@
 
 import type { Finding } from "../research.ts";
 import {
-  agentHandlers,
-  isAgentId,
-  type AgentHandler,
+  mergeHandlers,
+  toAgentId,
+  type AgentHandlerOverrides,
+  type AgentHandlers,
 } from "./agents.ts";
 import { decideReasonerAction } from "./decide.ts";
 import {
   DEFAULT_REASONING_BUDGET,
   type AgentId,
+  type BudgetOverrides,
   type DynamicGatherResult,
   type ReasonerAction,
   type ReasoningBudget,
   type ReasoningStepTrace,
+  type StopReason,
 } from "./types.ts";
 
 export type DynamicGatherOptions = {
   /** Override step / parallel / findings caps. */
-  budget?: Partial<ReasoningBudget>;
+  budget?: BudgetOverrides;
   /** Tests can pass a fake decide instead of the real LLM. */
   decide?: (args: {
     query: string;
@@ -34,7 +37,26 @@ export type DynamicGatherOptions = {
     budget: ReasoningBudget;
   }) => Promise<ReasonerAction>;
   /** Tests can pass fake agents. */
-  handlers?: Partial<Record<AgentId, AgentHandler>>;
+  handlers?: AgentHandlerOverrides;
+};
+
+export type AgentCallInput = {
+  agent: string;
+  input: string;
+};
+
+export type AgentCallResult = {
+  agent: AgentId;
+  input: string;
+  findings: Finding[];
+};
+
+export type RunAgentCallsContext = {
+  query: string;
+  findingsSoFar: Finding[];
+  scratchpad: string;
+  maxParallel: number;
+  handlers?: AgentHandlerOverrides;
 };
 
 /** Collect findings with the reasoner + agents (no draft yet). */
@@ -44,7 +66,7 @@ export async function gatherWithDynamicAgents(
 ): Promise<DynamicGatherResult> {
   const budget = resolveBudget(options?.budget);
   const decide = options?.decide ?? decideReasonerAction;
-  const handlers = { ...agentHandlers, ...options?.handlers };
+  const handlers = mergeHandlers(options?.handlers);
 
   let findings: Finding[] = [];
   let scratchpad = "";
@@ -103,48 +125,63 @@ export async function gatherWithDynamicAgents(
 
 /** Run up to maxParallel agents (in parallel). */
 export async function runAgentCalls(
-  calls: Array<{ agent: string; input: string }>,
-  ctx: {
-    query: string;
-    findingsSoFar: Finding[];
-    scratchpad: string;
-    maxParallel: number;
-    handlers?: Partial<Record<AgentId, AgentHandler>>;
-  },
-): Promise<Array<{ agent: AgentId; input: string; findings: Finding[] }>> {
-  const handlers = { ...agentHandlers, ...ctx.handlers };
+  calls: AgentCallInput[],
+  ctx: RunAgentCallsContext,
+): Promise<AgentCallResult[]> {
+  // Fill in any missing agent functions with the real ones.
+  const handlers: AgentHandlers = mergeHandlers(ctx.handlers);
 
   // Keep only known agents with non-empty input, then cap count.
-  const limited = calls
-    .filter((c) => isAgentId(c.agent) && c.input.trim() !== "")
-    .slice(0, Math.max(1, ctx.maxParallel));
+  const limited: Array<{ agent: AgentId; input: string }> = [];
+  for (const c of calls) {
+    const agent = toAgentId(c.agent);
+    if (!agent) continue;
+    if (c.input.trim() === "") continue;
+    limited.push({ agent, input: c.input });
+    if (limited.length >= Math.max(1, ctx.maxParallel)) break;
+  }
 
   // Run them together (Promise.all).
-  return Promise.all(
-    limited.map(async (c) => {
-      const agent = c.agent as AgentId;
-      const findings = await handlers[agent](c.input, {
-        query: ctx.query,
-        findingsSoFar: ctx.findingsSoFar,
-        scratchpad: ctx.scratchpad,
-      });
-      return { agent, input: c.input, findings };
-    }),
-  );
+  const promises: Promise<AgentCallResult>[] = [];
+  for (const c of limited) {
+    promises.push(runOneAgent(c.agent, c.input, ctx, handlers));
+  }
+  return Promise.all(promises);
+}
+
+async function runOneAgent(
+  agent: AgentId,
+  input: string,
+  ctx: RunAgentCallsContext,
+  handlers: AgentHandlers,
+): Promise<AgentCallResult> {
+  const findings = await handlers[agent](input, {
+    query: ctx.query,
+    findingsSoFar: ctx.findingsSoFar,
+    scratchpad: ctx.scratchpad,
+  });
+  return { agent, input, findings };
 }
 
 /** Fill in missing budget fields with defaults. */
 export function resolveBudget(
-  partial?: Partial<ReasoningBudget>,
+  overrides?: BudgetOverrides,
 ): ReasoningBudget {
-  return { ...DEFAULT_REASONING_BUDGET, ...partial };
+  return {
+    maxSteps: overrides?.maxSteps ?? DEFAULT_REASONING_BUDGET.maxSteps,
+    maxParallelAgents:
+      overrides?.maxParallelAgents ??
+      DEFAULT_REASONING_BUDGET.maxParallelAgents,
+    maxFindings:
+      overrides?.maxFindings ?? DEFAULT_REASONING_BUDGET.maxFindings,
+  };
 }
 
 function stop(
   findings: Finding[],
   scratchpad: string,
   traces: ReasoningStepTrace[],
-  stopReason: DynamicGatherResult["stopReason"],
+  stopReason: StopReason,
   budget: ReasoningBudget,
 ): DynamicGatherResult {
   return {
