@@ -1,5 +1,6 @@
-// HTTP API (Hono).
+// HTTP API (Hono) + static research console.
 //
+//   GET  /          → public/index.html (console UI)
 //   POST /research  → start a job, return id right away (202)
 //   GET  /jobs/:id  → poll until done or error
 //   GET  /health    → { ok: true }
@@ -8,6 +9,7 @@
 // "orchestration" is optional (default "fixed").
 
 import { Hono } from "hono";
+import { serveStatic } from "hono/bun";
 import { getJob, jobToJson, startResearchJob } from "./jobs.ts";
 import { rateLimitMiddleware } from "./middleware/rateLimit.ts";
 import type { OrchestrationMode } from "./pipeline.ts";
@@ -23,6 +25,8 @@ function readOrchestration(value: unknown): OrchestrationMode | "bad" {
   if (value === "fixed" || value === "dynamic") return value;
   return "bad";
 }
+
+// --- API (register before static so these win) ----------------------------
 
 // Rate limit only the expensive route.
 app.post("/research", rateLimitMiddleware, async (c) => {
@@ -54,6 +58,10 @@ app.get("/jobs/:id", (c) => {
 });
 
 app.get("/health", (c) => c.json({ ok: true }));
+
+// --- Static UI (public/) --------------------------------------------------
+
+app.use("/*", serveStatic({ root: "./public" }));
 
 export { app };
 

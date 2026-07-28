@@ -16,6 +16,7 @@ Status legend: `done` · `partial` · `planned` · `later`
 | Faithfulness gate + plant evals | done | `docs/FAITHFULNESS_EVALS.md` |
 | Async jobs API | done | in-memory; restarts clear jobs |
 | Rate limit on POST /research (Upstash + simple middleware) | done | `src/rateLimiter.ts`, `src/middleware/rateLimit.ts` |
+| Live research console (vanilla UI, same-origin API) | done | `public/` + Hono `serveStatic` |
 
 ---
 
@@ -92,7 +93,7 @@ reasoner loop → call agents (budgeted) or finish
 
 - Full multi-source corpus search (web-only by decision)
 - Unattended auto-merge of research output into other systems
-- Browser demo / multitrack UI (removed; API-only)
+- Full Multitrack multi-session desk (v1 is a simpler live console only)
 
 ---
 

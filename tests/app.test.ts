@@ -16,6 +16,21 @@ describe("app", () => {
     expect(await res.json()).toEqual({ ok: true });
   });
 
+  test("GET / serves the research console", async () => {
+    const res = await app.request("/");
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("Research console");
+    expect(html).toContain("/app.js");
+  });
+
+  test("GET /styles.css is served", async () => {
+    const res = await app.request("/styles.css");
+    expect(res.status).toBe(200);
+    const css = await res.text();
+    expect(css).toContain("--bg");
+  });
+
   test("POST /research rejects missing query", async () => {
     const res = await app.request("/research", {
       method: "POST",

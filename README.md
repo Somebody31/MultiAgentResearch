@@ -3,6 +3,7 @@
 Research API: break a question into parts, search, draft, check, then report.
 
 **Stack:** Bun, Hono, LangGraph, DeepSeek V4 Flash, Tavily, Upstash Redis (rate limits)  
+**UI:** vanilla console at `/` (same server as the API)  
 **Start here:** `src/pipeline.ts` · **Architecture:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · **Roadmap:** [docs/ROADMAP.md](docs/ROADMAP.md)
 
 ## Flow
@@ -52,8 +53,11 @@ bun install
 # UPSTASH_REDIS_URL=...      # optional (rate limits)
 # UPSTASH_REDIS_TOKEN=...    # optional (rate limits)
 
-bun run dev   # http://localhost:8787
+bun run dev   # http://localhost:8787  (console UI + API)
 bun run test
+
+# Open the live console
+# http://localhost:8787/
 
 # Faithfulness plant evals (gate + self_correct; needs DEEPSEEK_API_KEY)
 # See docs/FAITHFULNESS_EVALS.md
@@ -79,35 +83,44 @@ curl -s -X POST http://localhost:8787/research \
 curl -s http://localhost:8787/jobs/<id>
 ```
 
-`GET /health` → `{ "ok": true }`
+`GET /health` → `{ "ok": true }`  
+`GET /` → research console (HTML/CSS/JS in `public/`)
 
 **Modes:** `fixed` (default) plans once then fans out research. `dynamic` runs a budgeted reasoner loop that calls `web_research` / `reason` / `critique`, then the same normalize → verify → final stages. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Research console
+
+Open **http://localhost:8787/** after `bun run dev`.
+
+| Control | Behavior |
+|---------|----------|
+| Query | Research question |
+| Orchestration | `fixed` (default) or `dynamic` |
+| Start | `POST /research`, then poll `GET /jobs/:id` |
+| Pipeline strip | Honest coarse state only (idle / running / done / error) — no fake per-stage progress |
+| Report | `result.finalReport` when the job is done |
 
 ## Files
 
 ```
-src/pipeline.ts      # LangGraph graph (Send fan-out, plant seam, rewrite revise)
+public/                    # live console (HTML/CSS/JS)
+src/pipeline.ts            # LangGraph graph
 src/jobs.ts                # in-memory async jobs
-src/index.ts               # HTTP
+src/index.ts               # HTTP API + static files
 src/rateLimiter.ts         # isRateLimited(ip) — Upstash or memory
 src/middleware/rateLimit.ts
 src/plan.ts
-src/research.ts      # researchOne
-src/search.ts        # web (fixtures in eval)
+src/research.ts
+src/search.ts
 src/normalize.ts
-src/verify.ts        # faithfulness gate + deterministic fingerprint backup
-src/fingerprints.ts  # plant leak + draft-vs-findings fingerprints
+src/verify.ts
+src/fingerprints.ts
 src/final.ts
-src/llm.ts           # DeepSeek V4 Flash (system/user for input cache)
+src/llm.ts
 src/parseJson.ts
-src/reasoning/       # dynamic orchestration (reasoner + agents)
-evals/run.ts         # faithfulness suite
-evals/score.ts
-evals/questions.json
-evals/fixtures/      # frozen web for evals
-docs/ARCHITECTURE.md
-docs/ROADMAP.md
-docs/FAITHFULNESS_EVALS.md
+src/reasoning/             # dynamic orchestration
+evals/
+docs/
 ```
 
 ## Roadmap

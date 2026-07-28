@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Research console</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="header">
+        <div>
+          <p class="eyebrow">MultiAgentResearch</p>
+          <h1>Research console</h1>
+        </div>
+        <p class="header-note">Same origin API on this server</p>
+      </header>
+
+      <main class="layout">
+        <section class="panel compose" aria-labelledby="compose-title">
+          <h2 id="compose-title">Query</h2>
+
+          <label class="field">
+            <span class="label">Research question</span>
+            <textarea
+              id="query"
+              rows="4"
+              placeholder="What is LangGraph and when would you use it?"
+            ></textarea>
+          </label>
+
+          <fieldset class="mode">
+            <legend class="label">Orchestration</legend>
+            <label class="mode-option">
+              <input type="radio" name="orchestration" value="fixed" checked />
+              <span>Fixed</span>
+              <span class="mode-hint">plan → parallel research</span>
+            </label>
+            <label class="mode-option">
+              <input type="radio" name="orchestration" value="dynamic" />
+              <span>Dynamic</span>
+              <span class="mode-hint">reasoner picks agents</span>
+            </label>
+          </fieldset>
+
+          <div class="actions">
+            <button type="button" id="start" class="btn-primary">Start research</button>
+            <p id="status" class="status" aria-live="polite">Idle</p>
+          </div>
+
+          <p id="error" class="error" hidden></p>
+        </section>
+
+        <section class="panel stages" aria-labelledby="stages-title">
+          <div class="stages-head">
+            <h2 id="stages-title">Pipeline</h2>
+            <p id="stage-note" class="stage-note">
+              Stages are the run path. The API does not stream per-stage progress.
+            </p>
+          </div>
+          <ol id="stage-list" class="stage-list">
+            <li data-stage="plan">plan</li>
+            <li data-stage="research">research</li>
+            <li data-stage="normalize">normalize</li>
+            <li data-stage="verify">verify</li>
+            <li data-stage="final">final</li>
+          </ol>
+        </section>
+
+        <section class="panel report" aria-labelledby="report-title">
+          <div class="report-head">
+            <h2 id="report-title">Report</h2>
+            <p id="job-meta" class="job-meta"></p>
+          </div>
+          <pre id="report" class="report-body">Run a query to see the final report here.</pre>
+
+          <details id="details" class="details" hidden>
+            <summary>Run details</summary>
+            <dl id="details-body" class="details-body"></dl>
+          </details>
+        </section>
+      </main>
+    </div>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

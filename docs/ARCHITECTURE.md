@@ -12,8 +12,16 @@ Short reference for how the system works **today**. Planned work: [ROADMAP.md](.
 | LLM | DeepSeek V4 Flash (`DEEPSEEK_API_KEY`) |
 | Web search | Tavily (`TAVILY_API_KEY`) |
 | Rate limit | Upstash Redis on `POST /research` (memory Map if Upstash env is unset) |
+| UI | Vanilla HTML/CSS/JS in `public/`, served by Hono on the same port |
 
 Jobs are **in-memory** (`src/jobs.ts`). Restart clears them.
+
+## Research console
+
+- **URL:** `GET /` (static from `public/`)
+- **API:** same origin `POST /research` + poll `GET /jobs/:id`
+- **v1 surface:** query, fixed/dynamic toggle, status, honest stage strip, final report + collapsible run details
+- **Not in v1:** multi-session archive, fake timed stage animation, streaming stage events
 
 ## Rate limiting
 
