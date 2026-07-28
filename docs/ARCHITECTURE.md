@@ -11,8 +11,20 @@ Short reference for how the system works **today**. Planned work: [ROADMAP.md](.
 | Orchestration | LangGraph.js (`Send` fan-out) for **fixed** mode; reasoner loop for **dynamic** |
 | LLM | DeepSeek V4 Flash (`DEEPSEEK_API_KEY`) |
 | Web search | Tavily (`TAVILY_API_KEY`) |
+| Rate limit | Redis (Bun `RedisClient`) on `POST /research`; in-memory fallback if Redis is down |
 
-Jobs are **in-memory** (`src/jobs.ts`). Restart clears them. No Redis / BullMQ / Cloud Run in the current product.
+Jobs are **in-memory** (`src/jobs.ts`). Restart clears them.
+
+## Rate limiting
+
+- **Where:** `POST /research` only (expensive path).
+- **How:** fixed window — default **10 requests / 60 seconds** per client.
+- **Client id:** `X-Forwarded-For` (first hop) → `X-Real-IP` → `"local"`.
+- **Store:** Redis key `rate:research:{clientId}` via `INCR` + `EXPIRE`. Default URL `redis://127.0.0.1:6379` (optional `REDIS_URL`).
+- **If Redis is down:** process falls back to an in-memory counter (one machine only).
+- **429 body:** `{ "error": "rate limit exceeded", "retryAfterSec": N }` plus `Retry-After` / `X-RateLimit-*` headers.
+
+Code: `src/redis.ts`, `src/rateLimit.ts`, wired in `src/index.ts`.
 
 ## Pipeline (fixed mode — default)
 

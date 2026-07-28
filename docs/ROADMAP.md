@@ -15,6 +15,7 @@ Status legend: `done` · `partial` · `planned` · `later`
 | Web search (Tavily) | done | `src/search.ts` |
 | Faithfulness gate + plant evals | done | `docs/FAITHFULNESS_EVALS.md` |
 | Async jobs API | done | in-memory; restarts clear jobs |
+| Rate limit on POST /research (Redis + memory fallback) | done | `src/rateLimit.ts`, `src/redis.ts` |
 
 ---
 

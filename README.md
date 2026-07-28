@@ -2,7 +2,7 @@
 
 Research API: break a question into parts, search, draft, check, then report.
 
-**Stack:** Bun, Hono, LangGraph, DeepSeek V4 Flash, Tavily  
+**Stack:** Bun, Hono, LangGraph, DeepSeek V4 Flash, Tavily, Redis (rate limits)  
 **Start here:** `src/pipeline.ts` · **Architecture:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · **Roadmap:** [docs/ROADMAP.md](docs/ROADMAP.md)
 
 ## Flow
@@ -33,14 +33,26 @@ Research can take a while. The API does **not** wait for the full report.
 
 Jobs live in memory (restart clears them).
 
+## Rate limiting
+
+`POST /research` is limited to **10 starts per 60s per client** (IP from `X-Forwarded-For` / `X-Real-IP`, else `local`).
+
+- Counters live in **Redis** at `redis://127.0.0.1:6379` by default (optional `REDIS_URL`).
+- If Redis is unreachable, the process uses an **in-memory** counter so the API still runs.
+- Over limit → **429** with `retryAfterSec` and `Retry-After` / `X-RateLimit-*` headers.
+
 ## Run
 
 ```bash
 bun install
 
-# .env
+# .env (API keys; Redis defaults to localhost)
 # DEEPSEEK_API_KEY=...
 # TAVILY_API_KEY=...
+# REDIS_URL=redis://127.0.0.1:6379   # optional
+
+# Optional: local Redis for shared rate limits
+# redis-server   # or: docker run -p 6379:6379 redis:7-alpine
 
 bun run dev   # http://localhost:8787
 bun run test
@@ -79,6 +91,8 @@ curl -s http://localhost:8787/jobs/<id>
 src/pipeline.ts      # LangGraph graph (Send fan-out, plant seam, rewrite revise)
 src/jobs.ts          # in-memory async jobs
 src/index.ts         # HTTP
+src/redis.ts         # Bun Redis client (local default URL)
+src/rateLimit.ts     # fixed-window limit for POST /research
 src/plan.ts
 src/research.ts      # researchOne
 src/search.ts        # web (fixtures in eval)

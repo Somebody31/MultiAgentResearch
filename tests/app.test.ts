@@ -1,7 +1,21 @@
-import { expect, test, describe } from "bun:test";
+import { expect, test, describe, beforeAll } from "bun:test";
 import { app } from "../src/index.ts";
+import {
+  clearMemoryRateLimits,
+  clientIdFromHeaders,
+  consumeRateLimit,
+  researchRateKey,
+  useMemoryRateLimitForTests,
+} from "../src/rateLimit.ts";
+
+// Avoid Redis connect timeouts in unit tests (local Redis may be off).
+useMemoryRateLimitForTests();
 
 describe("app", () => {
+  beforeAll(() => {
+    useMemoryRateLimitForTests();
+  });
+
   test("app loads", () => {
     expect(typeof app.fetch).toBe("function");
   });
@@ -74,6 +88,86 @@ describe("app", () => {
   test("GET /jobs/:id 404 for unknown id", async () => {
     const res = await app.request("/jobs/does-not-exist");
     expect(res.status).toBe(404);
+  });
+
+  test("POST /research returns 429 when rate limit is exceeded", async () => {
+    clearMemoryRateLimits();
+    const headers = {
+      "Content-Type": "application/json",
+      "x-forwarded-for": "203.0.113.50",
+    };
+    const body = JSON.stringify({ query: "rate limit probe" });
+
+    // Low max via direct consumeRateLimit is unit-tested below;
+    // here we flood the default limit (10) for one client id.
+    let lastStatus = 0;
+    for (let i = 0; i < 11; i++) {
+      const res = await app.request("/research", {
+        method: "POST",
+        headers,
+        body,
+      });
+      lastStatus = res.status;
+      if (res.status === 429) {
+        const json = await res.json();
+        expect(json.error).toBe("rate limit exceeded");
+        expect(typeof json.retryAfterSec).toBe("number");
+        expect(res.headers.get("Retry-After")).toBeTruthy();
+        expect(res.headers.get("X-RateLimit-Limit")).toBe("10");
+        expect(res.headers.get("X-RateLimit-Remaining")).toBe("0");
+        return;
+      }
+    }
+    expect(lastStatus).toBe(429);
+  });
+});
+
+describe("rateLimit", () => {
+  test("clientIdFromHeaders prefers x-forwarded-for first hop", () => {
+    const id = clientIdFromHeaders({
+      get: (name) =>
+        name === "x-forwarded-for" ? "1.2.3.4, 10.0.0.1" : null,
+    });
+    expect(id).toBe("1.2.3.4");
+  });
+
+  test("clientIdFromHeaders falls back to local", () => {
+    expect(clientIdFromHeaders({ get: () => null })).toBe("local");
+  });
+
+  test("researchRateKey is stable", () => {
+    expect(researchRateKey("1.2.3.4")).toBe("rate:research:1.2.3.4");
+  });
+
+  test("consumeRateLimit memory backend allows then blocks", async () => {
+    clearMemoryRateLimits();
+    const id = "test-client-a";
+
+    const first = await consumeRateLimit(id, {
+      maxRequests: 2,
+      windowSec: 60,
+      forceBackend: "memory",
+    });
+    expect(first.allowed).toBe(true);
+    expect(first.remaining).toBe(1);
+    expect(first.backend).toBe("memory");
+
+    const second = await consumeRateLimit(id, {
+      maxRequests: 2,
+      windowSec: 60,
+      forceBackend: "memory",
+    });
+    expect(second.allowed).toBe(true);
+    expect(second.remaining).toBe(0);
+
+    const third = await consumeRateLimit(id, {
+      maxRequests: 2,
+      windowSec: 60,
+      forceBackend: "memory",
+    });
+    expect(third.allowed).toBe(false);
+    expect(third.remaining).toBe(0);
+    expect(third.retryAfterSec).toBeGreaterThan(0);
   });
 });
 
