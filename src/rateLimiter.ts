@@ -1,63 +1,38 @@
-// Count requests per IP. Used by rateLimit middleware.
-//
-// When UPSTASH_REDIS_URL + UPSTASH_REDIS_TOKEN are set → Upstash Redis.
-// When they are not (local / tests) → a small Map so the app still runs.
+// Fixed window: 10 requests / 60s per IP.
+// Upstash when env is set; otherwise a process-local Map (local/tests).
 
 import { Redis } from "@upstash/redis";
 
-const WINDOW_SECONDS = 60;
-const MAX_REQUESTS = 10; // 10 requests per minute per IP
+const WINDOW = 60;
+const MAX = 10;
 
-const url = process.env.UPSTASH_REDIS_URL;
-const token = process.env.UPSTASH_REDIS_TOKEN;
+const url = process.env.UPSTASH_REDIS_URL?.trim();
+const token = process.env.UPSTASH_REDIS_TOKEN?.trim();
+const redis = url && token ? new Redis({ url, token }) : null;
 
-const redis =
-  typeof url === "string" &&
-  url.trim() !== "" &&
-  typeof token === "string" &&
-  token.trim() !== ""
-    ? new Redis({ url: url.trim(), token: token.trim() })
-    : null;
+const memory = new Map<string, { count: number; resetAt: number }>();
 
-// Local fallback only (one process). Cleared by clearMemoryRateLimits in tests.
-const memoryCounts = new Map<string, { count: number; resetAtMs: number }>();
-
-/** Test helper: reset the in-memory counters. */
+/** Test helper: reset in-memory counters. */
 export function clearMemoryRateLimits(): void {
-  memoryCounts.clear();
+  memory.clear();
 }
 
-/**
- * True when this IP has already used its allowance for the window.
- * False means "let the request through".
- */
+/** True when this IP is over the limit. */
 export async function isRateLimited(ip: string): Promise<boolean> {
   const key = `ratelimit:${ip}`;
 
   if (redis) {
-    const current = await redis.incr(key);
-
-    // Start the window clock on the first request only.
-    if (current === 1) {
-      await redis.expire(key, WINDOW_SECONDS);
-    }
-
-    return current > MAX_REQUESTS;
+    const n = await redis.incr(key);
+    if (n === 1) await redis.expire(key, WINDOW);
+    return n > MAX;
   }
 
-  // No Upstash config → memory path
-  return memoryIsLimited(key);
-}
-
-function memoryIsLimited(key: string): boolean {
   const now = Date.now();
-  let entry = memoryCounts.get(key);
-
-  if (!entry || now >= entry.resetAtMs) {
-    entry = { count: 0, resetAtMs: now + WINDOW_SECONDS * 1000 };
-    memoryCounts.set(key, entry);
+  let e = memory.get(key);
+  if (!e || now >= e.resetAt) {
+    e = { count: 0, resetAt: now + WINDOW * 1000 };
+    memory.set(key, e);
   }
-
-  entry.count += 1;
-  return entry.count > MAX_REQUESTS;
+  e.count++;
+  return e.count > MAX;
 }
